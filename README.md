@@ -20,6 +20,8 @@ ORBYX modernizes [RDAS Layer Aligner](https://github.com/Digitelektro/rdas_layer
 
 This is an initial implementation, not a finished release. Synthetic regressions are available; real satellite datasets, SatDump reimport geometry, GPU equivalence and the complete platform matrix remain release gates. See [progress](PROGRESS.md) for actual test results.
 
+![ORBYX desktop](assets/desktop.png)
+
 ## Implemented capabilities
 
 - Independent C++17 core and headless CLI, with optional Qt 6 Widgets desktop.

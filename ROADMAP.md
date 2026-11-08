@@ -66,7 +66,7 @@ Stati: pianificato, in corso, verificato, bloccato. Pubblicare ogni task verific
 - Deliverable: GUI con import, parametri, preview e log
 - Test: Build, smoke offscreen, revisione UI
 - Accettazione: GUI fluida, lingua e tema persistenti
-- Stato: pianificato
+- Stato: verificato (build Qt 6.4, smoke offscreen; revisione IT/scuro ed EN/chiaro, layout 960x680 e 1280x860)
 
 ## M2-02 — Profili, batch, code e ripresa
 
