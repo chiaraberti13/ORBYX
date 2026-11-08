@@ -88,3 +88,11 @@ Attività indipendente, separata dalla coda desktop (M2-03) in corso in parallel
 Verifica effettiva su `main` (Ubuntu 24.04.5, OpenCV 4.6.0, JsonCpp 1.9.5): generazione reale su `build/orbyx` e `build/orbyx_tests` con risoluzione corretta dei pacchetti (es. `libopencv-core406t64` 4.6.0+dfsg-13.1ubuntu1, `libjsoncpp25` 1.9.5-6build1, `libc6` 2.39-0ubuntu8.9). Nuovo gruppo CTest `sbom-regression` (6/6 gruppi non-GUI passati) con test di unità su parsing risolto/non risolto/loader e integrazione che confronta l'output con `readelf -d` sui binari reali. CI: nuovo passo che genera l'inventario dai binari installati e lo pubblica come artifact per-OS. Documentazione in `docs/SBOM.md`.
 
 Limiti dichiarati: la correlazione automatica con un feed di sicurezza (Debian/Ubuntu tracker, OSV) e l'export in formato standard CycloneDX/SPDX non sono implementati; il passo di scansione avvisi resta documentato, non eseguito offline. M1-03 è quindi «verificato in parte», non completato.
+
+## M3-03 harness di fuzzing (parziale) — 2026-11-08
+
+Attività indipendente dalla coda desktop (M2-03). Implementato `tests/fuzz_parsers.cpp`, harness libFuzzer sulla superficie di input non fidata raggiungibile dall'API pubblica del core: lettura PNG limitata, validazione IHDR e budget dimensioni e decoder (via `inspect()`), più il catalogo di localizzazione (via `translate()`). Nuova opzione CMake `ORBYX_FUZZ` (richiede Clang, fallisce subito con altri compilatori): strumenta `orbyx_core` con `fuzzer-no-link,address,undefined` e costruisce l'eseguibile con `-fsanitize=fuzzer,address,undefined`. Gruppo CTest `fuzz-parsers-smoke` (`-runs=8000`) e job CI `fuzz` su ubuntu-24.04 con campagna a tempo (`-max_total_time=60`).
+
+Verifica effettiva su `main` (Ubuntu 24.04.5, Clang 18.1.3, con `libclang-rt-18-dev`): build dell'harness riuscita; 20000 run completate senza crash/leak/UB; gruppo CTest `fuzz-parsers-smoke` passato in ~7,5 s. La dir di build `fuzz/` è aggiunta a `.gitignore`.
+
+Limiti dichiarati: i codec nativi (OpenCV) non sono strumentati; il fuzzing del profilo JSON e dell'intera pipeline `run()`, un corpus persistente e i benchmark/equivalenza GPU-OpenCL (resto di M3-03) restano aperti e richiedono hardware reale. M3-03 è quindi «verificato in parte», non completato. Documentazione in `docs/FUZZING.md`.

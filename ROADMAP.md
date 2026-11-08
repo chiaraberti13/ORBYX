@@ -110,7 +110,7 @@ Stati: pianificato, in corso, verificato, bloccato. Pubblicare ogni task verific
 - Deliverable: Benchmark CPU/GPU e harness
 - Test: Corpora invalidi e confronto CPU/GPU
 - Accettazione: Nessuna regressione numerica o vulnerabilità nota ignorata
-- Stato: pianificato
+- Stato: verificato in parte — harness libFuzzer `tests/fuzz_parsers.cpp` sulla superficie di input non fidata (`inspect`/PNG e `translate`) con `-fsanitize=fuzzer,address,undefined`, opzione `ORBYX_FUZZ` (solo Clang), gruppo CTest `fuzz-parsers-smoke` e job CI a tempo limitato (`docs/FUZZING.md`); 20000 run locali senza findings. Fuzzing del profilo JSON e della pipeline `run()`, corpus persistente e benchmark/equivalenza GPU-OpenCL restano aperti (richiedono hardware reale).
 
 ## M4-01 — Accessibilità, onboarding e calibrazione guidata
 

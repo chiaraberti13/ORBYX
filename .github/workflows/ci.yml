@@ -72,3 +72,17 @@ jobs:
           persist-credentials: false
       - run: sudo apt-get update && sudo apt-get install -y cppcheck
       - run: cppcheck --enable=warning,performance,portability --error-exitcode=1 --suppress=missingIncludeSystem --inline-suppr -I include src
+  fuzz:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - run: sudo apt-get update && sudo apt-get install -y cmake ninja-build clang libclang-rt-18-dev libopencv-dev libjsoncpp-dev
+      - run: cmake -S . -B fuzz -G Ninja -DORBYX_BUILD_GUI=OFF -DORBYX_FUZZ=ON -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Debug
+      - run: cmake --build fuzz --target orbyx_fuzz_parsers --parallel 2
+      - name: Bounded coverage-guided fuzz run
+        run: ./fuzz/orbyx_fuzz_parsers -max_total_time=60 -max_len=8192 -timeout=10
+        env:
+          ASAN_OPTIONS: detect_leaks=0
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
