@@ -24,6 +24,7 @@
 #include <QMap>
 #include <QMessageBox>
 #include <QPixmap>
+#include <QProcess>
 #include <QProgressBar>
 #include <QPushButton>
 #include <QScrollArea>
@@ -326,12 +327,58 @@ public:
         // Preview is explicit: startup never reads a previously selected acquisition.
     }
 };
+
+// Durable desktop queue: delegate sequential, resumable execution to the already
+// verified offline batch runner (scripts/orbyx_batch.py / installed orbyx-batch)
+// instead of re-implementing durability. No shell and no network are used: the
+// runner is launched directly with an explicit argument vector.
+int runQueue(const QStringList &args) {
+    auto value = [&](const QString &key) -> QString {
+        const int i = args.indexOf(key);
+        return i >= 0 && i + 1 < args.size() ? args.at(i + 1) : QString{};
+    };
+    const QString manifest = value("--queue");
+    if (manifest.isEmpty()) return 2;
+    const QString appDir = QCoreApplication::applicationDirPath();
+    QString cli = value("--orbyx");
+    if (cli.isEmpty()) cli = QDir(appDir).filePath("orbyx");
+    QString runner = value("--batch-runner");
+    if (runner.isEmpty()) runner = QStandardPaths::findExecutable("orbyx-batch");
+    if (runner.isEmpty()) {
+        const QString local = QDir(appDir).filePath("orbyx-batch");
+        if (QFileInfo::exists(local)) runner = local;
+    }
+    if (runner.isEmpty()) { qWarning("No batch runner found (orbyx-batch)"); return 2; }
+    QStringList command;
+    if (runner.endsWith(".py")) {
+        const QString python = QStandardPaths::findExecutable("python3");
+        if (python.isEmpty()) { qWarning("python3 not found for the batch runner"); return 2; }
+        command << python << runner;
+    } else {
+        command << runner;
+    }
+    command << manifest << "--orbyx" << cli;
+    const QString state = value("--state");
+    if (!state.isEmpty()) command << "--state" << state;
+    const QString lang = value("--lang");
+    if (!lang.isEmpty()) command << "--lang" << lang;
+    if (args.contains("--resume")) command << "--resume";
+    QProcess process;
+    process.setProcessChannelMode(QProcess::ForwardedChannels);
+    const QString program = command.takeFirst();
+    process.start(program, command);
+    if (!process.waitForStarted(10000)) return 2;
+    process.waitForFinished(-1);
+    return process.exitStatus() == QProcess::NormalExit ? process.exitCode() : 2;
+}
 }
 int main(int argc, char **argv) {
     QApplication app(argc,argv); app.setApplicationName("ORBYX"); app.setApplicationVersion("0.1.0");
+    const auto args=app.arguments();
+    // Headless queue execution: run the durable batch and exit, no window.
+    if(args.contains("--queue")) return runQueue(args);
     QImageReader::setAllocationLimit(256);
     Window window;
-    const auto args=app.arguments();
     auto argument=[&](const QString &name){const int i=args.indexOf(name);return i>=0&&i+1<args.size()?args.at(i+1):QString{};};
     const QStringList dimensions=argument("--size").split('x');
     const QSize size=dimensions.size()==2?QSize(dimensions[0].toInt(),dimensions[1].toInt()):QSize{};
