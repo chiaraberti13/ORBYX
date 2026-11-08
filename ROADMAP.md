@@ -144,7 +144,7 @@ Stati: pianificato, in corso, verificato, bloccato. Pubblicare ogni task verific
 - Deliverable: coda GUI e creazione/duplicazione profili
 - Test: interruzione, ripresa, modifica input, localizzazione
 - Accettazione: stato durevole visibile nel desktop e nessuna perdita dati
-- Stato: in corso — coda desktop durevole, ripresa e gestione dei profili
+- Stato: verificato in parte — coda desktop che delega al runner batch già verificato (stato durevole, ripresa con digest, nessuna sovrascrittura), gruppo coda e pulsanti visibili, duplicazione profili nel core (`orbyx::duplicateProfile`) con dialog GUI. Verificati da test automatici: esecuzione coda (`gui-queue-flow`: prodotti identici alla CLI e ripresa) e duplicazione profili (`engine-regression`); i widget visibili compilano e si avviano (`gui-smoke`, screenshot ispezionato). Resta da verificare l'interazione completa dei widget e lo screen reader (si lega a M4-01)
 
 ## M2-04 — Monitoraggio cartelle e riconoscimento dati
 

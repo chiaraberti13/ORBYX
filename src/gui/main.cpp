@@ -2,8 +2,10 @@
 // ORBYX desktop workspace. Processing lives exclusively in the shared core.
 #include "orbyx/engine.hpp"
 
+#include <QAbstractItemView>
 #include <QApplication>
 #include <QCloseEvent>
+#include <QFile>
 #include <QComboBox>
 #include <QDir>
 #include <QDirIterator>
@@ -17,6 +19,11 @@
 #include <QFrame>
 #include <QGroupBox>
 #include <QHBoxLayout>
+#include <QHeaderView>
+#include <QInputDialog>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QImageReader>
 #include <QLabel>
 #include <QLineEdit>
@@ -31,6 +38,8 @@
 #include <QSettings>
 #include <QSplitter>
 #include <QStandardPaths>
+#include <QTableWidget>
+#include <QTableWidgetItem>
 #include <QTextEdit>
 #include <QThread>
 #include <QTimer>
@@ -74,7 +83,21 @@ const QMap<QString, QString> italian = {
  {"Browse calibration profiles", "Sfoglia i profili di calibrazione"},
  {"Choose a parent folder and edit the new destination name", "Scegli una cartella padre e modifica il nome della nuova destinazione"},
  {"L4 has no bundled calibration; calculate one before alignment.", "L4 non dispone di una calibrazione inclusa; calcolane una prima di allineare."},
- {"Zoom in", "Ingrandisci"}, {"Zoom out", "Riduci"}
+ {"Zoom in", "Ingrandisci"}, {"Zoom out", "Riduci"},
+ {"Processing queue", "Coda di elaborazione"},
+ {"Add to queue", "Aggiungi alla coda"}, {"Remove", "Rimuovi"}, {"Run queue", "Avvia coda"},
+ {"Job", "Lavoro"}, {"Status", "Stato"}, {"Queued", "In coda"}, {"Running…", "In esecuzione…"},
+ {"Done", "Completato"}, {"Skipped", "Saltato"}, {"Error", "Errore"},
+ {"The queue runs jobs in order with durable, resumable state. Existing outputs are never overwritten.",
+  "La coda esegue i lavori in ordine con stato durevole e ripristinabile. Gli output esistenti non vengono mai sovrascritti."},
+ {"Fill in input, calibration profile and a new output folder before queueing.",
+  "Compila origine, profilo di calibrazione e una nuova cartella di destinazione prima di accodare."},
+ {"The batch runner is not available.", "L'esecutore batch non è disponibile."},
+ {"Duplicate profile…", "Duplica profilo…"},
+ {"Duplicate calibration profile", "Duplica profilo di calibrazione"},
+ {"Source satellite", "Satellite di origine"}, {"New satellite", "Nuovo satellite"},
+ {"Save duplicated profile", "Salva profilo duplicato"},
+ {"Profile duplicated", "Profilo duplicato"}, {"Could not duplicate the profile", "Impossibile duplicare il profilo"}
 };
 
 class Window final : public QMainWindow {
@@ -95,6 +118,11 @@ class Window final : public QMainWindow {
     QScrollArea *scroll{};
     QLabel *canvas{};
     QTextEdit *log{};
+    QGroupBox *queueBox{};
+    QTableWidget *queue{};
+    QPushButton *queueAdd{}, *queueRemove{}, *queueRun{}, *profileDup{};
+    QProcess *queueProcess{};
+    int queueCounter = 0;
 
     QString trText(const QString &s) const { return it ? italian.value(s, s) : s; }
     QLabel *label(const QString &name = {}) { auto *w = new QLabel; w->setObjectName(name); return w; }
@@ -127,6 +155,11 @@ class Window final : public QMainWindow {
         satellite->setAccessibleName(trText("Satellite")); mode->setAccessibleName(trText("Operation")); engine->setAccessibleName(trText("Processing engine"));
         language->setAccessibleName(trText("Language")); theme->setAccessibleName(trText("Theme")); source->setAccessibleName(trText("Image preview")); channel->setAccessibleName(trText("Preview channel"));
         inputLabel->setBuddy(input); configLabel->setBuddy(config); outputLabel->setBuddy(output); satLabel->setBuddy(satellite); modeLabel->setBuddy(mode); engineLabel->setBuddy(engine);
+        queueBox->setTitle(trText("Processing queue"));
+        queueBox->setToolTip(trText("The queue runs jobs in order with durable, resumable state. Existing outputs are never overwritten."));
+        queueAdd->setText(trText("Add to queue")); queueRemove->setText(trText("Remove")); queueRun->setText(trText("Run queue"));
+        profileDup->setText(trText("Duplicate profile…"));
+        queue->setHorizontalHeaderLabels({trText("Job"), trText("Operation"), trText("Status")});
         if (!busy && progress->value() == 0) status->setText(trText("Ready"));
     }
     void applyTheme() {
@@ -224,6 +257,144 @@ class Window final : public QMainWindow {
         });
         connect(worker,&QThread::finished,worker,&QObject::deleteLater); worker->start();
     }
+    QString batchRunner() const {
+        const QString appDir = QCoreApplication::applicationDirPath();
+        QString runner = QStandardPaths::findExecutable("orbyx-batch");
+        if (runner.isEmpty()) {
+            const QString local = QDir(appDir).filePath("orbyx-batch");
+            if (QFileInfo::exists(local)) runner = local;
+        }
+        if (runner.isEmpty())
+            for (const QString &candidate : {QDir(appDir).filePath("../scripts/orbyx_batch.py"),
+                                             QDir(appDir).filePath("scripts/orbyx_batch.py")})
+                if (QFileInfo::exists(candidate)) { runner = candidate; break; }
+        return runner;
+    }
+    void addToQueue() {
+        if (busy) return;
+        if (input->text().isEmpty() || config->text().isEmpty() || output->text().isEmpty()) {
+            QMessageBox::warning(this, trText("Missing settings"),
+                trText("Fill in input, calibration profile and a new output folder before queueing."));
+            return;
+        }
+        QVariantMap job;
+        job["id"] = QString("job-%1").arg(++queueCounter);
+        job["satellite"] = satellite->currentText();
+        job["input"] = input->text(); job["config"] = config->text(); job["output"] = output->text();
+        job["mode"] = mode->currentIndex() == 1 ? "calibrate" : "generate";
+        job["cpu"] = engine->currentIndex() == 1;
+        const int row = queue->rowCount();
+        queue->insertRow(row);
+        auto *id = new QTableWidgetItem(job["id"].toString());
+        id->setData(Qt::UserRole, job);
+        queue->setItem(row, 0, id);
+        queue->setItem(row, 1, new QTableWidgetItem(job["satellite"].toString() + " · " +
+            trText(mode->currentIndex() == 1 ? "Calculate calibration" : "Align channels")));
+        queue->setItem(row, 2, new QTableWidgetItem(trText("Queued")));
+        queueRun->setEnabled(!busy);
+    }
+    void removeQueued() {
+        const int row = queue->currentRow();
+        if (row >= 0) queue->removeRow(row);
+        queueRun->setEnabled(queue->rowCount() > 0 && !busy);
+    }
+    void setQueueBusy(bool running) {
+        busy = running;
+        setup->setEnabled(!running); start->setEnabled(!running);
+        queueAdd->setEnabled(!running); queueRemove->setEnabled(!running);
+        queueRun->setEnabled(!running && queue->rowCount() > 0);
+    }
+    void executeQueue() {
+        if (busy || queueProcess || queue->rowCount() == 0) return;
+        const QString runner = batchRunner();
+        const QString python = runner.endsWith(".py") ? QStandardPaths::findExecutable("python3") : QString();
+        if (runner.isEmpty() || (runner.endsWith(".py") && python.isEmpty())) {
+            QMessageBox::warning(this, trText("Processing failed"), trText("The batch runner is not available."));
+            return;
+        }
+        QJsonArray jobs;
+        for (int row = 0; row < queue->rowCount(); ++row) {
+            const QVariantMap job = queue->item(row, 0)->data(Qt::UserRole).toMap();
+            QJsonObject entry;
+            for (const QString &key : {"id", "satellite", "input", "output", "config", "mode"})
+                entry[key] = job[key].toString();
+            entry["cpu"] = job["cpu"].toBool();
+            jobs.append(entry);
+            queue->item(row, 2)->setText(trText("Running…"));
+        }
+        const QString dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+        QDir().mkpath(dir);
+        const QString manifestPath = QDir(dir).filePath("queue.json");
+        const QString statePath = QDir(dir).filePath("queue.state.json");
+        QJsonObject manifest; manifest["jobs"] = jobs;
+        QFile manifestFile(manifestPath);
+        if (!manifestFile.open(QIODevice::WriteOnly | QIODevice::Truncate) ||
+            manifestFile.write(QJsonDocument(manifest).toJson(QJsonDocument::Compact)) < 0) {
+            QMessageBox::warning(this, trText("Processing failed"), trText("The batch runner is not available."));
+            return;
+        }
+        manifestFile.close();
+        QStringList command;
+        command << manifestPath << "--orbyx" << QDir(QCoreApplication::applicationDirPath()).filePath("orbyx")
+                << "--state" << statePath << "--lang" << (it ? "it" : "en");
+        if (QFileInfo::exists(statePath)) command << "--resume";
+        if (!python.isEmpty()) command.prepend(runner);
+        setQueueBusy(true);
+        progress->setRange(0, 0); status->setText(trText("Processing…"));
+        queueProcess = new QProcess(this);
+        queueProcess->setProcessChannelMode(QProcess::MergedChannels);
+        connect(queueProcess, &QProcess::readyReadStandardOutput, this, [this] {
+            const QString text = QString::fromUtf8(queueProcess->readAllStandardOutput()).trimmed();
+            if (!text.isEmpty()) log->append(text.toHtmlEscaped());
+        });
+        connect(queueProcess, &QProcess::finished, this, [this, statePath](int code, QProcess::ExitStatus st) {
+            finishQueue(statePath, st == QProcess::NormalExit ? code : 2);
+        });
+        queueProcess->start(python.isEmpty() ? runner : python, command);
+    }
+    void finishQueue(const QString &statePath, int code) {
+        // Locale-independent: read the durable state the runner persisted.
+        QMap<QString, QString> statuses;
+        QFile stateFile(statePath);
+        if (stateFile.open(QIODevice::ReadOnly)) {
+            const auto jobs = QJsonDocument::fromJson(stateFile.readAll()).object().value("jobs").toObject();
+            for (auto entry = jobs.begin(); entry != jobs.end(); ++entry)
+                statuses[entry.key()] = entry.value().toObject().value("status").toString();
+        }
+        for (int row = 0; row < queue->rowCount(); ++row) {
+            const QString state = statuses.value(queue->item(row, 0)->text());
+            const char *label = state == "completed" ? "Done" : state == "skipped" ? "Skipped"
+                : state == "failed" ? "Error" : state.isEmpty() ? "Error" : "Done";
+            queue->item(row, 2)->setText(trText(label));
+        }
+        setQueueBusy(false);
+        progress->setRange(0, 100); progress->setValue(code == 0 ? 100 : 0);
+        status->setText(trText(code == 0 ? "Completed" : "Processing failed"));
+        queueProcess->deleteLater(); queueProcess = nullptr;
+    }
+    void duplicateProfileDialog() {
+        if (busy) return;
+        bool ok = false;
+        const QString from = QInputDialog::getText(this, trText("Duplicate calibration profile"),
+            trText("Source satellite"), QLineEdit::Normal, satellite->currentText(), &ok).trimmed();
+        if (!ok || from.isEmpty()) return;
+        const QString to = QInputDialog::getText(this, trText("Duplicate calibration profile"),
+            trText("New satellite"), QLineEdit::Normal, QString(), &ok).trimmed();
+        if (!ok || to.isEmpty()) return;
+        const QString destination = QFileDialog::getSaveFileName(this, trText("Save duplicated profile"),
+            QString(), "JSON (*.json)");
+        if (destination.isEmpty()) return;
+        try {
+            orbyx::duplicateProfile(config->text().toStdString(), from.toStdString(),
+                                    to.toStdString(), destination.toStdString());
+            config->setText(destination);
+            QMessageBox::information(this, trText("Profile duplicated"), destination);
+        } catch (const std::exception &error) {
+            QMessageBox box(QMessageBox::Warning, trText("Could not duplicate the profile"),
+                diagnostic(QString::fromUtf8(error.what())), QMessageBox::Ok, this);
+            box.setTextFormat(Qt::PlainText); box.exec();
+        }
+    }
     static QString droppedFolder(const QMimeData *mime) {
         if (!mime->hasUrls() || mime->urls().size()!=1 || !mime->urls().front().isLocalFile()) return {};
         const QString path=mime->urls().front().toLocalFile();
@@ -291,13 +462,21 @@ public:
         if (!QFileInfo::exists(defaultConfig)) defaultConfig=QDir::current().filePath("resources/calibration.json");
         if (!QFileInfo::exists(defaultConfig)) defaultConfig=QDir(QApplication::applicationDirPath()).filePath("../resources/calibration.json");
         config=new QLineEdit(settings.value("config",defaultConfig).toString()); configBrowse=new QPushButton; form->addWidget(configLabel); form->addLayout(pathRow(config,configBrowse));
+        profileDup=new QPushButton; profileDup->setObjectName("profileDup"); form->addWidget(profileDup);
         outputLabel=label(); output=new QLineEdit; outputBrowse=new QPushButton; form->addWidget(outputLabel); form->addLayout(pathRow(output,outputBrowse));
         satLabel=label(); satellite=new QComboBox; satellite->addItems({"L2","L3","L4","L5","M1","M2"}); satellite->setCurrentText(settings.value("satellite","L2").toString()); form->addWidget(satLabel); form->addWidget(satellite);
         modeLabel=label(); mode=new QComboBox; mode->addItems({"Align channels","Calculate calibration"}); form->addWidget(modeLabel); form->addWidget(mode);
         engineLabel=label(); engine=new QComboBox; engine->addItems({"Automatic CPU / OpenCL","CPU only"}); form->addWidget(engineLabel); form->addWidget(engine);
         hint=label("muted"); hint->setWordWrap(true); hint->setMinimumHeight(48); hint->setSizePolicy(QSizePolicy::Preferred,QSizePolicy::Minimum); form->addWidget(hint); leftLayout->addWidget(setup);
         start=new QPushButton; start->setObjectName("start"); start->setShortcut(QKeySequence("Ctrl+Return")); leftLayout->addWidget(start);
-        status=label("muted"); leftLayout->addWidget(status); progress=new QProgressBar; progress->setTextVisible(false); progress->setValue(0); leftLayout->addWidget(progress); leftLayout->addStretch();
+        status=label("muted"); leftLayout->addWidget(status); progress=new QProgressBar; progress->setTextVisible(false); progress->setValue(0); leftLayout->addWidget(progress);
+        queueBox=new QGroupBox; auto *queueLayout=new QVBoxLayout(queueBox); queueLayout->setSpacing(6); queueLayout->setContentsMargins(8,12,8,8);
+        queue=new QTableWidget(0,3); queue->verticalHeader()->setVisible(false); queue->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+        queue->setSelectionBehavior(QAbstractItemView::SelectRows); queue->setSelectionMode(QAbstractItemView::SingleSelection); queue->setEditTriggers(QAbstractItemView::NoEditTriggers);
+        queue->setMinimumHeight(96); queue->setMaximumHeight(170); queueLayout->addWidget(queue);
+        auto *queueButtons=new QHBoxLayout; queueAdd=new QPushButton; queueRemove=new QPushButton; queueRun=new QPushButton; queueRun->setEnabled(false);
+        queueButtons->addWidget(queueAdd); queueButtons->addWidget(queueRemove); queueButtons->addStretch(); queueButtons->addWidget(queueRun); queueLayout->addLayout(queueButtons);
+        leftLayout->addWidget(queueBox); leftLayout->addStretch();
         auto *setupScroll = new QScrollArea; setupScroll->setWidgetResizable(true); setupScroll->setFrameShape(QFrame::NoFrame); setupScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff); setupScroll->setMinimumWidth(390); setupScroll->setMaximumWidth(490); setupScroll->setWidget(left); splitter->addWidget(setupScroll);
         auto *right = new QFrame; right->setObjectName("panel"); auto *preview = new QVBoxLayout(right); preview->setContentsMargins(16,16,16,16); auto *tools = new QHBoxLayout;
         previewTitle=label("section"); preview->addWidget(previewTitle); source=new QComboBox; source->addItems({"Input","Output"}); channel=new QComboBox; channel->addItems({"CH1","CH2","CH3"}); channel->setCurrentIndex(settings.value("previewChannel",0).toInt()); fit=new QPushButton; minus=new QPushButton("−"); plus=new QPushButton("+");
@@ -318,6 +497,8 @@ public:
         connect(input,&QLineEdit::editingFinished,this,[this]{loadPreview();}); connect(source,qOverload<int>(&QComboBox::currentIndexChanged),this,[this]{loadPreview();});
         connect(channel,qOverload<int>(&QComboBox::currentIndexChanged),this,[this](int i){settings.setValue("previewChannel",i);loadPreview();});
         connect(start,&QPushButton::clicked,this,[this]{execute();}); connect(clear,&QPushButton::clicked,log,&QTextEdit::clear);
+        connect(queueAdd,&QPushButton::clicked,this,[this]{addToQueue();}); connect(queueRemove,&QPushButton::clicked,this,[this]{removeQueued();});
+        connect(queueRun,&QPushButton::clicked,this,[this]{executeQueue();}); connect(profileDup,&QPushButton::clicked,this,[this]{duplicateProfileDialog();});
         connect(fit,&QPushButton::clicked,this,[this]{fitImage();}); connect(plus,&QPushButton::clicked,this,[this]{zoom=std::min(zoom*1.25,8.0);resizeImage();}); connect(minus,&QPushButton::clicked,this,[this]{zoom=std::max(zoom/1.25,0.02);resizeImage();});
         for (auto *w : {static_cast<QWidget*>(input),static_cast<QWidget*>(config),static_cast<QWidget*>(output),static_cast<QWidget*>(inputBrowse),static_cast<QWidget*>(configBrowse),static_cast<QWidget*>(outputBrowse),static_cast<QWidget*>(satellite),static_cast<QWidget*>(mode),static_cast<QWidget*>(engine)}) w->setFixedHeight(32);
         input->setObjectName("input"); config->setObjectName("config"); output->setObjectName("output");
