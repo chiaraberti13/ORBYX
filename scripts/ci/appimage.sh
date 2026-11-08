@@ -61,6 +61,111 @@ WRAPPER
     source="/usr/lib/x86_64-linux-gnu/$library"
     if [ -e "$source" ]; then cp -L "$source" "$appdir/usr/lib/$library"; fi
   done
+  # linuxdeploy's blacklist assumes a desktop host and omits libraries such as
+  # FreeType/fontconfig. A pristine container does not satisfy that assumption.
+  # Close the ELF dependency graph for both executables, every deployed plugin,
+  # every deployed library, and the external fixture driver used by runtime QA.
+  # Only glibc/its loader remain a documented requirement of the Ubuntu baseline.
+  python3 - "$appdir" "$build/orbyx_tests" "$packages/BUNDLED-LIBRARIES.json" <<'PY_CLOSURE'
+from pathlib import Path
+import hashlib
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+
+appdir = Path(sys.argv[1]).resolve()
+fixture = Path(sys.argv[2]).resolve()
+report = Path(sys.argv[3])
+library_dir = appdir / "usr/lib"
+library_dir.mkdir(parents=True, exist_ok=True)
+glibc = {
+    "libc.so.6", "libm.so.6", "libdl.so.2", "libpthread.so.0", "librt.so.1",
+    "libresolv.so.2", "libanl.so.1", "libutil.so.1", "libBrokenLocale.so.1",
+    "libnss_compat.so.2", "libnss_dns.so.2", "libnss_files.so.2",
+    "libnss_hesiod.so.2", "libthread_db.so.1", "ld-linux-x86-64.so.2",
+}
+environment = dict(os.environ, LD_LIBRARY_PATH=str(library_dir), LC_ALL="C")
+copied = {}
+required_system = set()
+
+
+def elf(path):
+    try:
+        with path.open("rb") as stream:
+            return stream.read(4) == b"\x7fELF"
+    except (OSError, ValueError):
+        return False
+
+
+def digest(path):
+    checksum = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            checksum.update(block)
+    return checksum.hexdigest()
+
+
+for iteration in range(16):
+    changed = False
+    roots = sorted({p.resolve() for p in appdir.rglob("*") if p.is_file() and elf(p)})
+    roots.append(fixture)
+    if len(roots) > 10000:
+        raise RuntimeError("Unexpectedly large ELF dependency graph")
+    for binary in roots:
+        result = subprocess.run(["ldd", str(binary)], env=environment,
+                                text=True, capture_output=True, timeout=30)
+        output = result.stdout + result.stderr
+        if "not found" in output:
+            raise RuntimeError(f"Unresolved dependency in {binary}:\n{output}")
+        if result.returncode and not any(phrase in output for phrase in
+                                        ("not a dynamic executable", "statically linked")):
+            raise RuntimeError(f"ldd failed for {binary}:\n{output}")
+        for line in output.splitlines():
+            match = re.match(r"^\s*(\S+) => (/\S+)\s+\(", line)
+            if match:
+                soname, source_text = match.groups()
+            else:
+                match = re.match(r"^\s*(/\S+)\s+\(", line)
+                if not match:
+                    continue  # virtual linux-vdso and static-binary diagnostics
+                source_text = match.group(1)
+                soname = Path(source_text).name
+            if soname in glibc:
+                required_system.add(soname)
+                continue
+            source = Path(source_text).resolve(strict=True)
+            if not source.is_file():
+                raise RuntimeError(f"Resolved dependency is not a regular file: {source}")
+            target = library_dir / soname
+            if target.is_symlink() and not target.resolve().is_relative_to(appdir):
+                target.unlink()  # do not retain absolute links into the build host
+            if target.exists():
+                if target.resolve() != source and digest(target) != digest(source):
+                    raise RuntimeError(f"Conflicting library with the same SONAME: {soname}")
+                continue
+            if target.is_symlink():
+                target.unlink()  # dangling link is not a bundled dependency
+            shutil.copy2(source, target)
+            copied[soname] = {"source": str(source), "sha256": digest(target)}
+            changed = True
+    if not changed:
+        break
+else:
+    raise RuntimeError("ELF dependency closure did not converge")
+
+inventory = {p.name: digest(p) for p in sorted(library_dir.iterdir())
+             if p.is_file() and elf(p)}
+report.write_text(json.dumps({"copied_after_linuxdeploy": copied,
+                              "bundled_elf_sha256": inventory,
+                              "required_system_glibc": sorted(required_system)},
+                             indent=2, sort_keys=True) + "\n")
+print(f"ELF closure verified: {len(inventory)} bundled libraries; "
+      f"{len(copied)} dependencies copied after linuxdeploy")
+PY_CLOSURE
+  cp "$packages/BUNDLED-LIBRARIES.json" "$appdir/usr/share/doc/orbyx/BUNDLED-LIBRARIES.json"
   mkdir -p "$appdir/usr/share/fonts/truetype/dejavu" "$appdir/usr/share/fontconfig"
   cp /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf /usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf \
     "$appdir/usr/share/fonts/truetype/dejavu/"
