@@ -97,7 +97,18 @@ jobs:
       - run: cmake -S . -B fuzz -G Ninja -DORBYX_BUILD_GUI=OFF -DORBYX_FUZZ=ON -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Debug
       - run: cmake --build fuzz --target orbyx_fuzz_parsers --parallel 2
       - name: Bounded coverage-guided fuzz run
-        run: ./fuzz/orbyx_fuzz_parsers -max_total_time=60 -max_len=8192 -timeout=10
+        run: ./fuzz/orbyx_fuzz_parsers fuzz/fuzz-corpus -dict=tests/fuzz.dict -artifact_prefix=fuzz/fuzz-artifacts/ -max_total_time=60 -max_len=8192 -timeout=10
         env:
           ASAN_OPTIONS: detect_leaks=0
           UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+
+      - name: Preserve extended corpus and crash reproductions
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: parser-profile-fuzz-evidence
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            fuzz/fuzz-corpus/
+            fuzz/fuzz-artifacts/

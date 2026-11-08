@@ -233,3 +233,9 @@ README principale ora in italiano, con guida inglese separata e alias italiano c
 ## Onboarding: demo senza dati o percorsi manuali
 
 Dopo la pubblicazione separata della guida f4dca8f, aggiunto demo.sh: verifica installazione, genera fixture dichiaratamente sintetiche, esegue calibrazione/allineamento reali del motore e composizione Natural Color, apre il desktop con input/profilo/destinazione predisposti quando esiste una sessione grafica. Nuovi risultati per esecuzione, nessuna sovrascrittura; cartella demo-output e log esclusi da git/archivi sorgenti. Non è una nuova acquisizione reale né una validazione geometrica. CI Ubuntu26.04 estesa alla demo installata; sintassi e collegamenti verificati, risultato remoto da osservare. Hint L4 reso coerente con un profilo personalizzato già calibrato. La finestra demo mostra esplicitamente «Demo sintetica — nessuna acquisizione satellitare reale»; build GUI e smoke offscreen locali passati.
+
+## Fuzzing profili JSON e generazione
+
+Esteso l'harness libFuzzer al parser del profilo e al vero percorso run/generate CPU con fixture sintetiche piccole. Corpus versionato (PNG valido, profili separati/uniti e invalidi) e dizionario, copie/artefatti nella build, conservazione CI delle mutazioni/crash. Corretto anche il file temporaneo prevedibile del vecchio harness: directory privata mkdtemp e cleanup RAII. Nessun cambiamento all'algoritmo del prodotto.
+
+Compilazione e replay locale di tutti i semi passati su OpenCV4.6; campagna Clang/libFuzzer/ASan/UBSan estesa in CI da osservare. Codecs/JsonCpp distro non strumentati, stima ECC non fuzzata da questo harness; nessuna dichiarazione di assenza vulnerabilità. Pubblicazione separata dopo guida e demo, come richiesto.

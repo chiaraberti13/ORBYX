@@ -52,3 +52,13 @@ o segnalazioni UB; il gruppo CTest `fuzz-parsers-smoke` passa.
   a fault inside them still aborts the process but their internals are out of
   scope here. GPU/OpenCL performance and benchmark work (the rest of M3-03)
   remain open and require real hardware.
+
+## Estensione profili e generazione / Profile and generation extension
+
+Il medesimo harness ora riproduce byte PNG arbitrari e, per input che iniziano con oggetto/array JSON, li consegna al vero parser di profilo e a `orbyx::run` in modalità generazione CPU. Le immagini sono fixture sintetiche fisse e piccole; vengono esercitati parsing JSON, matrici affine, ROI, staging, pubblicazione e scrittura prodotti. Il CBOR delle fixture è un segnaposto dichiarato: non si tratta di interoperabilità SatDump reale.
+
+Un corpus iniziale versionato include PNG valido, profili validi separati/uniti e profili invalidi; il dizionario aiuta le mutazioni di chiavi, numeri limite e intestazioni. CMake copia i semi nella build; il fuzzer estende solo questa copia. Crash riproducibili e corpus esteso sono conservati come artifact CI. La cartella temporanea del processo è privata e casuale, senza il precedente nome PNG prevedibile; cleanup RAII.
+
+La riproduzione locale di tutti i semi tramite il driver dell'harness è passata. Campagna libFuzzer/ASan/UBSan remota da osservare prima di dichiarare il nuovo percorso coverage-guided verificato. Restano fuori dall'instrumentazione le librerie native distro, e il ramo di stima ECC non è fuzzato da questo harness. Nessuna campagna finita prova l'assenza di vulnerabilità.
+
+The harness now drives structured JSON seeds through the actual profile reader and CPU generation API on fixed small synthetic images, covering affine/ROI validation and transactional product writing. Source seeds remain versioned and unchanged; build-local mutations and reproductions are retained separately. Temporary storage uses a random private directory. Local corpus replay passed; observed sanitizer/coverage-guided CI evidence is required for the extended campaign. Distribution libraries and the ECC estimator are not instrumented/fuzzed here; no absence-of-vulnerabilities guarantee is implied.
