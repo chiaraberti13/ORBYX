@@ -55,7 +55,7 @@ Stati: pianificato, in corso, verificato, bloccato. Pubblicare ogni task verific
 - Deliverable: Suite, workflow e Dependabot
 - Test: Build e CTest locali; CI remota
 - Accettazione: Risultati registrati senza inventare compatibilità
-- Stato: pianificato
+- Stato: in corso — regressioni locali, ASan/UBSan e Cppcheck passati; CI remota da osservare
 
 ## M2-01 — Desktop bilingue con elaborazione asincrona
 

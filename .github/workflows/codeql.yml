@@ -1,0 +1,25 @@
+name: CodeQL
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '15 6 * * 2'
+permissions:
+  contents: read
+jobs:
+  analyze:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: github/codeql-action/init@5895b2c9be147bc7f1c75ce72c5cb577febb1907 # v4, verified tag 2026-11-08
+        with:
+          languages: c-cpp
+          build-mode: manual
+      - run: sudo apt-get update && sudo apt-get install -y cmake ninja-build libopencv-dev libjsoncpp-dev qt6-base-dev qt6-qpa-plugins
+      - run: cmake -S . -B build -G Ninja -DORBYX_BUILD_GUI=ON -DBUILD_TESTING=OFF && cmake --build build --parallel 2
+      - uses: github/codeql-action/analyze@5895b2c9be147bc7f1c75ce72c5cb577febb1907
