@@ -80,3 +80,11 @@ Esito: lo stato documentato è coerente con il codice e con le esecuzioni reali;
 Recepita la verifica indipendente di Claude (49c8171, merge e0463d1), che conferma lo stato precedente senza richiedere correzioni alla roadmap. Avviato M2-03: integrazione della coda durevole nel desktop e gestione dei profili, mantenendo il controller batch già verificato.
 
 Durante la preparazione della coda sono stati rafforzati parsing e lettura dei manifest/stati: snapshot con limite sui byte effettivamente letti, rifiuto di chiavi duplicate, numeri non finiti e nesting eccessivo; versione dello stato strettamente intera. Diciassette test batch passati; gli stati non validi restano invariati e non avviano il motore. La verifica precedente di Claude resta riferita al suo commit, senza attribuirle questa modifica successiva.
+
+## M1-03 inventario runtime/SBOM (parziale) — 2026-11-08
+
+Attività indipendente, separata dalla coda desktop (M2-03) in corso in parallelo. Implementato `scripts/orbyx_sbom.py`: inventario JSON deterministico delle librerie native effettivamente caricate dagli eseguibili ORBYX, risolte a soname→percorso→pacchetto→versione tramite `readelf -d`, `ldd` e `dpkg-query`, con componenti ORBYX e requisito Python opzionale. Il core di parsing è puro e testabile con resolver iniettati; nessun accesso di rete e nessuna dichiarazione di assenza vulnerabilità.
+
+Verifica effettiva su `main` (Ubuntu 24.04.5, OpenCV 4.6.0, JsonCpp 1.9.5): generazione reale su `build/orbyx` e `build/orbyx_tests` con risoluzione corretta dei pacchetti (es. `libopencv-core406t64` 4.6.0+dfsg-13.1ubuntu1, `libjsoncpp25` 1.9.5-6build1, `libc6` 2.39-0ubuntu8.9). Nuovo gruppo CTest `sbom-regression` (6/6 gruppi non-GUI passati) con test di unità su parsing risolto/non risolto/loader e integrazione che confronta l'output con `readelf -d` sui binari reali. CI: nuovo passo che genera l'inventario dai binari installati e lo pubblica come artifact per-OS. Documentazione in `docs/SBOM.md`.
+
+Limiti dichiarati: la correlazione automatica con un feed di sicurezza (Debian/Ubuntu tracker, OSV) e l'export in formato standard CycloneDX/SPDX non sono implementati; il passo di scansione avvisi resta documentato, non eseguito offline. M1-03 è quindi «verificato in parte», non completato.
