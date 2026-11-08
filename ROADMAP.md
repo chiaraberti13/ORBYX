@@ -132,7 +132,7 @@ Stati: pianificato, in corso, verificato, bloccato. Pubblicare ogni task verific
 - Deliverable: Release firmate e procedura aggiornamenti
 - Test: Verifica firma, rollback, scansioni
 - Accettazione: Nessun aggiornamento eseguito senza verifica
-- Stato: pianificato
+- Stato: in corso — checksum SHA-256 riproducibili generati e verificati (`sha256sum -c`) in CI su tutti gli artifact di release (DEB, RPM, sorgenti, SBOM) e pubblicati come `SHA256SUMS`. Firma GPG delle release, procedura di aggiornamento/rollback e scansioni firmate restano da implementare (richiedono chiavi di firma)
 
 
 ## M2-03 — Coda desktop e gestione dei profili

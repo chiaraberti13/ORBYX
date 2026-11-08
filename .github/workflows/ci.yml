@@ -49,6 +49,12 @@ jobs:
             --format cyclonedx --output "build/packages/orbyx-cyclonedx-${{ matrix.os }}.json"
           python3 scripts/orbyx_sbom.py "$(command -v orbyx)" "$(command -v orbyx-gui)" \
             --format spdx --output "build/packages/orbyx-spdx-${{ matrix.os }}.json"
+      - name: Reproducible SHA-256 checksums for release artifacts
+        run: |
+          ( cd build && sha256sum packages/*.deb packages/*.rpm packages/*.json *Source.tar.gz ) \
+            > build/packages/SHA256SUMS
+          ( cd build && sha256sum -c packages/SHA256SUMS )
+          cat build/packages/SHA256SUMS
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: orbyx-${{ matrix.os }}-experimental
@@ -56,6 +62,7 @@ jobs:
             build/packages/*.deb
             build/packages/*.rpm
             build/packages/*.json
+            build/packages/SHA256SUMS
             build/*Source.tar.gz
           if-no-files-found: error
           retention-days: 14

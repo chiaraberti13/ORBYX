@@ -126,6 +126,27 @@ a generated archive nor ELF dependency discovery proves a working clean-system
 installation: test desktop launching, Qt platform plugins/codecs, calibration-profile
 lookup, complete processing and numerical equivalence on every claimed platform.
 
+## Integrity / Integrità
+
+CI generates a reproducible `SHA256SUMS` over every release artifact (DEB, RPM,
+source archive and SBOM documents) and verifies it in place with `sha256sum -c`
+before publishing it alongside the artifacts. Consumers verify a download with:
+
+```sh
+sha256sum -c SHA256SUMS
+```
+
+Checksums establish integrity against accidental corruption, **not**
+authenticity: GPG-signed releases and a verified update/rollback procedure
+(M4-02) require signing keys and are not yet implemented.
+
+La CI genera un `SHA256SUMS` riproducibile su tutti gli artifact e lo verifica
+con `sha256sum -c`. I checksum garantiscono l'integrità, non l'autenticità: la
+firma GPG delle release e la procedura di aggiornamento/rollback (M4-02)
+richiedono chiavi e non sono ancora implementate.
+
+## AppImage
+
 The AppImage procedure above is an **unverified proposal**. Use pinned, provenance-
 and checksum-verified linuxdeploy/Qt-plugin versions compatible with Qt 6. The proposed
 AppDir excludes the Python batch runner. Verify the final bundle on clean machines
