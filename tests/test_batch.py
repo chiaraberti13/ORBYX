@@ -172,6 +172,52 @@ with (pathlib.Path(__file__).parent/'calls').open('a') as s:s.write(satellite+'\
             self.assertEqual(self.invoke([self.job("one")]).returncode, 2)
         self.assertFalse((self.root / "calls").exists())
 
+    def test_ambiguous_and_nonfinite_manifest_rejected(self):
+        job = json.dumps(self.job("one"))
+        valid = '{"jobs": [' + job + ']}'
+        for invalid in ('{"jobs": [], "jobs": [' + job + ']}',
+                        valid.replace('"cpu": true', '"cpu": NaN'),
+                        valid.replace('"cpu": true', '"cpu": Infinity'),
+                        valid.replace('"cpu": true', '"cpu": -Infinity'),
+                        valid.replace('"cpu": true', '"cpu": 1e999'),
+                        valid.replace('"id": "one"', '"id": "other", "id": "one"')):
+            with self.subTest(invalid=invalid):
+                self.manifest.write_text(invalid)
+                result = subprocess.run([sys.executable, str(RUNNER), str(self.manifest),
+                    "--orbyx", str(self.engine)], capture_output=True, text=True, timeout=10)
+                self.assertEqual(result.returncode, 2)
+                self.assertFalse((self.root / "calls").exists())
+                self.assertFalse((self.root / "batch.state.json.lock").exists())
+
+    def test_invalid_resume_state_preserved(self):
+        jobs = [self.job("one")]
+        self.assertEqual(self.invoke(jobs).returncode, 0)
+        state = self.root / "batch.state.json"
+        original = state.read_bytes()
+        for invalid in ('{"version":1,"version":1,"jobs":{}}',
+                        '{"version":true,"jobs":{}}',
+                        '{"version":1,"jobs":{"one":{"status":NaN}}}',
+                        '{"version":1,"jobs":{}}' + ' ' * (16 * 1024 * 1024),
+                        'not JSON',
+                        '[' * 2000 + ']' * 2000):
+            with self.subTest(invalid=invalid[:60]):
+                state.write_text(invalid)
+                before = state.read_bytes()
+                self.assertEqual(self.invoke(jobs, True).returncode, 2)
+                self.assertEqual(state.read_bytes(), before)
+                self.assertEqual((self.root / "calls").read_text(), "L2\n")
+        state.write_bytes(original)
+        self.assertEqual(self.invoke(jobs, True).returncode, 0)
+
+    def test_manifest_size_and_encoding_rejected(self):
+        for raw in (b" " * (1024 * 1024 + 1), b"\xff\xfe"):
+            with self.subTest(size=len(raw)):
+                self.manifest.write_bytes(raw)
+                result = subprocess.run([sys.executable, str(RUNNER), str(self.manifest),
+                    "--orbyx", str(self.engine)], capture_output=True, text=True, timeout=10)
+                self.assertEqual(result.returncode, 2)
+                self.assertFalse((self.root / "calls").exists())
+
     def test_input_symlink_rejected(self):
         (self.root / "input/link").symlink_to(self.root / "profile.json")
         self.assertEqual(self.invoke([self.job("one")]).returncode, 1)

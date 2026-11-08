@@ -5,6 +5,7 @@ import argparse
 import hashlib
 import fcntl
 import json
+import math
 import os
 import stat
 from pathlib import Path
@@ -19,6 +20,10 @@ ITALIAN = {
     "Non-regular file: ": "File non normale: ",
     "Manifest must be a regular non-symlink file": "Il manifest deve essere un file normale, non un collegamento simbolico",
     "Manifest exceeds 1 MiB": "Il manifest supera 1 MiB",
+    "Duplicate JSON key: ": "Chiave JSON duplicata: ",
+    "Non-finite JSON number: ": "Numero JSON non finito: ",
+    "JSON must be UTF-8": "Il JSON deve usare UTF-8",
+    "JSON nesting exceeds parser limits": "La profondità del JSON supera i limiti del parser",
     "Manifest must contain only a jobs list": "Il manifest deve contenere soltanto una lista jobs",
     "Expected 1–10000 jobs": "Sono richiesti da 1 a 10000 lavori",
     "Invalid job fields": "Campi del lavoro non validi",
@@ -125,12 +130,46 @@ def resolve(base: Path, value: str) -> Path:
     return (base / path if not path.is_absolute() else path).absolute()
 
 
+def read_json(path: Path, limit: int, size_error: str):
+    """Parse one size-bounded snapshot with strict JSON object keys and numbers."""
+    # Limit the actual read rather than trusting a size checked before opening.
+    with path.open("rb") as stream:
+        raw = stream.read(limit + 1)
+    if len(raw) > limit:
+        raise ValueError(size_error)
+
+    def unique_object(pairs):
+        value = {}
+        for key, item in pairs:
+            if key in value:
+                raise ValueError(f"Duplicate JSON key: {key}")
+            value[key] = item
+        return value
+
+    def nonfinite(value):
+        raise ValueError(f"Non-finite JSON number: {value}")
+
+    def finite_float(value):
+        result = float(value)
+        if not math.isfinite(result):
+            nonfinite(value)
+        return result
+
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise ValueError("JSON must be UTF-8") from error
+    try:
+        return json.loads(text, object_pairs_hook=unique_object,
+                          parse_constant=nonfinite, parse_float=finite_float)
+    except RecursionError as error:
+        raise ValueError("JSON nesting exceeds parser limits") from error
+
+
 def load_manifest(path: Path) -> list[dict]:
     if path.is_symlink() or not path.is_file():
         raise ValueError("Manifest must be a regular non-symlink file")
-    if path.stat().st_size > 1024 * 1024:
-        raise ValueError("Manifest exceeds 1 MiB")
-    document = json.loads(path.read_text(encoding="utf-8"))
+    document = read_json(path, 1024 * 1024, "Manifest exceeds 1 MiB")
     if not isinstance(document, dict) or set(document) != {"jobs"}:
         raise ValueError("Manifest must contain only a jobs list")
     jobs = document["jobs"]
@@ -212,10 +251,9 @@ def run(manifest: Path, state_path: Path, executable: Path, resume: bool, langua
         raise ValueError("State already exists; use --resume or choose a new state path")
     state = {"version": 1, "jobs": {}}
     if resume and state_path.exists():
-        if state_path.stat().st_size > 16 * 1024 * 1024:
-            raise ValueError("State exceeds 16 MiB")
-        state = json.loads(state_path.read_text(encoding="utf-8"))
-        if (not isinstance(state, dict) or state.get("version") != 1
+        state = read_json(state_path, 16 * 1024 * 1024, "State exceeds 16 MiB")
+        if (not isinstance(state, dict) or type(state.get("version")) is not int
+                or state.get("version") != 1
                 or not isinstance(state.get("jobs"), dict)):
             raise ValueError("Invalid state schema")
     errors = False

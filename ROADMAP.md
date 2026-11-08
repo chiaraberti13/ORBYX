@@ -144,7 +144,7 @@ Stati: pianificato, in corso, verificato, bloccato. Pubblicare ogni task verific
 - Deliverable: coda GUI e creazione/duplicazione profili
 - Test: interruzione, ripresa, modifica input, localizzazione
 - Accettazione: stato durevole visibile nel desktop e nessuna perdita dati
-- Stato: pianificato
+- Stato: in corso — coda desktop durevole, ripresa e gestione dei profili
 
 ## M2-04 — Monitoraggio cartelle e riconoscimento dati
 
