@@ -6,7 +6,7 @@
 | --- | --- |
 | Installazione CMake / CMake install | Layout verificato localmente: CLI, GUI, batch, profilo, licenze, desktop e icona / Layout checked locally |
 | Archivio sorgenti TGZ / Source TGZ | Generato e ispezionato: sorgenti e licenze presenti, `.git` e cartelle build esclusi / Generated and inspected |
-| DEB | Configurazione CPack con dipendenze native automatiche e Python esplicito; installazione su sistema pulito ancora da verificare / CPack configured; clean-system install pending |
+| DEB | Generazione, installazione e smoke degli eseguibili passati nei runner Ubuntu22.04/24.04/26.04; VM pulita ancora da verificare / Generation, runner install and binary smoke passed; clean VM pending |
 | RPM | Procedura predisposta; generazione e installazione non verificate / Procedure prepared; generation and install unverified |
 | AppImage | Procedura di assemblaggio proposta, nessuna AppImage verificata / Proposed assembly; no verified AppImage |
 

@@ -3,6 +3,7 @@
 <p align="center"><a href="README.md">🇬🇧 English</a> · <a href="README.it.md">🇮🇹 Italiano</a></p>
 
 <p align="center">
+<a href="https://github.com/chiaraberti13/ORBYX/actions/workflows/ci.yml"><img src="https://github.com/chiaraberti13/ORBYX/actions/workflows/ci.yml/badge.svg" alt="Build and regression"></a>
 <img src="https://img.shields.io/badge/status-early_development-F2C94C?style=flat-square" alt="Early development">
 <img src="https://img.shields.io/badge/category-SATELLITE_IMAGING-22D3EE?style=flat-square" alt="Satellite imaging">
 <img src="https://img.shields.io/badge/stack-C%2B%2B17_%7C_Qt_6-8B949E?style=flat-square" alt="C++17 and Qt 6">
@@ -99,3 +100,13 @@ GNU GPL version 3, with upstream attribution and dependency notices retained. [L
 [Verification record / Registro verifiche](docs/VERIFICATION.md) · [Memory limits / Limiti memoria](docs/RESOURCE_LIMITS.md)
 
 [Packaging / Distribuzione](docs/PACKAGING.md)
+
+## Verified Ubuntu builds
+
+The following x86_64 CI builds passed on revision `4190002`: native compilation, seven CTest groups, Debian packaging, installation on the runner and installed CLI/GUI/batch smoke. Desktop tests are offscreen and use synthetic images. [Run evidence](https://github.com/chiaraberti13/ORBYX/actions/runs/42477106167).
+
+| Ubuntu | Build / test | DEB / install smoke |
+|---|---|---|
+| 22.04 LTS | ✓ | ✓ |
+| 24.04 LTS | ✓ | ✓ |
+| 26.04 LTS | ✓ | ✓ |

@@ -55,7 +55,7 @@ Stati: pianificato, in corso, verificato, bloccato. Pubblicare ogni task verific
 - Deliverable: Suite, workflow e Dependabot
 - Test: Build e CTest locali; CI remota
 - Accettazione: Risultati registrati senza inventare compatibilità
-- Stato: in corso — regressioni locali, ASan/UBSan e Cppcheck passati; CI remota da osservare
+- Stato: verificato — matrice Ubuntu 22.04/24.04/26.04, 7 gruppi CTest, sanitizers con leak detection e Cppcheck; CodeQL completato sul commit 4190002
 
 ## M2-01 — Desktop bilingue con elaborazione asincrona
 
@@ -166,4 +166,15 @@ Stati: pianificato, in corso, verificato, bloccato. Pubblicare ogni task verific
 - Deliverable: composizione e conversione 8/16 bit documentata
 - Test: scene reali e fixture cromatiche
 - Accettazione: nessuna conversione implicita o perdita dei canali originali
+- Stato: pianificato
+
+## M1-03 — Inventario dipendenze, SBOM e scansione vulnerabilità runtime
+
+- Priorità: P1
+- Dipendenze: M1-02
+- Responsabile: DevSecOps / Open Source Licensing Specialist
+- Competenze: SBOM, distro advisories, codec licences
+- Deliverable: inventario esatto dei binari e scansione versionata
+- Test: corrispondenza librerie caricate/SBOM e vulnerabilità campione
+- Accettazione: scansione riproducibile dei pacchetti runtime, oltre a Dependabot Actions
 - Stato: pianificato

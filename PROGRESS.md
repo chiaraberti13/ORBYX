@@ -25,3 +25,38 @@ Prima CI remota 4d569ee: Ubuntu24.04 build, 7 gruppi CTest e pacchetto DEB compl
 Packaging: aggiunti icona SVG desktop originale, installazione standard hicolor, opzione ORBYX_INSTALL_BATCH e dipendenza Python>=3.10 esplicita nei DEB/RPM. Installazione locale e pacchetto sorgenti ispezionati; RPM/AppImage non verificati. Aggiunti smoke degli eseguibili installati nei job DEB. Checkout aggiornato al tag v6 risolto a SHA e credenziali non persistenti. Push di sola documentazione non ripetono build già eseguite; cron e PR mantengono i controlli.
 
 Documentazione audit e ADR ora integralmente disponibile EN/IT con navigazione. M3-01 bloccato dalla mancanza di acquisizioni RDAS reali redistribuibili e ambiente SatDump; non è stato sostituito con una verifica fittizia.
+
+## Chiusura sessione — 2026-11-08
+
+Task verificati: M0-01 audit, M0-02 ADR, M0-03 identità/documentazione, M1-01 core/CLI, M1-02 test/CI, M2-01 desktop iniziale, M2-02 batch headless. M3-02 packaging parziale verificato per TGZ e DEB, non per RPM/AppImage/ARM64. Nessuna modifica pubblicata al repository originale.
+
+### Evidenza finale
+
+Revisione di codice/build verificata: `4190002a1212dba0acf24c2f3d0a168dd7fe9813`.
+
+- [Build and regression 42477106167](https://github.com/chiaraberti13/ORBYX/actions/runs/42477106167): tutti i job success. Ubuntu22.04/24.04/26.04 x86_64: build, sette gruppi CTest, DEB, installazione sul runner e avvio CLI/GUI offscreen/batch installati. Artifacts sorgenti+DEB disponibili nel run, conservati14giorni.
+- Batch: quattordici test annidati nel gruppo batch-regression, inclusi input/output drift, lock, conflitti, provenienza e lingua.
+- Sanitizers remoto: cinque gruppi headless passati con ASan, UBSan e detect_leaks=1. La limitazione locale LeakSanitizer rimane documentata, ma la verifica remota è stata eseguita.
+- Cppcheck: successo locale e remoto.
+- [CodeQL 42477106212](https://github.com/chiaraberti13/ORBYX/actions/runs/42477106212): analisi completata con successo. Non equivale a una garanzia di assenza di vulnerabilità.
+- Banner/icona SVG e collegamenti della documentazione verificati; screenshot IT/scuro1280x860 ed EN/chiaro960x680 ispezionati.
+
+### Commit pubblicati su main
+
+| Commit | Contenuto |
+|---|---|
+| 55a18bf | Istruzioni iniziali |
+| 2f40a1a | Roadmap, audit, ADR e baseline originale |
+| fc7f5b8 | Banner, README EN/IT, licenze e attribuzioni |
+| a66b4ca | Motore validato e CLI bilingue |
+| 4fe1614 | GUI e verifica visiva |
+| 96c133d | Batch durevole e regressione completa GUI→output |
+| 4d569ee | CI, sanitizers, CodeQL e packaging |
+| 5e2ad9b | Correzione dipendenza OpenGL su Ubuntu22.04 |
+| 4190002 | Metadati pacchetti, icona e smoke dopo installazione |
+
+### Limiti e prossimo task
+
+M3-01 resta bloccato: servono acquisizioni RDAS reali redistribuibili con provenienza e un ambiente SatDump per verificare geometria/metadati. Nessuna equivalenza GPU, supporto ARM64/macOS/altre distro, installazione su VM pulita, RPM/AppImage, fuzzing esteso, release firmata o accessibilità con screen reader è stata dichiarata completata.
+
+Prossimo task eseguibile: M2-03, coda desktop e gestione dei profili, riusando il contratto batch già verificato. M1-03, inventario runtime/SBOM/scansione vulnerabilità dei pacchetti, è un'attività indipendente. Natural Color, riconoscimento automatico, monitoraggio cartelle, onboarding e aggiornamenti sicuri restano nei task dedicati della roadmap. Nessun lavoro continua automaticamente fuori dalla sessione salvo i workflow GitHub configurati.
