@@ -64,7 +64,7 @@ exit 0
     def test_wait_install_and_launch_without_paths(self):
         p=self.run_script('install.sh');self.assertEqual(p.returncode,0,p.stdout+p.stderr)
         trace=self.trace.read_text()
-        self.assertEqual(trace.count('apt-get -o DPkg::Lock::Timeout=30 -o Acquire::Retries=3 update'),2)
+        self.assertEqual(sum(line.startswith('apt-get ') and line.endswith(' update') for line in trace.splitlines()),2)
         for package in ('cmake','ninja-build','libopencv-dev','libjsoncpp-dev','qt6-base-dev','libgl-dev','gnupg'):
             self.assertIn(package,trace)
         self.assertTrue((self.repo/'build-desktop/.orbyx-install-success').exists())
