@@ -1,0 +1,46 @@
+name: AppImage build and clean runtime
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["**/*.md", "assets/*.png", "assets/banner.svg"]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  appimage-x86_64:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 40
+    env:
+      RUNTIME_IMAGE: ubuntu@sha256:076e7bf82319619f28dd0aa9c02ab34b055ad37100395b4f49a2ffba04fb5e11
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Install native build and bundling prerequisites
+        run: |
+          test "$(uname -m)" = x86_64
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build libopencv-dev libjsoncpp-dev \
+            qt6-base-dev qt6-qpa-plugins qt6-translations-l10n libgl-dev gnupg binutils \
+            curl ca-certificates squashfs-tools desktop-file-utils patchelf fonts-dejavu-core
+      - name: Verify pinned tools, build and bundle real AppImage
+        run: bash scripts/ci/appimage.sh build
+      - name: Extract and run in clean Ubuntu 22.04 without system Qt/OpenCV or FUSE
+        run: |
+          docker pull "$RUNTIME_IMAGE"
+          docker image inspect "$RUNTIME_IMAGE" --format '{{json .RepoDigests}}' \
+            | tee build-appimage/packages/runtime-image-digest.txt
+          set -o pipefail
+          docker run --rm --security-opt=no-new-privileges \
+            -v "$GITHUB_WORKSPACE/scripts/ci:/checks:ro" \
+            -v "$GITHUB_WORKSPACE/build-appimage/packages:/packages:ro" \
+            "$RUNTIME_IMAGE" bash /checks/appimage.sh test 2>&1 \
+            | tee build-appimage/packages/clean-runtime.log
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: orbyx-appimage-ubuntu22-x86_64
+          path: build-appimage/packages/
+          if-no-files-found: error
+          retention-days: 14

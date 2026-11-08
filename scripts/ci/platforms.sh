@@ -69,6 +69,7 @@ case "$mode" in
     rpm -qa --qf '%{NAME} %{VERSION}-%{RELEASE}.%{ARCH}\n' | sort > /tmp/runtime-packages.txt
     cat /tmp/runtime-packages.txt
     dnf remove -y orbyx
+    hash -r
     if command -v orbyx >/dev/null 2>&1; then exit 1; fi
     test -f /tmp/orbyx-fixture/input/MSUGS_VIS1/product.cbor
     ;;
@@ -85,6 +86,7 @@ case "$mode" in
     check_runtime /packages/orbyx-fixture-tool
     dpkg-query -W -f='${binary:Package} ${Version}\n' | sort
     apt-get remove -y orbyx
+    hash -r
     if command -v orbyx >/dev/null 2>&1; then exit 1; fi
     test -f /tmp/orbyx-fixture/input/MSUGS_VIS1/product.cbor
     ;;
