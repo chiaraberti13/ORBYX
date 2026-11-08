@@ -44,7 +44,7 @@ Stati: pianificato, in corso, verificato, bloccato. Pubblicare ogni task verific
 - Deliverable: Core e comandi generate/calibrate
 - Test: Fixture sintetiche 8/16 bit e input invalidi
 - Accettazione: Canali corretti, errori gestiti, originali preservati
-- Stato: pianificato
+- Stato: verificato su Ubuntu 24.04 x86_64 con dataset sintetici; validazione dati reali M3-01 aperta
 
 ## M1-02 — Regressioni, sanitizers e CI
 

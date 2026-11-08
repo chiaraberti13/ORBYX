@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=ORBYX
+Comment=RDAS satellite channel alignment
+Comment[it]=Allineamento dei canali satellitari RDAS
+Exec=orbyx-gui
+Terminal=false
+Categories=Graphics;Science;

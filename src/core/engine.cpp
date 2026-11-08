@@ -1,0 +1,345 @@
+// GPL-3.0. Affine/ECC workflow derived from RDAS Layer Aligner by Digitelektro.
+#include "orbyx/engine.hpp"
+#include <opencv2/core/ocl.hpp>
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/video/tracking.hpp>
+#include <json/json.h>
+#include <array>
+#include <vector>
+#include <sstream>
+#include <algorithm>
+#include <cstdint>
+#include <map>
+#include <cmath>
+#include <fstream>
+#include <future>
+#include <limits>
+#include <random>
+#include <stdexcept>
+#include <cerrno>
+#include <cstring>
+#ifdef __linux__
+#include <fcntl.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+#elif defined(__APPLE__)
+#include <stdio.h>
+#endif
+namespace orbyx {
+namespace {
+namespace fs = std::filesystem;
+constexpr int ch2offset = 3606, ch3offset = 1804;
+using Channels = std::array<cv::Mat, 3>;
+void require(bool condition, const std::string& message) {
+  if (!condition) throw std::runtime_error(message);
+}
+void regular(const fs::path& file) {
+  require(!fs::is_symlink(fs::symlink_status(file)) && fs::is_regular_file(file),
+          "Expected a regular, non-symlink file: " + file.string());
+}
+// Decode/parse exactly the bounded bytes that were checked, never reopen a path
+// after the preflight. Concurrent edits may invalidate the snapshot, but cannot
+// replace the decoder input with an unchecked larger file.
+std::vector<unsigned char> snapshot(const fs::path& file, std::uintmax_t limit,
+                                    const char* limitError) {
+  regular(file);
+  const auto size=fs::file_size(file);
+  require(size<=limit,limitError);
+  std::vector<unsigned char> bytes(static_cast<std::size_t>(size));
+  std::ifstream stream(file,std::ios::binary);
+  require(bool(stream),"Cannot read input file: "+file.string());
+  if(size) stream.read(reinterpret_cast<char*>(bytes.data()),static_cast<std::streamsize>(size));
+  require((!size || static_cast<std::uintmax_t>(stream.gcount())==size) &&
+          stream.peek()==std::char_traits<char>::eof() && !stream.bad(),
+          "Input file changed or could not be read: "+file.string());
+  return bytes;
+}
+Json::Value readConfig(const fs::path& file) {
+  const auto bytes=snapshot(file,1024*1024,"Calibration profile exceeds 1 MiB");
+  std::istringstream stream(std::string(bytes.begin(),bytes.end()));
+  Json::CharReaderBuilder reader;
+  reader["rejectDupKeys"] = true;
+  reader["failIfExtra"] = true;
+  Json::Value root;
+  std::string errors;
+  require(Json::parseFromStream(reader, stream, &root, &errors) && root.isObject(),
+          "Invalid calibration JSON: " + errors);
+  return root;
+}
+cv::Mat transform(const Json::Value& section, const char* channel) {
+  const auto& value = section[channel];
+  require(value.isObject(), std::string("Missing transform: ") + channel);
+  constexpr std::array<const char*, 6> keys{"a", "b", "tx", "c", "d", "ty"};
+  cv::Mat matrix(2, 3, CV_32F);
+  for (int i = 0; i < 6; ++i) {
+    const auto& v = value[keys[i]];
+    require(v.isNumeric(), std::string("Missing numeric coefficient: ") + keys[i]);
+    const double number = v.asDouble();
+    require(std::isfinite(number) && std::abs(number) <= 1e7,
+            "Non-finite or excessive affine coefficient");
+    matrix.at<float>(i / 3, i % 3) = static_cast<float>(number);
+  }
+  const double determinant = matrix.at<float>(0, 0) * double(matrix.at<float>(1, 1)) -
+                             matrix.at<float>(0, 1) * double(matrix.at<float>(1, 0));
+  require(std::abs(determinant) > 1e-8, "Singular affine transform");
+  return matrix;
+}
+cv::Rect roi(const Json::Value& section, const cv::Size& size) {
+  const auto& value = section["ROI"];
+  require(value.isObject(), "ROI must be an object");
+  for (const auto* key : {"x", "y", "width", "height"})
+    require(value[key].isInt(), std::string("Invalid ROI integer: ") + key);
+  const int x=value["x"].asInt(), y=value["y"].asInt();
+  const int w=value["width"].asInt(), h=value["height"].asInt();
+  require(x >= 0 && y >= 0 && w > 0 && h > 0 && x <= size.width && y <= size.height &&
+          w <= size.width - x && h <= size.height - y, "ROI outside aligned image");
+  return {x,y,w,h};
+}
+cv::Mat readImage(const fs::path& file) {
+  // Bound allocations from the same immutable PNG bytes passed to the decoder.
+  const auto bytes=snapshot(file,1024ULL*1024*1024,"PNG file exceeds 1 GiB");
+  require(bytes.size()>=33,"Invalid PNG signature or IHDR");
+  std::array<unsigned char,33> header{};
+  std::copy_n(bytes.begin(),header.size(),header.begin());
+  constexpr std::array<unsigned char,8> signature{137,80,78,71,13,10,26,10};
+  require(std::equal(signature.begin(),signature.end(),header.begin()) &&
+          header[8]==0&&header[9]==0&&header[10]==0&&header[11]==13 &&
+          header[12]=='I'&&header[13]=='H'&&header[14]=='D'&&header[15]=='R',
+          "Invalid PNG signature or IHDR");
+  auto integer=[&](int i){return (std::uint32_t(header[i])<<24)|(std::uint32_t(header[i+1])<<16)|
+                              (std::uint32_t(header[i+2])<<8)|header[i+3];};
+  const auto width=integer(16),height=integer(20);
+  require(width>0&&height>ch2offset&&width<=100000&&height<=100000&&
+          std::uint64_t(width)*height<=150000000, "PNG dimensions exceed RDAS safety limits");
+  require((header[24]==8||header[24]==16)&&header[25]==0 && header[26]==0&&header[27]==0&&header[28]<=1,
+          "Expected an unsigned 8-bit or 16-bit grayscale PNG");
+  cv::Mat image = cv::imdecode(bytes, cv::IMREAD_UNCHANGED);
+  require(!image.empty(), "Cannot decode image: " + file.string());
+  require(image.channels() == 1 && (image.depth()==CV_8U || image.depth()==CV_16U),
+          "Expected an unsigned 8-bit or 16-bit grayscale channel");
+  require(image.cols==static_cast<int>(width) && image.rows==static_cast<int>(height),
+          "Decoded PNG dimensions differ from IHDR");
+  require(image.rows > ch2offset && image.cols > 0 && image.total() <= 150000000,
+          "Invalid RDAS channel dimensions (height must exceed 3606; max 150 Mpx)");
+  return image;
+}
+Channels load(const fs::path& directory) {
+  require(!fs::is_symlink(fs::symlink_status(directory)) && fs::is_directory(directory),
+          "Expected non-symlink MSUGS_VIS directory");
+  Channels channels;
+  for (int i=0;i<3;++i) {
+    channels[i] = readImage(directory / ("MSUGS-VIS-"+std::to_string(i+1)+".png"));
+    if (i) require(channels[i].size()==channels[0].size() && channels[i].type()==channels[0].type(),
+                   "All channels in a VIS product must have equal dimensions and depth");
+  }
+  return channels;
+}
+cv::Mat ecc(const cv::Mat& reference, const cv::Mat& target, int offset) {
+  // Preserve upstream: grayscale conversion, pre-shift, affine ECC 500/1e-7.
+  cv::Mat ref8, target8;
+  if (reference.depth() == CV_16U) {
+    reference.convertTo(ref8,CV_8U,1.0/256.0);
+    target.convertTo(target8,CV_8U,1.0/256.0);
+  } else { ref8=reference; target8=target; }
+  cv::Mat shifted;
+  cv::Mat shift=(cv::Mat_<float>(2,3)<<1,0,0,0,1,offset);
+  cv::warpAffine(target8,shifted,shift,target8.size(),cv::INTER_LINEAR|cv::WARP_INVERSE_MAP);
+  cv::Mat warp=cv::Mat::eye(2,3,CV_32F);
+  const double correlation=cv::findTransformECC(ref8,shifted,warp,cv::MOTION_AFFINE,
+        cv::TermCriteria(cv::TermCriteria::COUNT|cv::TermCriteria::EPS,500,1e-7));
+  require(std::isfinite(correlation) && cv::checkRange(warp), "ECC did not produce a finite solution");
+  warp.at<float>(1,2) += offset;
+  return warp;
+}
+void setTransform(Json::Value& section,const char* channel,const cv::Mat& warp) {
+  constexpr std::array<const char*,6> keys{"a","b","tx","c","d","ty"};
+  for(int i=0;i<6;++i) section[channel][keys[i]]=warp.at<float>(i/3,i%3);
+}
+Channels align(const Channels& input,const Json::Value& section) {
+  Channels result;
+  result[0]=input[0];
+  for (int i=1;i<3;++i) {
+    cv::UMat aligned;
+    cv::warpAffine(input[i].getUMat(cv::ACCESS_READ),aligned,
+                   transform(section,i==1?"CH2":"CH3"),input[i].size(),
+                   cv::INTER_LINEAR|cv::WARP_INVERSE_MAP);
+    aligned.copyTo(result[i]);
+  }
+  const cv::Rect crop(0,0,input[0].cols,input[0].rows-ch2offset);
+  for(auto& image:result) image=image(crop);
+  return result;
+}
+void writeProduct(const fs::path& directory,const Channels& channels,const fs::path& sourceCbor) {
+  fs::create_directory(directory);
+  for(int i=0;i<3;++i)
+    require(cv::imwrite((directory/("MSUGS-VIS-"+std::to_string(i+1)+".png")).string(),channels[i]),
+            "Failed to encode output PNG");
+  regular(sourceCbor);
+  fs::copy_file(sourceCbor,directory/"product.cbor");
+}
+class Staging {
+ public:
+  fs::path path;
+  explicit Staging(const fs::path& destination) {
+    require(fs::is_directory(destination.parent_path()), "Output parent directory must exist");
+    require(!fs::exists(fs::symlink_status(destination)), "Output destination already exists");
+    std::random_device random;
+    for(int i=0;i<32;++i) {
+      path=destination.parent_path()/(".orbyx-"+std::to_string(random())+"-"+std::to_string(random()));
+      if(fs::create_directory(path)) {
+        fs::permissions(path,fs::perms::owner_all,fs::perm_options::replace);
+        return;
+      }
+    }
+    throw std::runtime_error("Cannot create private staging directory");
+  }
+  ~Staging() { std::error_code ignored; if(!path.empty()) fs::remove_all(path,ignored); }
+  void publish(const fs::path& destination) {
+    // Recheck immediately before same-filesystem atomic rename. Never replace a product directory.
+    require(!fs::exists(fs::symlink_status(destination)), "Output appeared during processing");
+#ifdef __linux__
+    // Linux renameat2 RENAME_NOREPLACE closes the check/rename race.
+    require(::syscall(SYS_renameat2,AT_FDCWD,path.c_str(),AT_FDCWD,destination.c_str(),1)==0,
+            std::string("Cannot publish output exclusively: ")+std::strerror(errno));
+#elif defined(__APPLE__)
+    require(::renamex_np(path.c_str(),destination.c_str(),RENAME_EXCL)==0,
+            std::string("Cannot publish output exclusively: ")+std::strerror(errno));
+#else
+    throw std::runtime_error("Exclusive atomic publication is unsupported on this platform");
+#endif
+    path.clear();
+  }
+};
+}
+std::string translate(const std::string& message,const std::string& language) {
+  if(language!="it") return message;
+  // Prefixes preserve technical paths and upstream identifiers verbatim.
+  static const std::map<std::string,std::string> catalog{
+    {"Expected a regular, non-symlink file: ","È richiesto un file normale, non un collegamento simbolico: "},
+    {"Calibration profile exceeds 1 MiB","Il profilo di calibrazione supera 1 MiB"},
+    {"Cannot read calibration profile","Impossibile leggere il profilo di calibrazione"},
+    {"Invalid calibration JSON: ","JSON di calibrazione non valido: "},
+    {"Missing transform: ","Trasformazione mancante: "},
+    {"Missing numeric coefficient: ","Coefficiente numerico mancante: "},
+    {"Non-finite or excessive affine coefficient","Coefficiente affine non finito o eccessivo"},
+    {"Singular affine transform","Trasformazione affine singolare"},
+    {"ROI must be an object","La ROI deve essere un oggetto"},
+    {"Invalid ROI integer: ","Intero ROI non valido: "},
+    {"ROI outside aligned image","La ROI esce dai limiti dell'immagine allineata"},
+    {"PNG file exceeds 1 GiB","Il file PNG supera 1 GiB"},
+    {"Invalid PNG signature or IHDR","Firma PNG o intestazione IHDR non valida"},
+    {"PNG dimensions exceed RDAS safety limits","Le dimensioni PNG superano i limiti di sicurezza RDAS"},
+    {"Expected an unsigned 8-bit or 16-bit grayscale PNG","È richiesto un PNG in scala di grigi a 8 o 16 bit senza segno"},
+    {"Cannot read input file: ","Impossibile leggere il file di input: "},
+    {"Input file changed or could not be read: ","Il file di input è cambiato o non è leggibile: "},
+    {"Decoded PNG dimensions differ from IHDR","Le dimensioni del PNG decodificato differiscono da IHDR"},
+    {"Cannot decode image: ","Impossibile decodificare l'immagine: "},
+    {"Expected an unsigned 8-bit or 16-bit grayscale channel","È richiesto un canale in scala di grigi a 8 o 16 bit senza segno"},
+    {"Invalid RDAS channel dimensions (height must exceed 3606; max 150 Mpx)","Dimensioni canale RDAS non valide (altezza superiore a 3606; massimo 150 Mpx)"},
+    {"Expected non-symlink MSUGS_VIS directory","È richiesta una cartella MSUGS_VIS, non un collegamento simbolico"},
+    {"All channels in a VIS product must have equal dimensions and depth","Tutti i canali VIS devono avere dimensioni e profondità uguali"},
+    {"ECC did not produce a finite solution","ECC non ha prodotto una soluzione finita"},
+    {"Failed to encode output PNG","Impossibile codificare il PNG in uscita"},
+    {"Output parent directory must exist","La cartella che conterrà l'output deve esistere"},
+    {"Output destination already exists","La destinazione di output esiste già"},
+    {"Cannot create private staging directory","Impossibile creare la cartella temporanea privata"},
+    {"Output appeared during processing","La destinazione è stata creata durante l'elaborazione"},
+    {"Cannot publish output exclusively: ","Impossibile pubblicare l'output senza sovrascritture: "},
+    {"Exclusive atomic publication is unsupported on this platform","La pubblicazione atomica esclusiva non è supportata su questa piattaforma"},
+    {"Specify a satellite/profile identifier","Specificare un identificativo satellite/profilo"},
+    {"Invalid satellite identifier","Identificativo satellite non valido"},
+    {"Input, output and calibration profile are required","Sono richiesti input, output e profilo di calibrazione"},
+    {"Input must be a directory","L'input deve essere una cartella"},
+    {"Input and output must differ","Input e output devono essere diversi"},
+    {"No calibration for ","Calibrazione mancante per "},
+    {"Failed to save calibration profile","Impossibile salvare il profilo di calibrazione"},
+    {"Calibrated profile; merge ROIs still require manual validation","Profilo calibrato; le ROI di fusione richiedono ancora una verifica manuale"},
+    {"VIS products have different bit depths","I prodotti VIS hanno profondità diverse"},
+    {"Merged dimensions overflow","Le dimensioni della fusione superano i limiti"},
+    {"Writing merged aligned channels","Salvataggio dei canali allineati e uniti"},
+    {"No complete merge ROIs; writing separate aligned VIS products","ROI di fusione incomplete; salvataggio dei prodotti VIS allineati separati"},
+    {"CBOR copied unchanged; SatDump geometry interoperability requires dataset validation","CBOR copiato senza modifiche; l'interoperabilità geometrica con SatDump richiede la verifica con dataset"},
+    {"Backend: OpenCL","Motore: OpenCL"},{"Backend: CPU","Motore: CPU"},
+    {"Loading ","Caricamento "},{"Calibrating ","Calibrazione "},{"Completed: ","Completato: "},
+    {"Mode specified more than once","Modalità specificata più volte"},
+    {"Duplicate option: ","Opzione duplicata: "},{"Unknown option: ","Opzione sconosciuta: "},
+    {"Missing value for ","Valore mancante per "},{"Mode must be generate or calibrate","La modalità deve essere generate o calibrate"},
+    {"Language must be en or it","La lingua deve essere en o it"}
+  };
+  for(const auto& entry:catalog) if(message.rfind(entry.first,0)==0)
+    return entry.second+message.substr(entry.first.size());
+  return "Dettaglio tecnico: "+message;
+}
+Inspection inspect(const std::filesystem::path& image) {
+  const auto mat=readImage(image);
+  return {mat.cols,mat.rows,mat.depth()==CV_16U?16:8};
+}
+void run(const RunOptions& options,const Log& log) {
+  auto message=[&](const std::string& s){if(log)log(translate(s,options.language));};
+  require(!options.satellite.empty() && options.satellite.size()<=32,
+          "Specify a satellite/profile identifier");
+  for(char c:options.satellite)
+    require((c>='A'&&c<='Z')||(c>='0'&&c<='9')||c=='_',"Invalid satellite identifier");
+  require(!options.input.empty()&&!options.output.empty()&&!options.config.empty(),
+          "Input, output and calibration profile are required");
+  const auto input=fs::canonical(options.input);
+  require(fs::is_directory(input), "Input must be a directory");
+  const auto output=fs::absolute(options.output).lexically_normal();
+  require(output!=input,"Input and output must differ");
+  require(!fs::exists(fs::symlink_status(output)), "Output destination already exists");
+  auto config=readConfig(options.config);
+  cv::ocl::setUseOpenCL(!options.cpu);
+  message(cv::ocl::useOpenCL()?"Backend: OpenCL":"Backend: CPU");
+  const std::array<fs::path,2> dirs{input/"MSUGS_VIS1",input/"MSUGS_VIS2"};
+  std::array<Channels,2> products;
+  Staging stage(output);
+  for(int vis=0;vis<2;++vis) {
+    const std::string key=options.satellite+"VIS"+std::to_string(vis+1);
+    message("Loading "+key);
+    auto channels=load(dirs[vis]);
+    if(options.calibrate) {
+      message("Calibrating "+key);
+      // Futures propagate worker exceptions to caller rather than terminating the process.
+      auto second=std::async(std::launch::async,[&]{return ecc(channels[0],channels[1],ch2offset);});
+      auto third=std::async(std::launch::async,[&]{return ecc(channels[0],channels[2],ch3offset);});
+      setTransform(config[key],"CH2",second.get());
+      setTransform(config[key],"CH3",third.get());
+    } else {
+      require(config[key].isObject(),"No calibration for "+key);
+      products[vis]=align(channels,config[key]);
+      // Mat reference counting retains channel 1's buffer after channels leaves scope.
+    }
+  }
+  if(options.calibrate) {
+    std::ofstream stream(stage.path/"calibration.json",std::ios::binary);
+    Json::StreamWriterBuilder writer; writer["indentation"]="  ";
+    stream<<Json::writeString(writer,config)<<'\n';
+    stream.close(); require(bool(stream),"Failed to save calibration profile");
+    message("Calibrated profile; merge ROIs still require manual validation");
+  } else {
+    const auto key1=options.satellite+"VIS1",key2=options.satellite+"VIS2";
+    if(config[key1].isMember("ROI")&&config[key2].isMember("ROI")) {
+      const auto left=roi(config[key1],products[0][0].size());
+      const auto right=roi(config[key2],products[1][0].size());
+      require(products[0][0].type()==products[1][0].type(),"VIS products have different bit depths");
+      require(left.width<=std::numeric_limits<int>::max()-right.width,"Merged dimensions overflow");
+      Channels merged;
+      for(int i=0;i<3;++i) {
+        merged[i]=cv::Mat::zeros(std::max(left.height,right.height),left.width+right.width,products[0][i].type());
+        products[0][i](left).copyTo(merged[i](cv::Rect(0,0,left.width,left.height)));
+        products[1][i](right).copyTo(merged[i](cv::Rect(left.width,0,right.width,right.height)));
+      }
+      message("Writing merged aligned channels");
+      writeProduct(stage.path/"MSUGS_VIS_Aligned",merged,dirs[0]/"product.cbor");
+    } else {
+      message("No complete merge ROIs; writing separate aligned VIS products");
+      writeProduct(stage.path/"MSUGS_VIS-1_Aligned",products[0],dirs[0]/"product.cbor");
+      writeProduct(stage.path/"MSUGS_VIS-2_Aligned",products[1],dirs[1]/"product.cbor");
+    }
+    message("CBOR copied unchanged; SatDump geometry interoperability requires dataset validation");
+  }
+  stage.publish(output);
+  message("Completed: "+output.string());
+}
+}
