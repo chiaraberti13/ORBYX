@@ -89,7 +89,7 @@ Un runner opzionale Python 3.10+ esegue lavori sequenziali con stato persistente
 - `third_party/rdas_layer_aligner`: riferimento originale fissato a un commit, escluso dalla build normale.
 - `docs`: [decisione sui linguaggi](docs/ADR-001-language.md), audit e verifiche.
 
-Per i sanitizers usare `-DORBYX_SANITIZE=ON -DORBYX_BUILD_GUI=OFF -DCMAKE_BUILD_TYPE=Debug`, quindi CTest. La CI prevede Ubuntu 22.04/24.04/26.04, sanitizers e analisi statica: la configurazione dei job non dimostra che siano passati. CPack consente packaging sperimentale, non una release già verificata. ARM64 Ubuntu24.04 nativo, Fedora44/RPM in userspace pulito e AppImage in userspace Ubuntu22.04 pulito hanno superato la CI sul commit0d7bf19. Restano aperti VM grafica completa/FUSE, Arch/Mint e macOS; vedere [prove piattaforme](docs/PLATFORMS_REAL.md).
+Per i sanitizers usare `-DORBYX_SANITIZE=ON -DORBYX_BUILD_GUI=OFF -DCMAKE_BUILD_TYPE=Debug`, quindi CTest. La CI prevede Ubuntu 22.04/24.04/26.04, sanitizers e analisi statica: la configurazione dei job non dimostra che siano passati. CPack consente packaging sperimentale, non una release già verificata. ARM64 Ubuntu24.04 nativo, Fedora44/RPM in userspace pulito e AppImage in userspace Ubuntu22.04 pulito hanno superato la CI sul commit0d7bf19. Restano aperte sessioni grafiche interattive/FUSE, Arch/Mint e macOS; vedere [prove piattaforme](docs/PLATFORMS_REAL.md).
 
 ## Sicurezza e licenza
 
@@ -114,3 +114,5 @@ Sul commit `4190002` sono passate le build CI x86_64 seguenti: compilazione, set
 Per ridurre esplicitamente la memoria di calibrazione: `calibrate --calibration-scale 0.125` (intervallo `(0,1]`, predefinito1). Le trasformazioni restano in pixel originali; `generate` preserva risoluzione e profondità. Scala ridotta e precisione sono descritte in [REAL_RDAS.md](docs/REAL_RDAS.md).
 
 [Esportazione Natural Color RGB321](docs/NATURAL_COLOR.md) disponibile da CLI (`natural-color`) e desktop, a 8/16 bit, verificata anche sui due VIS reali Elektro-L4. La composizione RGB generica mantiene la sua mappatura precedente.
+
+[Stato delle cinque verifiche reali](docs/VERIFICATION_STATUS.md): installazione Fedora44 in VM KVM pulita e Natural Color sui dati autentici Elektro-L4 superati; GPU effettiva e geometria assoluta restano non certificate.

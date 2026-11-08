@@ -8,7 +8,9 @@ L'avvio usa QEMU/KVM quando `/dev/kvm` è disponibile, altrimenti TCG dichiarato
 
 Nel guest vengono controllati Fedora44, virtualizzazione VM effettiva, assenza di container e kernel `fc44`. Si installa l'RPM con le sole dipendenze runtime dichiarate e si verifica l'assenza di toolchain/pacchetti-devel. CLI e GUI offscreen generano gli stessi otto prodotti sintetici; esportano inoltre Natural Color identico. Disinstallazione verificata con conservazione dei dati originali. Log seriale, inventario runtime e log del guest sono conservati negli artifact, esclusi dischi e chiavi.
 
-**Stato iniziale:** script Bash/YAML e pin verificati; l'immagine è stata scaricata e verificata realmente. Il risultato completo deve essere osservato nel run remoto e registrato in `PROGRESS.md`. L'esistenza del workflow non certifica da sola l'avvio della VM. GUI offscreen non significa test interattivo con display, screen reader o FUSE.
+**Verifica effettiva completata:** [run42517397293](https://github.com/chiaraberti13/ORBYX/actions/runs/42517397293), commit `9a52e07d1e941b155ce9194fe019fba4de1d4549`, `success`. Acceleratore KVM, kernel guest6.19.10-300.fc44.x86_64, cloud-init `done` senza degradazione; RPM installato, otto prodotti CLI/GUI identici, PNG Natural Color identici, disinstallazione e input preservati. Il test OpenCL è saltato per assenza del runtime, senza etichettarlo GPU superata. GUI offscreen non significa test interattivo con display, screen reader o FUSE.
+
+Durante la verifica sono stati corretti due problemi dell'harness: chiamata di enumerazione OpenCL4.13 prima del controllo runtime e `datasource_list` inserito nei user-data cloud-init (lo schema ufficiale25.3 lo rifiuta). Lo schema dei campi utilizzati è stato verificato localmente e la nuova VM è stata inizializzata senza ignorare codici di errore.
 
 ## English
 
@@ -19,3 +21,5 @@ The guest asserts Fedora44, a genuine VM rather than a container, and an fc44 ke
 - [Workflow](../.github/workflows/fedora-vm.yml)
 - [Test script](../scripts/ci/fedora-vm.sh)
 - [Official Fedora44 cloud images](https://download.fedoraproject.org/pub/fedora/linux/releases/44/Cloud/x86_64/images/)
+
+Observed remote success: run42517397293 on commit9a52e07; actual KVM/fc44 kernel, clean install, installed CLI/GUI/colour equivalence and uninstall/input preservation passed.

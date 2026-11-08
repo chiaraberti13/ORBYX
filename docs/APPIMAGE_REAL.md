@@ -107,3 +107,5 @@ source obligations remain applicable to final redistribution.
 ## Evidenza remota / Remote evidence
 
 Verifica effettiva conclusa con successo sul commit `0d7bf195b6af4ab2d2392c87234945accf499ede`: [run 42501765193](https://github.com/chiaraberti13/ORBYX/actions/runs/42501765193). Il risultato vale per le verifiche descritte, senza estenderlo a piattaforme o identità diverse. / The successful run covers the checks described here, without implying other platforms or signer identities.
+
+Verifica ripetuta con Natural Color e harness aggiornato: [run42517397247](https://github.com/chiaraberti13/ORBYX/actions/runs/42517397247), commit `9a52e07d1e941b155ce9194fe019fba4de1d4549`, `success`. Per la VM completa con kernel proprio vedere [FEDORA_VM.md](FEDORA_VM.md). / Revalidated successfully on this revision.

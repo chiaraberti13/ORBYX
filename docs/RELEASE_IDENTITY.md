@@ -6,7 +6,7 @@ ORBYX può firmare la provenienza dei suoi artifact senza richiedere una chiave 
 
 Il job esegue build e test effettivi, prepara il TGZ binario, i sorgenti corrispondenti e `SHA256SUMS`, poi attesta tutti e tre. Prima di pubblicare gli artifact verifica crittograficamente ogni soggetto, imponendo repository, percorso del workflow, branch `main`, SHA del commit e runner GitHub ospitato. Verifica anche che una copia manomessa venga rifiutata. Il token OIDC e la chiave di breve durata non vengono salvati nel repository; non occorre configurare un secret di firma. I soli permessi aggiuntivi sono `id-token: write` e `attestations: write`. Nessuna release GitHub o aggiornamento dell'applicazione viene creato automaticamente.
 
-**Stato della verifica:** la configurazione è implementata. La firma reale e la sua verifica devono essere dichiarate superate soltanto dopo il successo del relativo job GitHub; il runtime locale non dispone dell'identità OIDC del job. Il risultato remoto e il suo commit vanno registrati in `PROGRESS.md`. L'assenza di un secret GPG personale non blocca questa modalità di autenticazione, ma l'aggiornamento/rollback firmato resta una funzionalità distinta.
+**Stato della verifica:** firma autentica e verifica completate con successo nel [run42517397338](https://github.com/chiaraberti13/ORBYX/actions/runs/42517397338), revisione9a52e07. Il test rifiuta anche un soggetto manomesso. L'identità OIDC appartiene al job GitHub e non al runtime locale o a una chiave GPG personale. Non occorre un secret di firma per questa modalità; aggiornamento/rollback automatico resta una funzionalità distinta.
 
 Dall'artifact del run si ottengono gli archivi, il bundle `provenance.sigstore.json` e i risultati `*.verification.json`. Dopo aver scelto lo SHA di una build approvata, verificare un archivio con una versione aggiornata della CLI GitHub:
 
@@ -41,3 +41,5 @@ Action version: `actions/attest` v4 resolved to `1e69f48acb82d1966a394da916b4c16
 ## Evidenza remota / Remote evidence
 
 Verifica effettiva conclusa con successo sul commit `0d7bf195b6af4ab2d2392c87234945accf499ede`: [run 42501765172](https://github.com/chiaraberti13/ORBYX/actions/runs/42501765172). Il risultato vale per le verifiche descritte, senza estenderlo a piattaforme o identità diverse. / The successful run covers the checks described here, without implying other platforms or signer identities.
+
+Verifica ripetuta con Natural Color e harness aggiornato: [run42517397338](https://github.com/chiaraberti13/ORBYX/actions/runs/42517397338), commit `9a52e07d1e941b155ce9194fe019fba4de1d4549`, `success`. Per la VM completa con kernel proprio vedere [FEDORA_VM.md](FEDORA_VM.md). / Revalidated successfully on this revision.

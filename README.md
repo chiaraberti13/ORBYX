@@ -91,7 +91,7 @@ An optional Python 3.10+ runner executes sequential jobs with durable state, per
 - `third_party/rdas_layer_aligner`: pinned, unmodified reference snapshot, excluded from the normal build.
 - `docs`: [language decision](docs/ADR-001-language.en.md), audit, verification and design records.
 
-Build sanitizers with `-DORBYX_SANITIZE=ON -DORBYX_BUILD_GUI=OFF -DCMAKE_BUILD_TYPE=Debug`. Run `ctest --test-dir build --output-on-failure`. CI covers Ubuntu 22.04/24.04/26.04, sanitizers and static analysis; configured jobs are not proof that the matrix has passed. Distribution packages can be generated experimentally with CPack; they are not a verified release. Native Ubuntu ARM64, clean Fedora44 userspace/RPM and clean Ubuntu22.04 userspace/AppImage checks passed on commit0d7bf19. Full desktop VM/FUSE, Arch/Mint and macOS remain unverified; see [platform evidence](docs/PLATFORMS_REAL.md).
+Build sanitizers with `-DORBYX_SANITIZE=ON -DORBYX_BUILD_GUI=OFF -DCMAKE_BUILD_TYPE=Debug`. Run `ctest --test-dir build --output-on-failure`. CI covers Ubuntu 22.04/24.04/26.04, sanitizers and static analysis; configured jobs are not proof that the matrix has passed. Distribution packages can be generated experimentally with CPack; they are not a verified release. Native Ubuntu ARM64, clean Fedora44 userspace/RPM and clean Ubuntu22.04 userspace/AppImage checks passed on commit0d7bf19. Interactive desktop sessions/FUSE, Arch/Mint and macOS remain unverified; see [platform evidence](docs/PLATFORMS_REAL.md).
 
 ## Security and licence
 
@@ -112,3 +112,5 @@ The following x86_64 CI builds passed on revision `4190002`: native compilation,
 | 22.04 LTS | ✓ | ✓ |
 | 24.04 LTS | ✓ | ✓ |
 | 26.04 LTS | ✓ | ✓ |
+
+[Observed status of the five real-validation gaps](docs/VERIFICATION_STATUS.md). Fedora44 clean KVM installation and Natural Color on genuine Elektro-L4 data have passed; actual GPU and absolute geometry remain unverified.

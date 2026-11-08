@@ -42,3 +42,7 @@ The real-data workflow now renders both VIS products and records reference repor
 - [Algoritmo GPL originale conservato](../third_party/rdas_layer_aligner/imageproc.cpp)
 - [Regole e merge RGB321 upstream](../third_party/rdas_layer_aligner/main.cpp)
 - [Configurazione ufficiale SatDump MSU-GS](https://github.com/SatDump/SatDump/blob/master/resources/instrument_cfgs/msugs_vis.json): RGB321; non viene dichiarata equivalenza byte-identica ai filtri di SatDump.
+
+## Esiti remoti / Observed remote results
+
+[Pipeline RDAS/Natural Color42516055833](https://github.com/chiaraberti13/ORBYX/actions/runs/42516055833), commita531cec: successo sul campione autentico, entrambi i compositi e i report di riferimento. Regressioni successive su9a52e07, incluse Fedora44/OpenCV4.13, ARM64 nativo e VM KVM pulita, hanno superato anche equivalenza CLI/GUI dell'esportazione installata. GPU rimane separatamente saltata, non superata.

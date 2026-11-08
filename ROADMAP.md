@@ -44,7 +44,7 @@ Stati: pianificato, in corso, verificato, bloccato. Pubblicare ogni task verific
 - Deliverable: Core e comandi generate/calibrate
 - Test: Fixture sintetiche 8/16 bit e input invalidi
 - Accettazione: Canali corretti, errori gestiti, originali preservati
-- Stato: verificato su Ubuntu 24.04 x86_64 con dataset sintetici; validazione dati reali M3-01 aperta
+- Stato: verificato su regressioni sintetiche e pipeline RDAS reale Elektro-L4 a16bit; precisione assoluta/geolocalizzazione restano in M3-01
 
 ## M1-02 — Regressioni, sanitizers e CI
 
@@ -55,7 +55,7 @@ Stati: pianificato, in corso, verificato, bloccato. Pubblicare ogni task verific
 - Deliverable: Suite, workflow e Dependabot
 - Test: Build e CTest locali; CI remota
 - Accettazione: Risultati registrati senza inventare compatibilità
-- Stato: verificato — matrice Ubuntu 22.04/24.04/26.04, 7 gruppi CTest, sanitizers con leak detection e Cppcheck; CodeQL completato sul commit 4190002
+- Stato: verificato — Ubuntu22.04/24.04/26.04, suite core/CLI/GUI con Natural Color, sanitizers/leak detection, Cppcheck, fuzzing e CodeQL verdi su commit9a52e07 (run42517397183 e42517397274). Nei build GUI:16gruppi applicabili eseguiti, gate hardware GPU saltato correttamente; nessun pass GPU implicato.
 
 ## M2-01 — Desktop bilingue con elaborazione asincrona
 
@@ -99,7 +99,7 @@ Stati: pianificato, in corso, verificato, bloccato. Pubblicare ogni task verific
 - Deliverable: Pacchetti e build riproducibili
 - Test: Ubuntu 22.04/24.04/26.04; smoke pacchetti
 - Accettazione: Solo piattaforme effettivamente testate dichiarate
-- Stato: verificato in parte — Ubuntu22.04/24.04/26.04 x86_64, DEB/RPM, Fedora44 in userspace pulito, ARM64 nativo Ubuntu24.04 e AppImage x86_64 in container Ubuntu22.04 pulito verificati in CI sul commit0d7bf19: workflow piattaforme42501765159 e AppImage42501765193. Container con kernel condiviso: VM grafica completa, integrazione FUSE/desktop, macOS e altre distro non verificati. Vedere `docs/PLATFORMS_REAL.md` e `docs/APPIMAGE_REAL.md`.
+- Stato: verificato per la matrice Linux dichiarata — Ubuntu22.04/24.04/26.04 x86_64, ARM64 Ubuntu24.04 nativo, Fedora44 RPM in userspace pulito e VM KVM con kernel proprio6.19.10-300.fc44.x86_64, AppImage x86_64 in userspace Ubuntu22.04 pulito. Installazione/esecuzione CLI/GUI/Natural Color, equivalenza e disinstallazione con input preservati verificate su commit9a52e07: [VM42517397293](https://github.com/chiaraberti13/ORBYX/actions/runs/42517397293), piattaforme42517397266, AppImage42517397247. Non esteso a sessione grafica interattiva/FUSE/macOS o distro non testate (`docs/FEDORA_VM.md`, `docs/PLATFORMS_REAL.md`, `docs/APPIMAGE_REAL.md`).
 
 ## M3-03 — Prestazioni, GPU e fuzzing
 
@@ -166,7 +166,7 @@ Stati: pianificato, in corso, verificato, bloccato. Pubblicare ogni task verific
 - Deliverable: composizione e conversione 8/16 bit documentata
 - Test: scene reali e fixture cromatiche
 - Accettazione: nessuna conversione implicita o perdita dei canali originali
-- Stato: verificato per resa visiva Natural Color — core/CLI e worker desktop EN/IT, RGB321 MSU-GS con regole hue legacy in floating point, 8/16bit senza quantizzazione intermedia a8bit, originali immutati e PNG atomico esclusivo. Fixture cromatiche con oracolo scalare indipendente, limiti delle strisce e bit bassi16bit verificati; CLI e GUI producono gli stessi byte. Due scene VIS reali Elektro-L4 esportate a6004×13594×3 uint16: oltre25000campioni confrontati con colorsys, scarto≤0,48 livelli, confini hue conteggiati separatamente; scena ispezionata. Non è colore vero calibrato radiometricamente e non corregge geometria/artefatti sorgenti (`docs/NATURAL_COLOR.md`). Risultati CI da registrare dopo completamento.
+- Stato: verificato per resa visiva Natural Color — core/CLI e worker desktop EN/IT, RGB321 MSU-GS con regole hue legacy in floating point, 8/16bit senza quantizzazione intermedia a8bit, originali immutati e PNG atomico esclusivo. Fixture cromatiche con oracolo scalare indipendente, limiti delle strisce e bit bassi16bit verificati; CLI e GUI producono gli stessi byte. Due scene VIS reali Elektro-L4 esportate a6004×13594×3 uint16: oltre25000campioni confrontati con colorsys, scarto≤0,48 livelli, confini hue conteggiati separatamente; scena ispezionata. Non è colore vero calibrato radiometricamente e non corregge geometria/artefatti sorgenti (`docs/NATURAL_COLOR.md`). Verifica remota riuscita: [RDAS/Natural Color42516055833](https://github.com/chiaraberti13/ORBYX/actions/runs/42516055833), commit a531cec; regressioni delle piattaforme successive verdi anche su9a52e07.
 
 ## M1-03 — Inventario dipendenze, SBOM e scansione vulnerabilità runtime
 

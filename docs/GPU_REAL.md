@@ -24,3 +24,9 @@ La calibrazione ORBYX usa `Mat`/`findTransformECC`: è CPU anche se esiste OpenC
 The dedicated CTest executable requires an actual available OpenCL GPU, executes an explicit kernel and checks all4096results. CPU devices/fallback never count as GPU proof. Exit77 means unavailable hardware and is recorded as a skipped test; actual kernel or numeric failures return1. An additional requested-UMat affine8/16bit comparison is scoped separately because OpenCV can internally fall back per operation. It does not certify full engine dispatch or performance.
 
 Local execution found no OpenCL platform/device and skipped correctly. ECC is a CPU Mat estimator; the engine now logs this explicitly. Genuine generation profiling/equivalence and GPU benchmarks remain open until actual hardware is available. No GPU result is inferred from a green standard CPU CI run.
+
+## Inventario remoto aggiuntivo / Additional remote inventory
+
+[Run42517297975](https://github.com/chiaraberti13/ORBYX/actions/runs/42517297975), commitf2bf5b5: chiamate native Apple OpenCL su runner standard pubblico macos-15-intel hanno restituito **0GPU disponibili**. La fase successiva di build/esecuzione del verifier è stata saltata. È un inventario hardware reale, non un pass GPU e non una prova di compatibilità ORBYX/macOS. Nessun runner large/xlarge o servizio a pagamento è stato attivato. / Native Apple OpenCL inventory returned zero available GPUs; project verification was skipped, with no GPU or macOS compatibility claim.
+
+Su Fedora/OpenCV4.13 l'enumerazione può generare eccezione se il runtime manca: corretto il controllo `haveOpenCL()` prima della chiamata. La CI Fedora/VM successiva registra correttamente lo skip e prosegue i test applicativi.
