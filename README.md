@@ -33,7 +33,7 @@ This is an initial implementation, not a finished release. Synthetic regressions
 - Desktop source/config/output selection, asynchronous processing, input/output preview, zoom/pan, diagnostic log, persistent language and light/dark theme.
 - English/Italian UI, CLI help and application diagnostics; third-party technical error details may remain in their original language.
 
-L2, L3, **L5**, M1 and M2 coefficients are retained. L4 has no bundled coefficients and requires calibration. Automatic satellite identification, batch queues, folder monitoring, guided ROI editing, Natural Color export and application updating are planned, not implemented. `-n/--nc` was disabled upstream and is not exposed as a working feature.
+L2, L3, **L5**, M1 and M2 coefficients are retained. L4 has no bundled coefficients and requires calibration. Automatic satellite identification, desktop batch queues, folder monitoring, guided ROI editing, Natural Color export and application updating are planned, not implemented. `-n/--nc` was disabled upstream and is not exposed as a working feature.
 
 ## Build and install
 
@@ -74,6 +74,10 @@ Success returns `0`; validation or processing failure returns `2`. Original shor
 
 CBOR is copied unchanged, not recalibrated. File-copy tests do not prove SatDump geometry interoperability.
 
+## Batch workflows
+
+An optional Python 3.10+ runner executes sequential jobs with durable state, per-job calibration profiles and content-verified resume. See [batch usage and failure semantics](docs/BATCH.md). It is separate from the desktop queue.
+
 ## Architecture and development
 
 - `include/orbyx`, `src/core`: image workflow, profiles and guarded filesystem publication.
@@ -91,3 +95,5 @@ Build sanitizers with `-DORBYX_SANITIZE=ON -DORBYX_BUILD_GUI=OFF -DCMAKE_BUILD_T
 Use ordinary privileges and trusted parent directories. Native decoders and GPU drivers remain trust boundaries; keep system dependencies updated. See [security policy](SECURITY.md), [contribution guide](CONTRIBUTING.md) and [conduct](CODE_OF_CONDUCT.md).
 
 GNU GPL version 3, with upstream attribution and dependency notices retained. [LICENSE](LICENSE), [NOTICE](NOTICE), [third-party inventory](THIRD_PARTY_NOTICES.md). No upstream affiliation is implied. The original example photographs are not redistributed.
+
+[Verification record / Registro verifiche](docs/VERIFICATION.md) · [Memory limits / Limiti memoria](docs/RESOURCE_LIMITS.md)

@@ -33,7 +33,7 @@ ORBYX modernizza [RDAS Layer Aligner](https://github.com/Digitelektro/rdas_layer
 - Desktop con scelta origine/profilo/destinazione, elaborazione asincrona, anteprima origine/risultato, zoom/pan, log, lingua e tema chiaro/scuro persistenti.
 - Interfaccia, aiuto CLI e diagnostica applicativa in italiano/inglese; i dettagli tecnici delle librerie possono mantenere la lingua originale.
 
-Sono conservati i coefficienti L2, L3, **L5**, M1 e M2. L4 richiede una calibrazione perché non ha coefficienti inclusi. Riconoscimento automatico del satellite, code batch, monitoraggio cartelle, editor guidato delle ROI, Natural Color e aggiornamenti applicativi sono pianificati. L'opzione `-n/--nc` era disabilitata nell'originale e non viene presentata come funzionante.
+Sono conservati i coefficienti L2, L3, **L5**, M1 e M2. L4 richiede una calibrazione perché non ha coefficienti inclusi. Riconoscimento automatico del satellite, code batch desktop, monitoraggio cartelle, editor guidato delle ROI, Natural Color e aggiornamenti applicativi sono pianificati. L'opzione `-n/--nc` era disabilitata nell'originale e non viene presentata come funzionante.
 
 ## Compilazione e installazione
 
@@ -74,6 +74,10 @@ Exit code `0` per successo, `2` per errori. Restano disponibili `-s`, `-d`, `-m`
 
 Il CBOR viene copiato senza modifiche e non ricalibrato. Una copia corretta dei byte non dimostra l'interoperabilità geometrica con SatDump.
 
+## Elaborazioni batch
+
+Un runner opzionale Python 3.10+ esegue lavori sequenziali con stato persistente, profili per lavoro e ripresa verificata tramite digest. Vedi [uso del batch e gestione dei fallimenti](docs/BATCH.md). È separato dalla coda desktop.
+
 ## Architettura e sviluppo
 
 - `include/orbyx`, `src/core`: immagini, profili e pubblicazione controllata dell'output.
@@ -91,3 +95,5 @@ Per i sanitizers usare `-DORBYX_SANITIZE=ON -DORBYX_BUILD_GUI=OFF -DCMAKE_BUILD_
 Usare privilegi ordinari e cartelle di destinazione fidate. Decoder nativi e driver GPU restano confini di fiducia: aggiornare le dipendenze di sistema. Consultare [sicurezza](SECURITY.md), [contributi](CONTRIBUTING.md) e [condotta](CODE_OF_CONDUCT.md).
 
 GNU GPL versione 3, con attribuzioni originali e avvisi sulle dipendenze. [LICENSE](LICENSE), [NOTICE](NOTICE), [inventario delle dipendenze](THIRD_PARTY_NOTICES.md). Nessuna affiliazione con il progetto originale. Le fotografie dimostrative originali non sono redistribuite.
+
+[Verification record / Registro verifiche](docs/VERIFICATION.md) · [Memory limits / Limiti memoria](docs/RESOURCE_LIMITS.md)

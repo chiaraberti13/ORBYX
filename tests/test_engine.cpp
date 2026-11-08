@@ -116,8 +116,20 @@ void calibration(const fs::path& root) {
  fs::create_symlink(input/"MSUGS_VIS1/MSUGS-VIS-2.png",input/"MSUGS_VIS2/MSUGS-VIS-2.png");
  options.output=root/"input-link";fails([&]{orbyx::run(options);});check(!fs::exists(options.output),"Input symlink rejected");
 }
-int main() {
+int main(int argc,char** argv) {
  fs::path root;
+ if(argc!=1) {
+  try {
+   check(argc==3&&std::string(argv[1])=="--fixture","Usage: orbyx_tests [--fixture NEW_DIRECTORY]");
+   const fs::path destination=fs::absolute(argv[2]);
+   check(!fs::exists(fs::symlink_status(destination)),"Fixture destination already exists");
+   fs::create_directory(destination);
+   fixture(destination/"input",CV_8U);
+   writeJson(destination/"profile.json",identity());
+   std::cout<<"Synthetic fixture: "<<destination<<'\n';
+   return 0;
+  }catch(const std::exception& error){std::cerr<<error.what()<<'\n';return 1;}
+ }
  try {
   root=fs::temp_directory_path()/("orbyx-tests-"+std::to_string(std::random_device{}()));
   fs::create_directory(root);

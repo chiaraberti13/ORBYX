@@ -77,7 +77,7 @@ Stati: pianificato, in corso, verificato, bloccato. Pubblicare ogni task verific
 - Deliverable: Workflow e profili versionati
 - Test: Interruzione, ripresa e input modificato
 - Accettazione: Nessun output parziale scambiato per completo
-- Stato: pianificato
+- Stato: verificato per batch headless sequenziale EN/IT, profili e ripresa con digest; coda GUI separata in M2-03
 
 ## M3-01 — Dataset reali e interoperabilità SatDump
 
@@ -134,3 +134,36 @@ Stati: pianificato, in corso, verificato, bloccato. Pubblicare ogni task verific
 - Accettazione: Nessun aggiornamento eseguito senza verifica
 - Stato: pianificato
 
+
+## M2-03 — Coda desktop e gestione dei profili
+
+- Priorità: P1
+- Dipendenze: M2-02
+- Responsabile: Qt Engineer / Application Engineer
+- Competenze: Qt models, job states, UX
+- Deliverable: coda GUI e creazione/duplicazione profili
+- Test: interruzione, ripresa, modifica input, localizzazione
+- Accettazione: stato durevole visibile nel desktop e nessuna perdita dati
+- Stato: pianificato
+
+## M2-04 — Monitoraggio cartelle e riconoscimento dati
+
+- Priorità: P2
+- Dipendenze: M3-01, M2-02
+- Responsabile: Satellite Imaging Specialist / Application Engineer
+- Competenze: SatDump metadata, file stabilization, concurrency
+- Deliverable: rilevamento affidabile e import automatico
+- Test: acquisizione incompleta, scritture concorrenti e metadati ambigui
+- Accettazione: nessun job avviato su prodotti incompleti, controllo manuale preservato
+- Stato: pianificato
+
+## M3-04 — Natural Color validato
+
+- Priorità: P2
+- Dipendenze: M3-01
+- Responsabile: Computer Vision Engineer
+- Competenze: 16-bit radiometry, color management
+- Deliverable: composizione e conversione 8/16 bit documentata
+- Test: scene reali e fixture cromatiche
+- Accettazione: nessuna conversione implicita o perdita dei canali originali
+- Stato: pianificato

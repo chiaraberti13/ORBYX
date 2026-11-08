@@ -7,6 +7,10 @@
 #include <QComboBox>
 #include <QDir>
 #include <QDirIterator>
+#include <QDragEnterEvent>
+#include <QDropEvent>
+#include <QMimeData>
+#include <QUrl>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFormLayout>
@@ -47,6 +51,8 @@ const QMap<QString, QString> italian = {
  {"Processing engine", "Motore di elaborazione"}, {"Start processing", "Avvia elaborazione"},
  {"Ready", "Pronto"}, {"Processing…", "Elaborazione…"}, {"Completed", "Completato"},
  {"Processing failed", "Elaborazione non riuscita"}, {"Image preview", "Anteprima immagine"},
+ {"Preview channel", "Canale di anteprima"},
+ {"Drop one local RDAS folder here, or select it using the browser.", "Trascina qui una cartella RDAS locale oppure selezionala con Sfoglia."},
  {"Input", "Origine"}, {"Output", "Risultato"}, {"Fit", "Adatta"},
  {"Choose a folder to preview its first channel. Scroll to pan; use + / − to zoom.", "Scegli una cartella per visualizzare il primo canale. Scorri per spostarti; usa + / − per lo zoom."},
  {"Activity", "Attività"}, {"Clear", "Pulisci"}, {"Language", "Lingua"},
@@ -75,6 +81,7 @@ class Window final : public QMainWindow {
     bool busy = false;
     bool it = false;
     bool dark = true;
+    bool quitAfterRun = false;
     QString lastOutput;
     QPixmap image;
     double zoom = 1.0;
@@ -82,7 +89,7 @@ class Window final : public QMainWindow {
     QGroupBox *setup{};
     QLineEdit *input{}, *config{}, *output{};
     QPushButton *inputBrowse{}, *configBrowse{}, *outputBrowse{}, *start{}, *fit{}, *plus{}, *minus{}, *clear{};
-    QComboBox *satellite{}, *mode{}, *engine{}, *language{}, *theme{}, *source{};
+    QComboBox *satellite{}, *mode{}, *engine{}, *language{}, *theme{}, *source{}, *channel{};
     QProgressBar *progress{};
     QScrollArea *scroll{};
     QLabel *canvas{};
@@ -111,13 +118,13 @@ class Window final : public QMainWindow {
         theme->setItemText(0, trText("Dark")); theme->setItemText(1, trText("Light"));
         start->setText(trText(busy ? "Processing…" : "Start processing"));
         hint->setText(trText(satellite->currentText() == "L4" && mode->currentIndex() == 0 ? "L4 has no bundled calibration; calculate one before alignment." : mode->currentIndex() == 1 ? "Calibration writes a new calibration.json in the output folder. Merge regions remain manual." : "Alignment preserves the original input and uses the selected calibration profile."));
-        previewTitle->setText(trText("Image preview")); empty->setText(trText("Choose a folder to preview its first channel. Scroll to pan; use + / − to zoom."));
+        previewTitle->setText(trText("Image preview")); empty->setText(trText("Drop one local RDAS folder here, or select it using the browser."));
         previewNote->setText(trText("Full-resolution exports are unchanged; preview is limited to 2048 pixels."));
         fit->setText(trText("Fit")); plus->setAccessibleName(trText("Zoom in")); minus->setAccessibleName(trText("Zoom out"));
         activityTitle->setText(trText("Activity")); clear->setText(trText("Clear")); languageLabel->setText(trText("Language")); themeLabel->setText(trText("Theme"));
         log->setAccessibleName(trText("Technical diagnostics from the processing engine"));
         satellite->setAccessibleName(trText("Satellite")); mode->setAccessibleName(trText("Operation")); engine->setAccessibleName(trText("Processing engine"));
-        language->setAccessibleName(trText("Language")); theme->setAccessibleName(trText("Theme")); source->setAccessibleName(trText("Image preview"));
+        language->setAccessibleName(trText("Language")); theme->setAccessibleName(trText("Theme")); source->setAccessibleName(trText("Image preview")); channel->setAccessibleName(trText("Preview channel"));
         inputLabel->setBuddy(input); configLabel->setBuddy(config); outputLabel->setBuddy(output); satLabel->setBuddy(satellite); modeLabel->setBuddy(mode); engineLabel->setBuddy(engine);
         if (!busy && progress->value() == 0) status->setText(trText("Ready"));
     }
@@ -141,7 +148,7 @@ class Window final : public QMainWindow {
             "QComboBox::drop-down {border:0;width:22px;} QComboBox QAbstractItemView {background:%2;color:%4;selection-background-color:#238d87;}"
             "QPushButton {background:%2;border:1px solid %6;border-radius:6px;padding:4px 10px;}"
             "QPushButton:hover {border-color:#46cabc;} QPushButton:focus,QLineEdit:focus,QComboBox:focus {border:2px solid #46cabc;}"
-            "QPushButton#primary {background:#46cabc;color:#062c2c;border:0;font-weight:700;padding:13px;}"
+            "QPushButton#start {background:#46cabc;color:#062c2c;border:0;font-weight:700;padding:13px;}"
             "QPushButton:disabled {color:%5;background:%3;}"
             "QScrollArea {border:0;background:%3;} QLabel#canvas {background:%3;}"
             "QTextEdit {font-family:'DejaVu Sans Mono',monospace;font-size:12px;}"
@@ -165,7 +172,8 @@ class Window final : public QMainWindow {
         QString file;
         if (!folder.isEmpty() && QDir(folder).exists()) {
             // Fixed product locations avoid following arbitrary recursive symlinks.
-            const QStringList paths = {"MSUGS_VIS_Aligned/MSUGS-VIS-1.png", "MSUGS_VIS-1_Aligned/MSUGS-VIS-1.png", "MSUGS_VIS1/MSUGS-VIS-1.png", "MSUGS-VIS-1.png"};
+            const QString name=QString("MSUGS-VIS-%1.png").arg(channel->currentIndex()+1);
+            const QStringList paths = {"MSUGS_VIS_Aligned/"+name, "MSUGS_VIS-1_Aligned/"+name, "MSUGS_VIS1/"+name, name};
             for (const auto &p : paths) if (QFileInfo(QDir(folder).filePath(p)).isFile()) { file = QDir(folder).filePath(p); break; }
         }
         image = {};
@@ -185,6 +193,7 @@ class Window final : public QMainWindow {
     void execute() {
         if (busy) return;
         if (input->text().isEmpty() || config->text().isEmpty() || output->text().isEmpty()) {
+            if (quitAfterRun) { QApplication::exit(2); return; }
             QMessageBox::warning(this, trText("Missing settings"), trText("Select an input folder, calibration profile and new output folder.")); return;
         }
         orbyx::RunOptions options;
@@ -194,7 +203,7 @@ class Window final : public QMainWindow {
         lastOutput = output->text(); busy = true;
         for (auto *w : {static_cast<QWidget*>(setup), static_cast<QWidget*>(start)}) w->setEnabled(false);
         progress->setRange(0,0); status->setText(trText("Processing…")); applyText();
-        settings.setValue("input", input->text()); settings.setValue("config", config->text()); settings.setValue("satellite", satellite->currentText());
+        if (!quitAfterRun) { settings.setValue("input", input->text()); settings.setValue("config", config->text()); settings.setValue("satellite", satellite->currentText()); }
         auto *worker = QThread::create([this, options] {
             QString error;
             try {
@@ -207,13 +216,34 @@ class Window final : public QMainWindow {
             QMetaObject::invokeMethod(this, [this,error] {
                 busy = false; setup->setEnabled(true); start->setEnabled(true); progress->setRange(0,100); progress->setValue(error.isEmpty()?100:0); applyText();
                 status->setText(trText(error.isEmpty()?"Completed":"Processing failed"));
+                if (quitAfterRun) { QApplication::exit(error.isEmpty()?0:2); return; }
                 if (!error.isEmpty()) { log->append(error.toHtmlEscaped()); QMessageBox box(QMessageBox::Warning,trText("Processing failed"),diagnostic(error),QMessageBox::Ok,this); box.setTextFormat(Qt::PlainText); box.setDetailedText(error); box.exec(); }
                 else { source->setCurrentIndex(1); loadPreview(); }
             }, Qt::QueuedConnection);
         });
         connect(worker,&QThread::finished,worker,&QObject::deleteLater); worker->start();
     }
+    static QString droppedFolder(const QMimeData *mime) {
+        if (!mime->hasUrls() || mime->urls().size()!=1 || !mime->urls().front().isLocalFile()) return {};
+        const QString path=mime->urls().front().toLocalFile();
+        const QFileInfo info(path);
+        return info.isDir() && !info.isSymLink() ? info.absoluteFilePath() : QString{};
+    }
+    void selectInput(const QString &folder) {
+        input->setText(folder);
+        if (output->text().isEmpty()) output->setText(folder+"-orbyx");
+        source->setCurrentIndex(0); loadPreview();
+    }
 protected:
+    void dragEnterEvent(QDragEnterEvent *event) override {
+        if (!busy && !droppedFolder(event->mimeData()).isEmpty()) event->acceptProposedAction();
+        else event->ignore();
+    }
+    void dropEvent(QDropEvent *event) override {
+        const QString folder=droppedFolder(event->mimeData());
+        if (busy || folder.isEmpty()) { event->ignore(); return; }
+        selectInput(folder); event->acceptProposedAction();
+    }
     void closeEvent(QCloseEvent *event) override {
         if (busy) { QMessageBox::information(this,trText("Cannot close during processing"),trText("Wait for processing to finish before closing this window.")); event->ignore(); }
         else { settings.setValue("geometry",saveGeometry()); QMainWindow::closeEvent(event); }
@@ -225,9 +255,25 @@ public:
         if (size.isValid()) resize(size);
         applyText(); applyTheme();
     }
+    void loadArguments(const QStringList &args) {
+        auto value=[&](const QString &key){const int i=args.indexOf(key);return i>=0&&i+1<args.size()?args.at(i+1):QString{};};
+        if (!value("--input").isEmpty()) input->setText(value("--input"));
+        if (!value("--config").isEmpty()) config->setText(value("--config"));
+        if (!value("--output").isEmpty()) output->setText(value("--output"));
+        if (!value("--satellite").isEmpty()) {
+            const int i=satellite->findText(value("--satellite"));
+            if (i<0) { QTimer::singleShot(0,qApp,[]{QApplication::exit(2);}); return; }
+            satellite->setCurrentIndex(i);
+        }
+        if (args.contains("--cpu")) engine->setCurrentIndex(1);
+        if (args.contains("--calibrate")) mode->setCurrentIndex(1);
+        if (!value("--input").isEmpty()) loadPreview();
+        quitAfterRun=args.contains("--run-and-exit");
+        if (quitAfterRun) QTimer::singleShot(0,this,[this]{execute();});
+    }
     Window() {
         it = settings.value("language", "it").toString() == "it"; dark = settings.value("dark",true).toBool();
-        setWindowTitle("ORBYX"); resize(1280,860); setMinimumSize(960,680);
+        setAcceptDrops(true); setWindowTitle("ORBYX"); resize(1280,860); setMinimumSize(960,680);
         auto *root = new QWidget; root->setObjectName("root"); setCentralWidget(root);
         auto *page = new QVBoxLayout(root); page->setContentsMargins(28,24,28,24); page->setSpacing(12);
         auto *headerWidget = new QWidget; headerWidget->setMinimumHeight(90); auto *header = new QHBoxLayout(headerWidget); header->setContentsMargins(0,0,0,0); auto *titles = new QVBoxLayout; titles->setSpacing(2); auto *brand = label("brand"); brand->setText("ORBYX"); subtitle=label("muted"); eyebrow=label("eyebrow");
@@ -249,13 +295,13 @@ public:
         modeLabel=label(); mode=new QComboBox; mode->addItems({"Align channels","Calculate calibration"}); form->addWidget(modeLabel); form->addWidget(mode);
         engineLabel=label(); engine=new QComboBox; engine->addItems({"Automatic CPU / OpenCL","CPU only"}); form->addWidget(engineLabel); form->addWidget(engine);
         hint=label("muted"); hint->setWordWrap(true); hint->setMinimumHeight(48); hint->setSizePolicy(QSizePolicy::Preferred,QSizePolicy::Minimum); form->addWidget(hint); leftLayout->addWidget(setup);
-        start=new QPushButton; start->setObjectName("primary"); start->setShortcut(QKeySequence("Ctrl+Return")); leftLayout->addWidget(start);
+        start=new QPushButton; start->setObjectName("start"); start->setShortcut(QKeySequence("Ctrl+Return")); leftLayout->addWidget(start);
         status=label("muted"); leftLayout->addWidget(status); progress=new QProgressBar; progress->setTextVisible(false); progress->setValue(0); leftLayout->addWidget(progress); leftLayout->addStretch();
         auto *setupScroll = new QScrollArea; setupScroll->setWidgetResizable(true); setupScroll->setFrameShape(QFrame::NoFrame); setupScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff); setupScroll->setMinimumWidth(390); setupScroll->setMaximumWidth(490); setupScroll->setWidget(left); splitter->addWidget(setupScroll);
         auto *right = new QFrame; right->setObjectName("panel"); auto *preview = new QVBoxLayout(right); preview->setContentsMargins(16,16,16,16); auto *tools = new QHBoxLayout;
-        previewTitle=label("section"); tools->addWidget(previewTitle,1); source=new QComboBox; source->addItems({"Input","Output"}); fit=new QPushButton; minus=new QPushButton("−"); plus=new QPushButton("+");
+        previewTitle=label("section"); preview->addWidget(previewTitle); source=new QComboBox; source->addItems({"Input","Output"}); channel=new QComboBox; channel->addItems({"CH1","CH2","CH3"}); channel->setCurrentIndex(settings.value("previewChannel",0).toInt()); fit=new QPushButton; minus=new QPushButton("−"); plus=new QPushButton("+");
         plus->setShortcut(QKeySequence("Ctrl++")); minus->setShortcut(QKeySequence("Ctrl+-"));
-        tools->addWidget(source); tools->addWidget(minus); tools->addWidget(plus); tools->addWidget(fit); preview->addLayout(tools);
+        tools->addWidget(source); tools->addWidget(channel); tools->addStretch(); tools->addWidget(minus); tools->addWidget(plus); tools->addWidget(fit); preview->addLayout(tools);
         empty=label("muted"); empty->setAlignment(Qt::AlignCenter); empty->setWordWrap(true); preview->addWidget(empty);
         scroll=new QScrollArea; canvas=label("canvas"); canvas->setAlignment(Qt::AlignCenter); scroll->setWidget(canvas); scroll->setAlignment(Qt::AlignCenter); canvas->hide(); preview->addWidget(scroll,1);
         previewNote=label("muted"); previewNote->setWordWrap(true); preview->addWidget(previewNote); splitter->addWidget(right); splitter->setStretchFactor(1,1);
@@ -265,13 +311,16 @@ public:
         connect(theme,qOverload<int>(&QComboBox::currentIndexChanged),this,[this](int i){dark=i==0;settings.setValue("dark",dark);applyTheme();});
         connect(mode,qOverload<int>(&QComboBox::currentIndexChanged),this,[this]{applyText();});
         connect(satellite,qOverload<int>(&QComboBox::currentIndexChanged),this,[this]{applyText();});
-        connect(inputBrowse,&QPushButton::clicked,this,[this]{const auto p=QFileDialog::getExistingDirectory(this,trText("Choose RDAS folder"),input->text());if(!p.isEmpty()){input->setText(p); if(output->text().isEmpty())output->setText(p+"-orbyx");loadPreview();}});
+        connect(inputBrowse,&QPushButton::clicked,this,[this]{const auto p=QFileDialog::getExistingDirectory(this,trText("Choose RDAS folder"),input->text());if(!p.isEmpty()) selectInput(p);});
         connect(configBrowse,&QPushButton::clicked,this,[this]{const auto p=QFileDialog::getOpenFileName(this,trText("Choose calibration profile"),config->text(),"JSON (*.json)");if(!p.isEmpty())config->setText(p);});
         connect(outputBrowse,&QPushButton::clicked,this,[this]{const auto p=QFileDialog::getExistingDirectory(this,trText("Select output parent folder"),QFileInfo(output->text()).absolutePath());if(!p.isEmpty())output->setText(QDir(p).filePath("orbyx-output"));});
         connect(input,&QLineEdit::editingFinished,this,[this]{loadPreview();}); connect(source,qOverload<int>(&QComboBox::currentIndexChanged),this,[this]{loadPreview();});
+        connect(channel,qOverload<int>(&QComboBox::currentIndexChanged),this,[this](int i){settings.setValue("previewChannel",i);loadPreview();});
         connect(start,&QPushButton::clicked,this,[this]{execute();}); connect(clear,&QPushButton::clicked,log,&QTextEdit::clear);
         connect(fit,&QPushButton::clicked,this,[this]{fitImage();}); connect(plus,&QPushButton::clicked,this,[this]{zoom=std::min(zoom*1.25,8.0);resizeImage();}); connect(minus,&QPushButton::clicked,this,[this]{zoom=std::max(zoom/1.25,0.02);resizeImage();});
         for (auto *w : {static_cast<QWidget*>(input),static_cast<QWidget*>(config),static_cast<QWidget*>(output),static_cast<QWidget*>(inputBrowse),static_cast<QWidget*>(configBrowse),static_cast<QWidget*>(outputBrowse),static_cast<QWidget*>(satellite),static_cast<QWidget*>(mode),static_cast<QWidget*>(engine)}) w->setFixedHeight(32);
+        input->setObjectName("input"); config->setObjectName("config"); output->setObjectName("output");
+        for (auto *edit : {input,config,output}) edit->setAcceptDrops(false);
         setup->setSizePolicy(QSizePolicy::Preferred,QSizePolicy::Minimum);
         applyText(); applyTheme(); restoreGeometry(settings.value("geometry").toByteArray());
         // Preview is explicit: startup never reads a previously selected acquisition.
@@ -288,8 +337,10 @@ int main(int argc, char **argv) {
     const QSize size=dimensions.size()==2?QSize(dimensions[0].toInt(),dimensions[1].toInt()):QSize{};
     window.previewSettings(argument("--lang"),argument("--theme"),size);
     window.show();
+    window.loadArguments(args);
     const int screenshot=args.indexOf("--screenshot");
-    if (screenshot>=0 && screenshot+1<args.size()) {
+    if (args.contains("--run-and-exit")) { /* worker completion controls the exit code */ }
+    else if (screenshot>=0 && screenshot+1<args.size()) {
         const QString path=args.at(screenshot+1);
         QTimer::singleShot(250,&app,[&app,&window,path]{if(!window.grab().save(path)) app.exit(2); else app.quit();});
     } else if (args.contains("--smoke-test")) QTimer::singleShot(150,&app,&QApplication::quit);
