@@ -75,6 +75,8 @@ bash demo.sh
 
 La demo prepara tutto automaticamente: crea immagini **sintetiche**, calcola una calibrazione, allinea i canali ed esporta Natural Color. Su un desktop apre ORBYX con origine e profilo già selezionati: premi **Avvia elaborazione** per riprovare dalla finestra. I risultati sono in **demo-output**, i log in **logs**. Non scarica acquisizioni reali e non richiede percorsi da sostituire.
 
+> **Dati reali Elektro‑L4** — lo screenshot qui sopra non è la demo sintetica. Per vedere i dati reali nel programma, apri la cartella `assets/sample-elektro-l4` come cartella RDAS di origine (anteprima ridotta Elektro‑L4; provenienza e licenza in [`assets/sample-elektro-l4/SOURCE.md`](assets/sample-elektro-l4/SOURCE.md)). L'elaborazione completa richiede prodotti a piena risoluzione decodificati con SatDump.
+
 ### 5. Elabora le tue immagini
 
 Per elaborare servono prodotti RDAS **già decodificati da SatDump**, con i due sensori VIS e i relativi canali. ORBYX non riceve direttamente il segnale satellitare. Puoi comunque installare e aprire il programma anche senza dati.
