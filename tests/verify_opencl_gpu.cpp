@@ -13,6 +13,13 @@ int main() {
  auto print=[&](int code) {Json::StreamWriterBuilder w;w["indentation"]="  ";std::cout<<Json::writeString(w,report)<<'\n';return code;};
  try {
   report["have_opencl"]=cv::ocl::haveOpenCL();
+  // OpenCV 4.13 throws from getPlatfomsInfo when clGetPlatformIDs is not
+  // available. Missing runtime is an unavailable capability, not a kernel fault.
+  if(!cv::ocl::haveOpenCL()) {
+   report["platform_count"]=0;report["device_count"]=0;report["gpu_device_count"]=0;
+   report["status"]="skipped";report["reason"]="OpenCL runtime is unavailable; no GPU execution can be tested";
+   return print(77);
+  }
   std::vector<cv::ocl::PlatformInfo> platforms;
   cv::ocl::getPlatfomsInfo(platforms);
   report["platform_count"]=static_cast<unsigned>(platforms.size());
@@ -24,7 +31,7 @@ int main() {
    }
   }
   report["device_count"]=devices;report["gpu_device_count"]=gpus;
-  if(!cv::ocl::haveOpenCL() || gpus==0) {
+  if(gpus==0) {
    report["status"]="skipped";report["reason"]="No real OpenCL GPU is available; CPU fallback is not a GPU test";
    return print(77);
   }
