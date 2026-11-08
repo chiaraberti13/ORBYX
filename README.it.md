@@ -1,6 +1,6 @@
 <p align="center"><img src="assets/banner.svg" alt="ORBYX — Satellite Imaging Studio" width="100%"></p>
 
-<p align="center"><a href="README.md">🇬🇧 English</a> · <a href="README.it.md">🇮🇹 Italiano</a></p>
+<p align="center"><a href="README.md">🇮🇹 Italiano</a> · <a href="README.en.md">🇬🇧 English</a></p>
 
 <p align="center">
 <a href="https://github.com/chiaraberti13/ORBYX/actions/workflows/ci.yml"><img src="https://github.com/chiaraberti13/ORBYX/actions/workflows/ci.yml/badge.svg" alt="Build and regression"></a>
@@ -15,94 +15,104 @@
 
 <p align="center"><a href="ROADMAP.md">Roadmap</a> · <a href="PROGRESS.md">Verifiche</a> · <a href="docs/AUDIT.md">Audit</a> · <a href="SECURITY.md">Sicurezza</a> · <a href="THIRD_PARTY_NOTICES.md">Attribuzioni</a></p>
 
-## Panoramica
+## Inizia qui — Ubuntu
 
-ORBYX modernizza [RDAS Layer Aligner](https://github.com/Digitelektro/rdas_layer_aligner), mantenendone l'approccio affine/ECC OpenCV e i coefficienti di calibrazione. Lavora sui prodotti `MSUGS_VIS1` e `MSUGS_VIS2` decodificati in tempo reale da SatDump. Non riceve segnali satellitari e non decodifica direttamente il downlink.
+ORBYX è un programma con interfaccia grafica per allineare immagini satellitari e creare compositi Natural Color. Questa guida non richiede di conoscere CMake o di inserire percorsi personali.
 
-È una prima implementazione, non una release definitiva. Sono disponibili regressioni sintetiche e [verifiche su RDAS reale Elektro-L4/SatDump](docs/REAL_RDAS.md). Precisione geometrica rispetto a verità a terra, equivalenza GPU e verifiche residue delle piattaforme restano requisiti prima della release. I risultati effettivi sono in [PROGRESS.md](PROGRESS.md).
+**Copia un blocco di comandi alla volta.** Se un passaggio termina con un errore, fermati: non eseguire quello successivo.
 
-![ORBYX desktop](assets/desktop.png)
+### 1. Apri il terminale
 
-## Funzioni implementate
+Su Ubuntu premi **Ctrl + Alt + T**. Se hai già scaricato ORBYX, apri la sua cartella nel gestore file e scegli **Apri nel terminale**.
 
-- Core C++17 e CLI headless indipendenti, con desktop opzionale Qt 6 Widgets.
-- Calibrazione affine ECC: 500 iterazioni, epsilon 1e-7, offset canali 3606/1804 preservati.
-- Allineamento PNG in scala di grigi a 8/16 bit, fusione sinistra/destra tramite ROI oppure prodotti allineati separati.
-- Corretta provenienza del CBOR VIS2 e pixel di riempimento della fusione inizializzati a zero.
-- Controlli preventivi delle intestazioni PNG, dimensioni, matrici, ROI e scritture.
-- Output separato pubblicato tramite rinomina atomica della cartella; destinazioni esistenti rifiutate. Dati e profili originali conservati.
-- Desktop con scelta origine/profilo/destinazione, elaborazione asincrona, anteprima origine/risultato, zoom/pan, log, lingua e tema chiaro/scuro persistenti.
-- Interfaccia, aiuto CLI e diagnostica applicativa in italiano/inglese; i dettagli tecnici delle librerie possono mantenere la lingua originale.
+### 2. Scarica oppure aggiorna ORBYX
 
-Sono conservati i coefficienti L2, L3, **L5**, M1 e M2. L4 richiede una calibrazione perché non ha coefficienti inclusi. Riconoscimento automatico del satellite, monitoraggio cartelle, editor guidato delle ROI, aggiornamenti applicativi sono pianificati. L'opzione legacy `-n/--nc` resta esclusa; usare `natural-color` o il pulsante desktop di esportazione.
+**Se è la prima volta**, esegui:
 
-## Compilazione e installazione
+```bash
+git clone https://github.com/chiaraberti13/ORBYX.git
+cd ORBYX
+```
 
-Dal terminale del repository, senza configurare percorsi:
+Se compare «git: comando non trovato», installa Git e poi ripeti il blocco precedente:
+
+```bash
+sudo apt-get -o DPkg::Lock::Timeout=900 install -y git
+```
+
+**Se hai già scaricato ORBYX**, non clonarlo di nuovo. Dal terminale aperto nella cartella del progetto esegui soltanto:
+
+```bash
+git pull
+```
+
+### 3. Installa il programma
 
 ```bash
 bash install.sh
+```
+
+- Lo script chiede la password Ubuntu per installare le dipendenze. Mentre la scrivi **non compaiono caratteri**: è normale; premi Invio.
+- Non aggiungere `sudo` davanti a `bash install.sh`.
+- Se sono in corso aggiornamenti automatici, lo script attende. Non cancellare blocchi e non terminare processi.
+- L'installazione può richiedere diversi minuti. Configurazione, compilazione e test sono automatici.
+
+**Controllo:** alla fine deve comparire **«Installazione completata»**. Se non compare, consulta la cartella **logs** prima di continuare.
+
+### 4. Apri ORBYX
+
+```bash
 bash start.sh
 ```
 
-L'installer attende APT se gli aggiornamenti automatici lo occupano, installa tutte le dipendenze, configura, compila, esegue i test e installa per l'utente. Chiede sudo solo per le dipendenze; non eseguire lo script intero con sudo. Non prosegue dopo una fase fallita. I log completi e gli errori di installazione/avvio sono nella cartella **logs**, esclusi da git e mai inviati automaticamente.
+Si apre la finestra del programma. Puoi avviarlo nuovamente con lo stesso comando; non devi reinstallarlo a ogni utilizzo. Per aggiornare il programma, chiudi prima ORBYX e ripeti `git pull` e `bash install.sh`.
 
-La CLI installata si avvia con `bash orbyx.sh --help`; non serve modificare PATH. Dati e destinazioni si selezionano dal desktop, senza copiare percorsi dimostrativi. [Installazione e risoluzione errori](docs/INSTALLATION.md).
+### 5. Elabora le tue immagini
 
-## Uso della CLI
+Per elaborare servono prodotti RDAS **già decodificati da SatDump**, con i due sensori VIS e i relativi canali. ORBYX non riceve direttamente il segnale satellitare. Puoi comunque installare e aprire il programma anche senza dati.
+
+Nella finestra:
+
+1. Premi **Seleziona…** accanto alla cartella di origine e scegli il prodotto decodificato.
+2. Scegli il satellite corretto. Lascia il profilo proposto se contiene la calibrazione del tuo satellite.
+3. Scegli una **nuova cartella di destinazione**. ORBYX conserva gli originali e rifiuta di sovrascrivere risultati esistenti.
+4. Scegli **Allinea canali**, poi **Avvia elaborazione**.
+5. Attendi **Completato**; usa l'anteprima e il riquadro Attività per controllare il risultato.
+
+**Se usi L4:** prima seleziona **Calcola calibrazione** e avvia l'elaborazione in una nuova destinazione. Poi scegli come profilo il nuovo file `calibration.json` usando il selettore, passa ad **Allinea canali** e usa un'altra nuova destinazione. La scelta delle regioni di fusione rimane manuale: [dettagli sulla calibrazione reale](docs/REAL_RDAS.md).
+
+### 6. Esporta Natural Color
+
+Dopo l'allineamento premi **Esporta Natural Color…**, scegli la cartella di un singolo VIS allineato e il nome di un nuovo PNG. L'esportazione mantiene la profondità a 8 o 16 bit. È una resa visiva, non una misura scientifica del colore.
+
+### 7. Se compare un errore
+
+| Messaggio | Cosa fare |
+|---|---|
+| Gestore pacchetti occupato / unattended-upgrades | Lascia terminare gli aggiornamenti. L'installer attende; se termina per timeout, ripeti `bash install.sh` più tardi. |
+| cmake, ctest o dipendenza non trovata | Esegui `bash install.sh`; installare soltanto CMake non basta. |
+| Installazione incompleta / eseguibile assente | Completa prima `bash install.sh`. Avvia con `bash start.sh`, senza cercare manualmente i binari. |
+| Destinazione già esistente | Scegli una nuova cartella o un nuovo nome di file. |
+| Altro errore | Apri **logs**: trovi il log completo e il corrispondente `.errors.log` dell'ultima esecuzione. |
+
+I log di installazione e avvio restano locali, sono esclusi da git e non vengono inviati automaticamente. [Guida agli errori di installazione](docs/INSTALLATION.md).
+
+## Per chi vuole usare il terminale
+
+Dopo l'installazione:
 
 ```bash
-bash orbyx.sh --help
 bash orbyx.sh --lang it --help
 bash orbyx.sh --version
 ```
 
-La cartella di output non deve esistere e la cartella che la conterrà deve già esistere. La calibrazione scrive un **nuovo** `calibration.json` nella destinazione, preservando le voci degli altri satelliti. Le ROI di fusione richiedono una verifica manuale. Per utilizzare il nuovo profilo passarlo con `--config`; non presumere che le ROI esistenti vadano bene per una nuova acquisizione.
+Per iniziare non è necessario usare i comandi di elaborazione: puoi scegliere dati e destinazioni dalla finestra.
 
-L'input richiede due cartelle VIS con `MSUGS-VIS-1.png`, `MSUGS-VIS-2.png`, `MSUGS-VIS-3.png`. La generazione richiede anche il relativo `product.cbor`. I canali devono essere PNG in scala di grigi senza segno a 8/16 bit, con dimensioni uguali nel singolo prodotto VIS e altezza superiore a 3606. Limiti preventivi: 150 milioni di pixel per canale e 1 GiB per file PNG codificato. Non costituiscono un budget di memoria complessivo: i prodotti grandi possono richiedere diversi GiB di RAM.
+## Informazioni sul progetto
 
-Exit code `0` per successo, `2` per errori. Restano disponibili `-s`, `-d`, `-m`; `--output` è obbligatorio per evitare sovrascritture accidentali. Senza `--config` la CLI cerca `config.json`.
+- [Funzioni ancora da completare](ROADMAP.md) e [lavoro già verificato](PROGRESS.md).
+- [Verifiche su dati reali, piattaforme e limiti](docs/VERIFICATION_STATUS.md). GPU effettiva e geometria assoluta non sono certificate.
+- [Elaborazione batch](docs/BATCH.md), [Natural Color](docs/NATURAL_COLOR.md) e [architettura](docs/ADR-001-language.md).
+- [Segnalazioni di sicurezza](SECURITY.md).
 
-Il CBOR viene copiato senza modifiche e non ricalibrato. Una copia corretta dei byte non dimostra l'interoperabilità geometrica con SatDump.
-
-## Elaborazioni batch
-
-Un runner opzionale Python 3.10+ esegue lavori sequenziali con stato persistente, profili per lavoro e ripresa verificata tramite digest. Vedi [uso del batch e gestione dei fallimenti](docs/BATCH.md). È separato dalla coda desktop.
-
-## Architettura e sviluppo
-
-- `include/orbyx`, `src/core`: immagini, profili e pubblicazione controllata dell'output.
-- `src/cli`: argomenti e funzionamento headless.
-- `src/gui`: interfaccia Qt e coordinamento del worker.
-- `resources`: coefficienti originali e voce desktop.
-- `tests`: regressioni con immagini sintetiche e input non validi.
-- `third_party/rdas_layer_aligner`: riferimento originale fissato a un commit, escluso dalla build normale.
-- `docs`: [decisione sui linguaggi](docs/ADR-001-language.md), audit e verifiche.
-
-Per i sanitizers usare `-DORBYX_SANITIZE=ON -DORBYX_BUILD_GUI=OFF -DCMAKE_BUILD_TYPE=Debug`, quindi CTest. La CI prevede Ubuntu 22.04/24.04/26.04, sanitizers e analisi statica: la configurazione dei job non dimostra che siano passati. CPack consente packaging sperimentale, non una release già verificata. ARM64 Ubuntu24.04 nativo, Fedora44/RPM in userspace pulito e AppImage in userspace Ubuntu22.04 pulito hanno superato la CI sul commit0d7bf19. Restano aperte sessioni grafiche interattive/FUSE, Arch/Mint e macOS; vedere [prove piattaforme](docs/PLATFORMS_REAL.md).
-
-## Sicurezza e licenza
-
-Usare privilegi ordinari e cartelle di destinazione fidate. Decoder nativi e driver GPU restano confini di fiducia: aggiornare le dipendenze di sistema. Consultare [sicurezza](SECURITY.md), [contributi](CONTRIBUTING.md) e [condotta](CODE_OF_CONDUCT.md).
-
-GNU GPL versione 3, con attribuzioni originali e avvisi sulle dipendenze. [LICENSE](LICENSE), [NOTICE](NOTICE), [inventario delle dipendenze](THIRD_PARTY_NOTICES.md). Nessuna affiliazione con il progetto originale. Le fotografie dimostrative originali non sono redistribuite.
-
-[Verification record / Registro verifiche](docs/VERIFICATION.md) · [Memory limits / Limiti memoria](docs/RESOURCE_LIMITS.md)
-
-[Packaging / Distribuzione](docs/PACKAGING.md)
-
-## Build Ubuntu verificate
-
-Sul commit `4190002` sono passate le build CI x86_64 seguenti: compilazione, sette gruppi CTest, packaging Debian, installazione sul runner e smoke di CLI/GUI/batch installati. I test desktop sono offscreen e usano immagini sintetiche. [Risultati CI](https://github.com/chiaraberti13/ORBYX/actions/runs/42477106167).
-
-| Ubuntu | Build / test | DEB / install smoke |
-|---|---|---|
-| 22.04 LTS | ✓ | ✓ |
-| 24.04 LTS | ✓ | ✓ |
-| 26.04 LTS | ✓ | ✓ |
-
-Per ridurre esplicitamente la memoria di calibrazione: `calibrate --calibration-scale 0.125` (intervallo `(0,1]`, predefinito1). Le trasformazioni restano in pixel originali; `generate` preserva risoluzione e profondità. Scala ridotta e precisione sono descritte in [REAL_RDAS.md](docs/REAL_RDAS.md).
-
-[Esportazione Natural Color RGB321](docs/NATURAL_COLOR.md) disponibile da CLI (`natural-color`) e desktop, a 8/16 bit, verificata anche sui due VIS reali Elektro-L4. La composizione RGB generica mantiene la sua mappatura precedente.
-
-[Stato delle cinque verifiche reali](docs/VERIFICATION_STATUS.md): installazione Fedora44 in VM KVM pulita e Natural Color sui dati autentici Elektro-L4 superati; GPU effettiva e geometria assoluta restano non certificate.
+ORBYX deriva dal progetto [RDAS Layer Aligner di Digitelektro](https://github.com/Digitelektro/rdas_layer_aligner), con core C++17/OpenCV e desktop Qt6. Licenza [GPLv3](LICENSE); [attribuzioni e componenti di terzi](THIRD_PARTY_NOTICES.md). I dati e i profili originali restano separati dai risultati.

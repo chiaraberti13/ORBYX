@@ -225,3 +225,7 @@ Bash e sintassi Python verificati localmente. I test installer richiedono utente
 Poi lo stesso job ha installato realmente le dipendenze su Ubuntu26.04, configurato/compilato, passato CTest, installato per l'utente normale e verificato CLI/GUI tramite i launcher senza percorsi manuali. Conferma finale creata solo dopo gli smoke installati. I log del runner sono negli artifact; quelli delle installazioni utente restano locali. Un controllo locale separato ha confermato uscita23 e conservazione nel file errori di una failure emessa solo su stdout. Log e lock locali esclusi anche dagli archivi sorgenti CPack, non solo da git.
 
 La macchina Ubuntu26.04 della segnalazione non è accessibile da questa sessione: la correzione è pubblicata e verificata nel repository, da usare con git pull e bash install.sh, poi bash start.sh. Non occorre inventare o inserire percorsi di dati per installare/avviare il desktop.
+
+## Guida iniziale per principianti
+
+README principale ora in italiano, con guida inglese separata e alias italiano conservato. Passaggi numerati per terminale, primo clone oppure aggiornamento, installazione, controllo del messaggio di successo, avvio, primi lavori GUI/L4, Natural Color ed errori con log. Rimossi dal percorso iniziale parametri numerici, comandi di compilazione e cartelle di dati dimostrative. I comandi di installazione/avvio sono quelli già verificati realmente su Ubuntu26.04. Questa modifica documentale viene pubblicata separatamente prima degli altri sviluppi.
