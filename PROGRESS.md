@@ -60,3 +60,17 @@ Revisione di codice/build verificata: `4190002a1212dba0acf24c2f3d0a168dd7fe9813`
 M3-01 resta bloccato: servono acquisizioni RDAS reali redistribuibili con provenienza e un ambiente SatDump per verificare geometria/metadati. Nessuna equivalenza GPU, supporto ARM64/macOS/altre distro, installazione su VM pulita, RPM/AppImage, fuzzing esteso, release firmata o accessibilità con screen reader è stata dichiarata completata.
 
 Prossimo task eseguibile: M2-03, coda desktop e gestione dei profili, riusando il contratto batch già verificato. M1-03, inventario runtime/SBOM/scansione vulnerabilità dei pacchetti, è un'attività indipendente. Natural Color, riconoscimento automatico, monitoraggio cartelle, onboarding e aggiornamenti sicuri restano nei task dedicati della roadmap. Nessun lavoro continua automaticamente fuori dalla sessione salvo i workflow GitHub configurati.
+
+## Verifica indipendente — 2026-11-08
+
+Audit di revisione eseguito in un container pulito, separato dalla sessione di sviluppo, per riprodurre le dichiarazioni senza fidarsi dello stato precedente. Ambiente: Ubuntu 24.04.5 LTS x86_64, GCC 13.3.0, CMake 3.28.3, OpenCV 4.6.0+dfsg-13.1ubuntu1, JsonCpp 1.9.5-6build1 (dipendenze installate dai repository Ubuntu nel container).
+
+Riproduzione effettiva su commit `f5afb98` (identico a `origin/main` al momento dell'audit; le quattro PR Dependabot aperte non sono state integrate):
+
+- Configurazione e build headless (`-DORBYX_BUILD_GUI=OFF`) riuscite; nessun warning emesso dal core/CLI/test con `-Wall -Wextra -Wpedantic`.
+- CTest: 5/5 gruppi non-GUI superati (`batch-regression`, `engine-regression`, `cli-help`, `cli-version`, `cli-invalid`). `engine-regression` esegue realmente la pipeline ECC di OpenCV e verifica le traslazioni sintetiche recuperate entro 0,1 px e la rigenerazione entro 1 livello su fixture 8 e 16 bit, oltre a merge con padding azzerato, rollback, rifiuto symlink/ROI non valide e provenienza CBOR distinta VIS1/VIS2.
+- Suite batch Python: 14/14 test standard-library superati (schema, lock advisory, alias hardlink, FIFO, drift input/output/config/engine, ripresa verificata e localizzazione EN/IT).
+- Gruppi GUI (`gui-product-flow`, `gui-smoke`) e sanitizers non rieseguiti in questo container (Qt6 non installato; build Debug/ASan non ripetuta): restano coperti dalla CI remota.
+- Evidenza remota confermata via API GitHub: run «Build and regression» [42477106167](https://github.com/chiaraberti13/ORBYX/actions/runs/42477106167) e CodeQL [42477106212](https://github.com/chiaraberti13/ORBYX/actions/runs/42477106212), entrambi conclusione `success` sul commit `4190002` di `main` (push).
+
+Esito: lo stato documentato è coerente con il codice e con le esecuzioni reali; nessuna sovra-dichiarazione di piattaforme, precisione o capacità rilevata. Le deviazioni dall'upstream (canvas di merge dimensionato sulle ROI e azzerato — A01; salvataggio dei canali allineati — A05; provenienza CBOR per-sensore — A06) sono documentate in `docs/AUDIT.md` e coperte da test di regressione. Nessun difetto tecnico accertato da correggere: non sono state introdotte modifiche al codice per non aggiungere interventi superflui. Verifiche aperte invariate (M3-01 dati reali/SatDump, GPU, ARM64/macOS/altre distro, RPM/AppImage, VM pulita, fuzzing esteso, release firmata, accessibilità con screen reader).
