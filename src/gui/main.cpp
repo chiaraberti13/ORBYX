@@ -160,6 +160,9 @@ class Window final : public QMainWindow {
         queueAdd->setText(trText("Add to queue")); queueRemove->setText(trText("Remove")); queueRun->setText(trText("Run queue"));
         profileDup->setText(trText("Duplicate profile…"));
         queue->setHorizontalHeaderLabels({trText("Job"), trText("Operation"), trText("Status")});
+        queueAdd->setAccessibleName(trText("Add to queue")); queueRemove->setAccessibleName(trText("Remove"));
+        queueRun->setAccessibleName(trText("Run queue")); profileDup->setAccessibleName(trText("Duplicate profile…"));
+        queue->setAccessibleName(trText("Processing queue"));
         if (!busy && progress->value() == 0) status->setText(trText("Ready"));
     }
     void applyTheme() {

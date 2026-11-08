@@ -121,7 +121,7 @@ Stati: pianificato, in corso, verificato, bloccato. Pubblicare ogni task verific
 - Deliverable: Flussi guidati e componenti rifiniti
 - Test: Test tastiera e utenti
 - Accettazione: Flussi completi EN/IT
-- Stato: pianificato
+- Stato: pianificato — base presente: i nuovi widget della coda e del profilo hanno nomi accessibili EN/IT e scorciatoie da tastiera coerenti col resto della GUI. La verifica completa con screen reader, l'onboarding e la calibrazione guidata restano da fare e richiedono tecnologia assistiva reale (non simulabile)
 
 ## M4-02 — Aggiornamenti sicuri e manutenzione periodica
 
