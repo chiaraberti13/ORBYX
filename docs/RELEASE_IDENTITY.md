@@ -37,3 +37,7 @@ A real successful OIDC job is required before reporting this capability as remot
 - [Offline verification and trusted roots](https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/verify-attestations-offline)
 
 Action version: `actions/attest` v4 resolved to `1e69f48acb82d1966a394da916b4c1698aa569d6` on 2026-11-08. The workflow uses the immutable SHA.
+
+## Evidenza remota / Remote evidence
+
+Verifica effettiva conclusa con successo sul commit `0d7bf195b6af4ab2d2392c87234945accf499ede`: [run 42501765172](https://github.com/chiaraberti13/ORBYX/actions/runs/42501765172). Il risultato vale per le verifiche descritte, senza estenderlo a piattaforme o identità diverse. / The successful run covers the checks described here, without implying other platforms or signer identities.

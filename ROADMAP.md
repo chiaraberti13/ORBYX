@@ -88,7 +88,7 @@ Stati: pianificato, in corso, verificato, bloccato. Pubblicare ogni task verific
 - Deliverable: Dataset con provenienza e report
 - Test: Confronto pixel e apertura in SatDump
 - Accettazione: Precisione e metadati verificati su acquisizioni reali
-- Stato: bloccato — l'accettazione (precisione e metadati su acquisizioni reali, apertura in SatDump) richiede dataset RDAS reali redistribuibili con provenienza e un ambiente SatDump, non disponibili nella sessione; l'upstream fornisce solo composite di output (`img/*.jpg`), non dati di input grezzi. Disponibile una **simulazione sintetica** end-to-end (`scripts/orbyx_simulate.py`, gruppo CTest `simulation-flow`) che recupera offset e shift noti entro 1 px ed esercita il flusso `calibrate`→`generate`: prova la meccanica della pipeline, non sostituisce la verifica su dati reali/SatDump (`docs/SIMULATION.md`)
+- Stato: verificato in parte su dati reali — campione Elektro-L4 disponibile nella release `rdas-cadu-l4`, dimensioni/SHA256 fissati; decodifica SatDump autentica, calibrazione ECC a scala esplicita, generazione 16bit a risoluzione originale, confronto pixel esatto con riferimento OpenCV4.6 e riapertura headless dei due prodotti SatDump riusciti (`docs/REAL_RDAS.md`). Restano aperte precisione rispetto a verità a terra, geolocalizzazione assoluta e ROI di merge: il campione non contiene proiezione/calibrazione utilizzabili. Nessuna calibrazione universale L4 dichiarata.
 
 ## M3-02 — Packaging e matrice piattaforme
 
@@ -99,7 +99,7 @@ Stati: pianificato, in corso, verificato, bloccato. Pubblicare ogni task verific
 - Deliverable: Pacchetti e build riproducibili
 - Test: Ubuntu 22.04/24.04/26.04; smoke pacchetti
 - Accettazione: Solo piattaforme effettivamente testate dichiarate
-- Stato: in corso — CPack TGZ, installazione locale, DEB (CI) e ora RPM: generazione, metadati (licenza GPLv3, gruppo, URL) e requires automatici verificati con `rpmbuild` su Ubuntu e aggiunti alla CI (`docs/PACKAGING.md`). Installazione su distribuzione RPM reale (Fedora), AppImage, ARM64 e installazione su VM pulita ancora da verificare
+- Stato: verificato in parte — Ubuntu22.04/24.04/26.04 x86_64, DEB/RPM, Fedora44 in userspace pulito, ARM64 nativo Ubuntu24.04 e AppImage x86_64 in container Ubuntu22.04 pulito verificati in CI sul commit0d7bf19: workflow piattaforme42501765159 e AppImage42501765193. Container con kernel condiviso: VM grafica completa, integrazione FUSE/desktop, macOS e altre distro non verificati. Vedere `docs/PLATFORMS_REAL.md` e `docs/APPIMAGE_REAL.md`.
 
 ## M3-03 — Prestazioni, GPU e fuzzing
 
@@ -132,7 +132,7 @@ Stati: pianificato, in corso, verificato, bloccato. Pubblicare ogni task verific
 - Deliverable: Release firmate e procedura aggiornamenti
 - Test: Verifica firma, rollback, scansioni
 - Accettazione: Nessun aggiornamento eseguito senza verifica
-- Stato: verificato in parte — checksum SHA-256 riproducibili generati e verificati (`sha256sum -c`) in CI su tutti gli artifact (DEB, RPM, sorgenti, SBOM) come `SHA256SUMS`; meccanica di **firma/verifica** GPG (`scripts/orbyx_sign.py`) provata dal gruppo CTest `sign-regression` con chiave effimera (firma, verifica, rilevamento manomissione). Restano aperti: la firma con la **chiave reale** di release (secret fuori dal repo) e la procedura di aggiornamento/rollback firmata (`docs/PACKAGING.md`)
+- Stato: verificato in parte — checksum SHA-256 riproducibili generati e verificati (`sha256sum -c`) in CI su tutti gli artifact (DEB, RPM, sorgenti, SBOM) come `SHA256SUMS`; meccanica di **firma/verifica** GPG (`scripts/orbyx_sign.py`) provata dal gruppo CTest `sign-regression` con chiave effimera (firma, verifica, rilevamento manomissione). Attestazione autentica Sigstore/GitHub OIDC senza secret personale verificata sul commit0d7bf19 (run42501765172), inclusi vincoli del firmatario e rifiuto di artifact manomessi (`docs/RELEASE_IDENTITY.md`). Restano aperti firma GPG personale e aggiornamento/rollback firmato; OIDC certifica il workflow, non la persona.
 
 
 ## M2-03 — Coda desktop e gestione dei profili

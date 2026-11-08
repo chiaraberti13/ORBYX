@@ -11,6 +11,8 @@ struct RunOptions {
   bool cpu = false;
   bool calibrate = false;
   std::string language = "en";
+  // Explicit ECC working resolution; output transforms remain in native pixels.
+  double calibrationScale = 1.0;
 };
 using Log = std::function<void(const std::string&)>;
 struct Inspection { int width, height, depth; };

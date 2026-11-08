@@ -19,7 +19,7 @@
 
 ORBYX modernizes [RDAS Layer Aligner](https://github.com/Digitelektro/rdas_layer_aligner) while retaining its OpenCV affine/ECC approach and calibration coefficients. It operates on SatDump live-decoded `MSUGS_VIS1` and `MSUGS_VIS2` products. It is not a satellite receiver or raw downlink decoder.
 
-This is an initial implementation, not a finished release. Synthetic regressions are available; real satellite datasets, SatDump reimport geometry, GPU equivalence and the complete platform matrix remain release gates. See [progress](PROGRESS.md) for actual test results.
+This is an initial implementation, not a finished release. Synthetic regressions and [real Elektro-L4/SatDump execution checks](docs/REAL_RDAS.md) are available. Ground-truth geometry, GPU equivalence and the remaining platform checks remain release gates. See [progress](PROGRESS.md) for actual test results.
 
 ![ORBYX desktop](assets/desktop.png)
 
@@ -71,7 +71,7 @@ Optional installation: `sudo cmake --install build --prefix /usr/local`. Install
 
 The output directory must not exist and its parent must exist. Calibration writes a **new** `calibration.json` inside the output directory, preserving other satellite entries; merge ROIs still need manual validation. To use it, pass that new file with `--config`. Do not assume existing ROIs are valid for a new acquisition.
 
-Input requires two VIS directories containing `MSUGS-VIS-1.png`, `MSUGS-VIS-2.png`, `MSUGS-VIS-3.png`. Generation also requires each relevant `product.cbor`. Channels must be unsigned grayscale 8/16-bit with equal dimensions within each VIS product and height greater than 3606. PNG preflight allows at most 150 million pixels per channel and 1 GiB encoded file; this is not a total memory budget. Large products may require several GiB RAM.
+Input requires two VIS directories containing `MSUGS-VIS-1.png`, `MSUGS-VIS-2.png`, `MSUGS-VIS-3.png`. Generation also requires each relevant `product.cbor`. Channels must be unsigned grayscale 8/16-bit with equal dimensions within each VIS product and height greater than 3606. PNG preflight allows at most 150 million pixels per channel and 1 GiB encoded file; this is not a total memory budget. Large products may require several GiB RAM. Calibration supports an explicit `--calibration-scale` in `(0,1]` (default1); native generation keeps original depth/resolution. See [real-data limits and reproduction](docs/REAL_RDAS.md).
 
 Success returns `0`; validation or processing failure returns `2`. Original short flags `-s`, `-d`, `-m` remain available. `--output` is deliberately required to prevent accidental overwrite. The CLI defaults to `config.json` when `--config` is omitted.
 
@@ -91,7 +91,7 @@ An optional Python 3.10+ runner executes sequential jobs with durable state, per
 - `third_party/rdas_layer_aligner`: pinned, unmodified reference snapshot, excluded from the normal build.
 - `docs`: [language decision](docs/ADR-001-language.en.md), audit, verification and design records.
 
-Build sanitizers with `-DORBYX_SANITIZE=ON -DORBYX_BUILD_GUI=OFF -DCMAKE_BUILD_TYPE=Debug`. Run `ctest --test-dir build --output-on-failure`. CI covers Ubuntu 22.04/24.04/26.04, sanitizers and static analysis; configured jobs are not proof that the matrix has passed. Distribution packages can be generated experimentally with CPack; they are not a verified release. Debian/Fedora/Arch/Mint, ARM64, macOS and AppImage remain unverified.
+Build sanitizers with `-DORBYX_SANITIZE=ON -DORBYX_BUILD_GUI=OFF -DCMAKE_BUILD_TYPE=Debug`. Run `ctest --test-dir build --output-on-failure`. CI covers Ubuntu 22.04/24.04/26.04, sanitizers and static analysis; configured jobs are not proof that the matrix has passed. Distribution packages can be generated experimentally with CPack; they are not a verified release. Native Ubuntu ARM64, clean Fedora44 userspace/RPM and clean Ubuntu22.04 userspace/AppImage checks passed on commit0d7bf19. Full desktop VM/FUSE, Arch/Mint and macOS remain unverified; see [platform evidence](docs/PLATFORMS_REAL.md).
 
 ## Security and licence
 

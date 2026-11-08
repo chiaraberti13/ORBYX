@@ -137,20 +137,35 @@ Channels load(const fs::path& directory) {
   }
   return channels;
 }
-cv::Mat ecc(const cv::Mat& reference, const cv::Mat& target, int offset) {
+cv::Mat ecc(const cv::Mat& reference, const cv::Mat& target, int offset, double scale) {
   // Preserve upstream: grayscale conversion, pre-shift, affine ECC 500/1e-7.
   cv::Mat ref8, target8;
   if (reference.depth() == CV_16U) {
     reference.convertTo(ref8,CV_8U,1.0/256.0);
     target.convertTo(target8,CV_8U,1.0/256.0);
   } else { ref8=reference; target8=target; }
+  if(scale<1.0) {
+    const cv::Size size(std::max(1,cvRound(reference.cols*scale)),
+                        std::max(1,cvRound(reference.rows*scale)));
+    require(size.width>=16 && size.height>=16,"Calibration working image is too small");
+    cv::resize(ref8,ref8,size,0,0,cv::INTER_AREA);
+    cv::resize(target8,target8,size,0,0,cv::INTER_AREA);
+  }
+  const double sx=double(ref8.cols)/reference.cols, sy=double(ref8.rows)/reference.rows;
   cv::Mat shifted;
-  cv::Mat shift=(cv::Mat_<float>(2,3)<<1,0,0,0,1,offset);
+  cv::Mat shift=(cv::Mat_<float>(2,3)<<1,0,0,0,1,offset*sy);
   cv::warpAffine(target8,shifted,shift,target8.size(),cv::INTER_LINEAR|cv::WARP_INVERSE_MAP);
   cv::Mat warp=cv::Mat::eye(2,3,CV_32F);
   const double correlation=cv::findTransformECC(ref8,shifted,warp,cv::MOTION_AFFINE,
         cv::TermCriteria(cv::TermCriteria::COUNT|cv::TermCriteria::EPS,500,1e-7));
   require(std::isfinite(correlation) && cv::checkRange(warp), "ECC did not produce a finite solution");
+  // OpenCV resize maps native pixel centres through S, including half-pixel
+  // translation. Lift the estimated inverse-map affine with S^-1 * W * S.
+  const cv::Matx33d s(sx,0,(sx-1)/2,0,sy,(sy-1)/2,0,0,1);
+  cv::Matx33d w= cv::Matx33d::eye();
+  for(int row=0;row<2;++row) for(int col=0;col<3;++col) w(row,col)=warp.at<float>(row,col);
+  const auto native=s.inv()*w*s;
+  for(int row=0;row<2;++row) for(int col=0;col<3;++col) warp.at<float>(row,col)=static_cast<float>(native(row,col));
   warp.at<float>(1,2) += offset;
   return warp;
 }
@@ -242,6 +257,10 @@ std::string translate(const std::string& message,const std::string& language) {
     {"Expected non-symlink MSUGS_VIS directory","È richiesta una cartella MSUGS_VIS, non un collegamento simbolico"},
     {"All channels in a VIS product must have equal dimensions and depth","Tutti i canali VIS devono avere dimensioni e profondità uguali"},
     {"ECC did not produce a finite solution","ECC non ha prodotto una soluzione finita"},
+    {"Calibration scale must be finite and in (0, 1]","La scala di calibrazione deve essere finita e compresa in (0, 1]"},
+    {"Calibration scale is only valid in calibrate mode","La scala di calibrazione è valida solo in modalità calibrate"},
+    {"Calibration working image is too small","L'immagine di lavoro per la calibrazione è troppo piccola"},
+    {"ECC working scale: ","Scala di lavoro ECC: "},
     {"Failed to encode output PNG","Impossibile codificare il PNG in uscita"},
     {"Output parent directory must exist","La cartella che conterrà l'output deve esistere"},
     {"Output destination already exists","La destinazione di output esiste già"},
@@ -288,6 +307,9 @@ void run(const RunOptions& options,const Log& log) {
     require((c>='A'&&c<='Z')||(c>='0'&&c<='9')||c=='_',"Invalid satellite identifier");
   require(!options.input.empty()&&!options.output.empty()&&!options.config.empty(),
           "Input, output and calibration profile are required");
+  require(std::isfinite(options.calibrationScale) && options.calibrationScale>0 && options.calibrationScale<=1,
+          "Calibration scale must be finite and in (0, 1]");
+  require(options.calibrate || options.calibrationScale==1.0,"Calibration scale is only valid in calibrate mode");
   const auto input=fs::canonical(options.input);
   require(fs::is_directory(input), "Input must be a directory");
   const auto output=fs::absolute(options.output).lexically_normal();
@@ -306,10 +328,19 @@ void run(const RunOptions& options,const Log& log) {
     if(options.calibrate) {
       message("Calibrating "+key);
       // Futures propagate worker exceptions to caller rather than terminating the process.
-      auto second=std::async(std::launch::async,[&]{return ecc(channels[0],channels[1],ch2offset);});
-      auto third=std::async(std::launch::async,[&]{return ecc(channels[0],channels[2],ch3offset);});
-      setTransform(config[key],"CH2",second.get());
-      setTransform(config[key],"CH3",third.get());
+      if(options.calibrationScale<1.0)
+        message("ECC working scale: "+std::to_string(options.calibrationScale)+"; transforms in native pixels");
+      // Large real acquisitions otherwise run two memory-intensive ECC fits
+      // concurrently. Serialization changes scheduling, not the estimator.
+      if(channels[0].total()>16000000) {
+        setTransform(config[key],"CH2",ecc(channels[0],channels[1],ch2offset,options.calibrationScale));
+        setTransform(config[key],"CH3",ecc(channels[0],channels[2],ch3offset,options.calibrationScale));
+      } else {
+        auto second=std::async(std::launch::async,[&]{return ecc(channels[0],channels[1],ch2offset,options.calibrationScale);});
+        auto third=std::async(std::launch::async,[&]{return ecc(channels[0],channels[2],ch3offset,options.calibrationScale);});
+        setTransform(config[key],"CH2",second.get());
+        setTransform(config[key],"CH3",third.get());
+      }
     } else {
       require(config[key].isObject(),"No calibration for "+key);
       products[vis]=align(channels,config[key]);

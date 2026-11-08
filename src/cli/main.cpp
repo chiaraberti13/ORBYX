@@ -4,6 +4,7 @@
 #include <map>
 #include <stdexcept>
 #include <string>
+#include <cmath>
 #ifndef ORBYX_VERSION
 #define ORBYX_VERSION "0.1.0"
 #endif
@@ -18,6 +19,7 @@ void help(const std::string& language) {
       "      --config       JSON di calibrazione (predefinito: config.json)\n"
       "      --output       Nuova cartella di uscita; non deve esistere\n"
       "      --cpu          Disattiva OpenCL e utilizza la CPU\n"
+      "      --calibration-scale  Scala ECC esplicita (0,1], solo calibrate; predefinita 1\n"
       "      --lang         Lingua en oppure it\n"
       "  -h, --help         Mostra questa guida\n"
       "      --version      Mostra la versione\n"
@@ -33,6 +35,7 @@ void help(const std::string& language) {
     "      --config       Calibration JSON (default: config.json)\n"
     "      --output       New output directory; must not already exist\n"
     "      --cpu          Disable OpenCL (CPU fallback)\n"
+    "      --calibration-scale  Explicit ECC scale (0,1], calibrate only; default 1\n"
     "      --lang         Language en or it\n"
     "  -h, --help         Show help\n"
     "      --version      Print version\n"
@@ -66,7 +69,7 @@ int main(int argc,char** argv) {
       if(seen[flag]) throw std::runtime_error("Duplicate option: "+flag);
       seen[flag]=true;
       if(flag=="--cpu") {options.cpu=true;continue;}
-      if(flag!="--sat"&&flag!="--directory"&&flag!="--mode"&&flag!="--config"&&flag!="--output"&&flag!="--lang")
+      if(flag!="--sat"&&flag!="--directory"&&flag!="--mode"&&flag!="--config"&&flag!="--output"&&flag!="--lang"&&flag!="--calibration-scale")
         throw std::runtime_error("Unknown option: "+flag);
       if(i+1>=argc) throw std::runtime_error("Missing value for "+flag);
       const std::string value=argv[++i];
@@ -76,6 +79,13 @@ int main(int argc,char** argv) {
       else if(flag=="--directory") options.input=value;
       else if(flag=="--output") options.output=value;
       else if(flag=="--config") options.config=value;
+      else if(flag=="--calibration-scale") {
+        std::size_t consumed=0;
+        try { options.calibrationScale=std::stod(value,&consumed); }
+        catch(const std::exception&) { throw std::runtime_error("Calibration scale must be finite and in (0, 1]"); }
+        if(consumed!=value.size() || !std::isfinite(options.calibrationScale) || options.calibrationScale<=0 || options.calibrationScale>1)
+          throw std::runtime_error("Calibration scale must be finite and in (0, 1]");
+      }
       else {
         if(modeSet) throw std::runtime_error("Mode specified more than once");
         mode=value;modeSet=true;
@@ -83,6 +93,8 @@ int main(int argc,char** argv) {
     }
     if(mode!="generate"&&mode!="calibrate") throw std::runtime_error("Mode must be generate or calibrate");
     options.calibrate=mode=="calibrate";
+    if(seen["--calibration-scale"] && !options.calibrate)
+      throw std::runtime_error("Calibration scale is only valid in calibrate mode");
     orbyx::run(options,[](const std::string& message){std::cout<<message<<'\n';});
     return 0;
   } catch(const std::exception& error) {

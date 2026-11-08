@@ -103,3 +103,7 @@ AppImage, corresponding ORBYX source, build-tool identities, distribution notice
 package inventory and runtime log, retained for 14 days. The package inventory is
 a build-environment superset, not an exact runtime SBOM. Dependency licence and
 source obligations remain applicable to final redistribution.
+
+## Evidenza remota / Remote evidence
+
+Verifica effettiva conclusa con successo sul commit `0d7bf195b6af4ab2d2392c87234945accf499ede`: [run 42501765193](https://github.com/chiaraberti13/ORBYX/actions/runs/42501765193). Il risultato vale per le verifiche descritte, senza estenderlo a piattaforme o identità diverse. / The successful run covers the checks described here, without implying other platforms or signer identities.

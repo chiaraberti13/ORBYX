@@ -76,3 +76,7 @@ and architecture. Artifacts expire after 14 days. Synthetic imagery validates th
 real platform execution, not real-acquisition geometry or radiometry. GPU, complete
 interactive desktop VM/screen-reader coverage, SatDump real-data validation and
 AppImage bundling remain separate acceptance gates.
+
+## Evidenza remota / Remote evidence
+
+Verifica effettiva conclusa con successo sul commit `0d7bf195b6af4ab2d2392c87234945accf499ede`: [run 42501765159](https://github.com/chiaraberti13/ORBYX/actions/runs/42501765159). Il risultato vale per le verifiche descritte, senza estenderlo a piattaforme o identità diverse. / The successful run covers the checks described here, without implying other platforms or signer identities.

@@ -19,7 +19,7 @@
 
 ORBYX modernizza [RDAS Layer Aligner](https://github.com/Digitelektro/rdas_layer_aligner), mantenendone l'approccio affine/ECC OpenCV e i coefficienti di calibrazione. Lavora sui prodotti `MSUGS_VIS1` e `MSUGS_VIS2` decodificati in tempo reale da SatDump. Non riceve segnali satellitari e non decodifica direttamente il downlink.
 
-È una prima implementazione, non una release definitiva. Sono disponibili regressioni sintetiche; dataset satellitari reali, geometria della reimportazione SatDump, equivalenza GPU e matrice completa delle piattaforme restano requisiti prima della release. I risultati effettivi sono in [PROGRESS.md](PROGRESS.md).
+È una prima implementazione, non una release definitiva. Sono disponibili regressioni sintetiche e [verifiche su RDAS reale Elektro-L4/SatDump](docs/REAL_RDAS.md). Precisione geometrica rispetto a verità a terra, equivalenza GPU e verifiche residue delle piattaforme restano requisiti prima della release. I risultati effettivi sono in [PROGRESS.md](PROGRESS.md).
 
 ![ORBYX desktop](assets/desktop.png)
 
@@ -89,7 +89,7 @@ Un runner opzionale Python 3.10+ esegue lavori sequenziali con stato persistente
 - `third_party/rdas_layer_aligner`: riferimento originale fissato a un commit, escluso dalla build normale.
 - `docs`: [decisione sui linguaggi](docs/ADR-001-language.md), audit e verifiche.
 
-Per i sanitizers usare `-DORBYX_SANITIZE=ON -DORBYX_BUILD_GUI=OFF -DCMAKE_BUILD_TYPE=Debug`, quindi CTest. La CI prevede Ubuntu 22.04/24.04/26.04, sanitizers e analisi statica: la configurazione dei job non dimostra che siano passati. CPack consente packaging sperimentale, non una release già verificata. Debian/Fedora/Arch/Mint, ARM64, macOS e AppImage restano da verificare.
+Per i sanitizers usare `-DORBYX_SANITIZE=ON -DORBYX_BUILD_GUI=OFF -DCMAKE_BUILD_TYPE=Debug`, quindi CTest. La CI prevede Ubuntu 22.04/24.04/26.04, sanitizers e analisi statica: la configurazione dei job non dimostra che siano passati. CPack consente packaging sperimentale, non una release già verificata. ARM64 Ubuntu24.04 nativo, Fedora44/RPM in userspace pulito e AppImage in userspace Ubuntu22.04 pulito hanno superato la CI sul commit0d7bf19. Restano aperti VM grafica completa/FUSE, Arch/Mint e macOS; vedere [prove piattaforme](docs/PLATFORMS_REAL.md).
 
 ## Sicurezza e licenza
 
@@ -110,3 +110,5 @@ Sul commit `4190002` sono passate le build CI x86_64 seguenti: compilazione, set
 | 22.04 LTS | ✓ | ✓ |
 | 24.04 LTS | ✓ | ✓ |
 | 26.04 LTS | ✓ | ✓ |
+
+Per ridurre esplicitamente la memoria di calibrazione: `calibrate --calibration-scale 0.125` (intervallo `(0,1]`, predefinito1). Le trasformazioni restano in pixel originali; `generate` preserva risoluzione e profondità. Scala ridotta e precisione sono descritte in [REAL_RDAS.md](docs/REAL_RDAS.md).

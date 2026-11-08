@@ -1,0 +1,49 @@
+name: Real Elektro-L4 RDAS and SatDump
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - src/core/**
+      - src/cli/**
+      - include/orbyx/**
+      - scripts/fetch_real_rdas.py
+      - scripts/check_real_rdas.py
+      - scripts/ci/real-rdas.sh
+      - test-data/real/**
+      - .github/workflows/real-rdas.yml
+permissions:
+  contents: read
+jobs:
+  real-rdas:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Install native build and independent reference dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build libopencv-dev libjsoncpp-dev python3-opencv python3-cbor2
+          /usr/bin/python3 -c 'import cv2; assert cv2.__version__.startswith("4.6.")'
+      - name: Build the current source
+        run: |
+          cmake -S . -B build-real -G Ninja -DORBYX_BUILD_GUI=OFF -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-real --parallel 2
+      - name: Decode pinned public acquisition and verify actual native-resolution output
+        env:
+          PATH: /usr/bin:/bin
+        run: bash scripts/ci/real-rdas.sh "$GITHUB_WORKSPACE/build-real/orbyx" "$RUNNER_TEMP/real-rdas"
+      - name: Preserve reports and logs, excluding raw imagery
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: elektro-l4-real-evidence
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/real-rdas/*.log
+            ${{ runner.temp }}/real-rdas/*.json
+            ${{ runner.temp }}/real-rdas/*.sha256
+            ${{ runner.temp }}/real-rdas/calibrated/calibration.json

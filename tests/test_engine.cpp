@@ -9,6 +9,7 @@
 #include <fstream>
 #include <iostream>
 #include <random>
+#include <limits>
 #include <stdexcept>
 namespace fs=std::filesystem;
 void check(bool condition,const char* message) {if(!condition)throw std::runtime_error(message);}
@@ -65,6 +66,39 @@ void separate(const fs::path& root,int type,const std::string& name) {
  check(cv::countNonZero(merged(cv::Rect(20,10,20,6)))==0,"Uncovered merged pixels initialized to zero");
  config["L2VIS1"]["ROI"]["width"]=1000;writeJson(profile,config);options.output=root/(name+"-badroi");
  fails([&]{orbyx::run(options);});check(!fs::exists(options.output),"Invalid ROI leaves no destination");
+}
+void scaledCalibration(const fs::path& root) {
+ const auto input=root/"scaled-ecc", output=root/"scaled-ecc-output", profile=root/"scaled-ecc.json";
+ cv::Mat reference=cv::Mat::zeros(3919,253,CV_16U), texture(240,193,CV_16U);
+ cv::RNG rng(481);rng.fill(texture,cv::RNG::UNIFORM,4000,60000);
+ cv::GaussianBlur(texture,texture,cv::Size(9,9),2.0);
+ texture.copyTo(reference(cv::Rect(30,20,193,240)));
+ for(int v=1;v<=2;++v) {
+  const auto dir=input/("MSUGS_VIS"+std::to_string(v));fs::create_directories(dir);
+  for(int channel=1;channel<=3;++channel) {
+   cv::Mat image;
+   if(channel==1)image=reference;
+   else {
+    const int offset=channel==2?3606:1804;
+    const cv::Mat matrix=(cv::Mat_<float>(2,3)<<1.003,0.002,3.4,-0.001,1.001,offset+0.6);
+    cv::warpAffine(reference,image,matrix,reference.size());
+   }
+   check(cv::imwrite((dir/("MSUGS-VIS-"+std::to_string(channel)+".png")).string(),image),"scaled affine fixture");
+  }
+  std::ofstream(dir/"product.cbor")<<"synthetic-scaled-affine";
+ }
+ writeJson(profile,Json::Value(Json::objectValue));
+ orbyx::RunOptions options{"L4",input,output,profile,true,true,"en",0.5};
+ orbyx::run(options);
+ Json::Value calibrated;std::ifstream(output/"calibration.json")>>calibrated;
+ for(const char* vis:{"L4VIS1","L4VIS2"}) for(const char* channel:{"CH2","CH3"}) {
+  const auto& m=calibrated[vis][channel];const int offset=std::string(channel)=="CH2"?3606:1804;
+  for(const cv::Point2d point:{cv::Point2d(40,30),cv::Point2d(210,245)}) {
+   const double dx=m["a"].asDouble()*point.x+m["b"].asDouble()*point.y+m["tx"].asDouble()-(1.003*point.x+0.002*point.y+3.4);
+   const double dy=m["c"].asDouble()*point.x+m["d"].asDouble()*point.y+m["ty"].asDouble()-(-0.001*point.x+1.001*point.y+offset+0.6);
+   check(std::hypot(dx,dy)<0.75,"Scaled ECC must recover known affine in native pixel coordinates");
+  }
+ }
 }
 void calibration(const fs::path& root) {
  const auto input=root/"ecc-input",output=root/"ecc-calibration";
@@ -177,10 +211,18 @@ int main(int argc,char** argv) {
  try {
   root=fs::temp_directory_path()/("orbyx-tests-"+std::to_string(std::random_device{}()));
   fs::create_directory(root);
-  separate(root,CV_8U,"8bit");separate(root,CV_16U,"16bit");calibration(root);profiles(root);compose(root);
+  separate(root,CV_8U,"8bit");separate(root,CV_16U,"16bit");calibration(root);scaledCalibration(root);profiles(root);compose(root);
   auto options=orbyx::RunOptions{"../bad",root,root/"bad",root/"8bit.json",true,false};
   fails([&]{orbyx::run(options);});
   auto config=identity();writeJson(root/"valid.json",config);
+  options={"L2",root/"16bit-in",root/"invalid-scale",root/"valid.json",true,true};
+  for(const double scale:{0.0,-0.1,1.1,std::numeric_limits<double>::infinity(),std::numeric_limits<double>::quiet_NaN()}) {
+    options.calibrationScale=scale;
+    fails([&]{orbyx::run(options);});
+    check(!fs::exists(options.output),"Invalid calibration scale must leave no output");
+  }
+  options.calibrationScale=0.5; options.calibrate=false;
+  fails([&]{orbyx::run(options);});
   options={"L2",root/"8bit-in",root/"corrupt",root/"valid.json",true,false};
   std::ofstream(root/"8bit-in/MSUGS_VIS2/MSUGS-VIS-3.png")<<"not a png";
   fails([&]{orbyx::run(options);});check(!fs::exists(options.output),"Corrupt input transaction rollback");

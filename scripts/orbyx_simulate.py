@@ -67,11 +67,18 @@ def channel_image(width: int, height: int, active: int, band: list[int], offset:
     return pixels
 
 
-def build_dataset(root: Path, width: int, height: int, active: int, shift_px: int) -> None:
+def build_dataset(root: Path, width: int, height: int, active: int, shift_px: int, feature_margin: int = 0) -> None:
     for vis in (1, 2):
         directory = root / f"MSUGS_VIS{vis}"
         directory.mkdir(parents=True)
         band = texture(width, active, seed=vis * 101)
+        # Optional guard band avoids clipping translated features at the image
+        # edge, which otherwise biases a reduced-resolution affine estimate.
+        if feature_margin:
+            for y in range(active):
+                for x in range(width):
+                    if x < feature_margin or x >= width-feature_margin:
+                        band[y*width+x] = 0
         # CH1 is the reference (no offset, no shift); CH2/CH3 carry the known shift.
         for channel, offset, dx in ((1, 0, 0), (2, CH2_OFFSET, shift_px), (3, CH3_OFFSET, shift_px)):
             pixels = channel_image(width, height, active, band, offset, dx)
@@ -87,6 +94,8 @@ def main() -> int:
     parser.add_argument("--width", type=int, default=256)
     parser.add_argument("--active", type=int, default=160, help="height of the content band")
     parser.add_argument("--shift", type=int, default=3, help="known horizontal shift injected into CH2/CH3")
+    parser.add_argument("--calibration-scale", type=float, default=1.0, help="explicit ECC working scale; transforms checked in native pixels")
+    parser.add_argument("--feature-margin", type=int, default=0, help="blank horizontal guard band for unclipped translated features")
     args = parser.parse_args()
 
     height = CH2_OFFSET + args.active + 32
@@ -100,14 +109,14 @@ def main() -> int:
         work = args.out
         work.mkdir(parents=True)
     data = work / "acquisition"
-    build_dataset(data, args.width, height, args.active, args.shift)
+    build_dataset(data, args.width, height, args.active, args.shift, args.feature_margin)
     empty = work / "empty.json"
     empty.write_text("{}")
 
     calib_out = work / "calibration"
     generate_out = work / "aligned"
     run = lambda cmd: subprocess.run([str(args.orbyx), *cmd], check=True, timeout=600)
-    run(["calibrate", "-s", args.satellite, "-d", str(data), "--config", str(empty), "--output", str(calib_out), "--cpu"])
+    run(["calibrate", "-s", args.satellite, "-d", str(data), "--config", str(empty), "--output", str(calib_out), "--cpu", "--calibration-scale", str(args.calibration_scale)])
     profile = json.loads((calib_out / "calibration.json").read_text())
 
     ok = True

@@ -1,0 +1,10 @@
+{
+  "id": "elektro-l4-rdas-cadu",
+  "url": "https://github.com/chiaraberti13/ORBYX/releases/download/rdas-cadu-l4/elektro_rdas.cadu",
+  "size": 769938432,
+  "sha256": "b92ded3c71f1752d12208ed358e0d392e05d2ddbefe97f2e72b69e3c09498d48",
+  "origin": "https://github.com/Digitelektro/rdas_layer_aligner/issues/2",
+  "contributor": "eswnl",
+  "acquisition_time": null,
+  "licence": "No explicit redistribution licence supplied by the original contributor. Download separately for testing; raw data excluded from source packages."
+}
