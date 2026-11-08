@@ -8,11 +8,13 @@ against what readelf reports for the same file.
 """
 import importlib.util
 import json
+import os
 import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts/orbyx_sbom.py"
@@ -41,6 +43,19 @@ Dynamic section at offset 0x2d58 contains 27 entries:
 
     def test_no_needed_entries(self):
         self.assertEqual(sbom.parse_needed("no dynamic section here"), [])
+
+    def test_localized_readelf_labels_keep_the_machine_tag(self):
+        for label in ('Shared library', 'Libreria condivisa', 'Bibliothèque partagée', 'Gemeinsame Bibliothek'):
+            self.assertEqual(sbom.parse_needed(f'0x0000000000000001 (NEEDED) {label}: [libopencv_core.so.410]'),
+                             ['libopencv_core.so.410'])
+
+    def test_external_probes_force_c_locale(self):
+        with patch.dict(os.environ, {'LC_ALL':'it_IT.UTF-8','LANG':'it_IT.UTF-8'}):
+            with patch.object(sbom.subprocess,'run') as run:
+                run.return_value.stdout='machine output'
+                self.assertEqual(sbom._run(['readelf','-d','binary']),'machine output')
+                self.assertEqual(run.call_args.kwargs['env']['LC_ALL'],'C')
+                self.assertEqual(run.call_args.kwargs['env']['LANG'],'C')
 
 
 class ParseLddTests(unittest.TestCase):

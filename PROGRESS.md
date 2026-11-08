@@ -243,3 +243,9 @@ Compilazione e replay locale di tutti i semi passati su OpenCV4.6; campagna Clan
 ## Inventario runtime: dipendenze transitive
 
 Corretto l’inventario SBOM: prima enumerava soltanto DT_NEEDED diretti, ora include tutta la chiusura ldd e il loader, con campo direct. Export CycloneDX/SPDX ampliati di conseguenza, fallback usr-merge /lib-/usr/lib e cache delle query. Diciotto test, inclusa integrazione readelf/ldd su due binari reali, passati. I plugin dlopen successivi restano fuori dal perimetro statico; componenti irrisolti mantenuti come tali. Pubblicazione separata prima della correlazione avvisi.
+
+## Correzione dai log utente: locale italiano e inventario ELF
+
+I log ricevuti mostrano dipendenze installate e compilazione riuscita, poi un unico test fallito: lettura dei DT_NEEDED nel controllo SBOM. Il parser assumeva l'etichetta inglese Shared library e le sonde ereditavano la lingua del desktop. La correzione legge il tag ELF stabile NEEDED senza dipendere dall'etichetta tradotta e forza locale C soltanto per le sonde esterne, senza cambiare la lingua del programma/utente. Il test non viene disabilitato.
+
+Aggiunte regressioni per etichette italiana/francese/tedesca/inglese e per ambiente delle sonde. Venti test SBOM, inclusi binari reali e chiusura transitive, passati localmente. Workflow installer Ubuntu26.04 ora genera e usa realmente il locale it_IT.UTF-8 durante installazione, test e avvio/demo. Verifica remota da osservare; pubblicazione immediata su main della correzione. I log utente originali non vengono copiati nel repository.

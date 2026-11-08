@@ -23,14 +23,22 @@ jobs:
           persist-credentials: false
       - name: Exercise bounded lock retry and failure logging with stubbed commands
         run: python3 tests/test_install.py
+      - name: Enable the Italian locale reported by the user
+        run: |
+          sudo apt-get -o DPkg::Lock::Timeout=900 install -y locales
+          sudo locale-gen it_IT.UTF-8
       - name: Install actual dependencies, compile, test and install as the regular user
         env:
           XDG_DATA_HOME: ${{ runner.temp }}/orbyx-user-data
+          LANG: it_IT.UTF-8
+          LC_ALL: it_IT.UTF-8
         run: bash install.sh
       - name: Launch installed CLI and desktop without manual application paths
         env:
           XDG_DATA_HOME: ${{ runner.temp }}/orbyx-user-data
           QT_QPA_PLATFORM: offscreen
+          LANG: it_IT.UTF-8
+          LC_ALL: it_IT.UTF-8
         run: |
           bash orbyx.sh --lang it --help
           bash start.sh --smoke-test

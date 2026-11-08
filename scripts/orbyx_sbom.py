@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 from functools import lru_cache
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -41,7 +42,8 @@ ITALIAN = {
     "Cannot write output: ": "Impossibile scrivere l'output: ",
 }
 
-_NEEDED_RE = re.compile(r"\(NEEDED\)\s+Shared library:\s+\[([^\]]+)\]")
+# ELF tag names are stable; the human-readable label is translated by readelf.
+_NEEDED_RE = re.compile(r"\(NEEDED\)[^\[\r\n]*\[([^\]]+)\]")
 _ADDRESS_RE = re.compile(r"\s+\(0x[0-9a-fA-F]+\)\s*$")
 
 
@@ -134,7 +136,9 @@ def build_inventory(
 # --- Real resolvers (Linux / dpkg); degrade gracefully elsewhere. -----------
 
 def _run(args: list[str]) -> str:
-    return subprocess.run(args, check=True, capture_output=True, text=True).stdout
+    # Machine-readable probes must not depend on the desktop/user locale.
+    return subprocess.run(args, check=True, capture_output=True, text=True,
+                          env=dict(os.environ, LC_ALL="C", LANG="C")).stdout
 
 
 def real_needed_of(binary: str, language: str) -> list[str]:
