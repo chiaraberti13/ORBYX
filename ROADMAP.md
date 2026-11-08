@@ -88,7 +88,7 @@ Stati: pianificato, in corso, verificato, bloccato. Pubblicare ogni task verific
 - Deliverable: Dataset con provenienza e report
 - Test: Confronto pixel e apertura in SatDump
 - Accettazione: Precisione e metadati verificati su acquisizioni reali
-- Stato: bloccato — dataset RDAS reali redistribuibili e ambiente SatDump non disponibili nella sessione
+- Stato: bloccato — l'accettazione (precisione e metadati su acquisizioni reali, apertura in SatDump) richiede dataset RDAS reali redistribuibili con provenienza e un ambiente SatDump, non disponibili nella sessione; l'upstream fornisce solo composite di output (`img/*.jpg`), non dati di input grezzi. Disponibile una **simulazione sintetica** end-to-end (`scripts/orbyx_simulate.py`, gruppo CTest `simulation-flow`) che recupera offset e shift noti entro 1 px ed esercita il flusso `calibrate`→`generate`: prova la meccanica della pipeline, non sostituisce la verifica su dati reali/SatDump (`docs/SIMULATION.md`)
 
 ## M3-02 — Packaging e matrice piattaforme
 

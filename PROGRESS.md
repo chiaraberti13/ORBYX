@@ -120,3 +120,11 @@ Verifica effettiva su Ubuntu 24.04.5 (Qt 6.4.2): build GUI pulita senza warning;
 ## M4-02 integrità release (avanzamento) — 2026-11-08
 
 Primo passo di M4-02: la CI genera un `SHA256SUMS` riproducibile su tutti gli artifact di release (DEB, RPM, archivio sorgenti e documenti SBOM/CycloneDX/SPDX), lo verifica in loco con `sha256sum -c` e lo pubblica tra gli artifact. Flow verificato in locale su Ubuntu 24.04.5 (generazione + `sha256sum -c` → OK su deb/rpm/json/sorgenti). Documentazione in `docs/PACKAGING.md`. Limite dichiarato: i checksum garantiscono l'integrità, non l'autenticità; la firma GPG delle release e la procedura di aggiornamento/rollback richiedono chiavi di firma e restano da implementare. M4-02 resta «in corso».
+
+## Simulazione sintetica end-to-end (M3-01 resta bloccato) — 2026-11-08
+
+Controllato il repository originario: la cartella `img/` contiene solo composite di **output** (JPEG dimostrativi), non dataset RDAS di input grezzi; i dati reali nascono solo da una decodifica SatDump di un passaggio satellitare. Non esiste quindi un dataset reale ridistribuibile né qui né upstream.
+
+Aggiunto `scripts/orbyx_simulate.py` (Python puro, nessuna dipendenza): genera un'acquisizione sintetica in forma MSU-GS (due VIS, tre PNG 8 bit con offset reali CH2=3606/CH3=1804 e `product.cbor` segnaposto) con uno shift orizzontale **noto** iniettato, poi esegue il ciclo reale `calibrate`→`generate` del motore e verifica il recupero degli offset e dello shift entro 1 px e la creazione dei prodotti allineati. I PNG sono scritti da un encoder autonomo, quindi il test esercita anche il decoder su input codificato da terzi. Nuovo gruppo CTest `simulation-flow` (10/10 gruppi passati). Esecuzione reale 2026-11-08 (Ubuntu 24.04.5): «Calibration recovered CH2 ty≈3606, CH3 ty≈1804, injected shift≈3: OK».
+
+Dichiarazione esplicita: è una **simulazione su dati sintetici**. Prova la meccanica della pipeline; **non** verifica precisione radiometrica/geometrica su acquisizioni reali, qualità di calibrazione su passaggi veri, né la geometria di reimport SatDump (CBOR copiato, mai validato). L'accettazione di **M3-01** resta quindi **bloccata**, così come M3-04 (Natural Color) e M2-04 (monitoraggio cartelle) che vi dipendono. Nessun risultato è stato dichiarato verificato su dati reali. Documentazione in `docs/SIMULATION.md`.

@@ -47,6 +47,12 @@ if(BUILD_TESTING)
   add_test(NAME cli-version COMMAND orbyx --version)
   add_test(NAME cli-invalid COMMAND orbyx --unknown)
   set_tests_properties(cli-invalid PROPERTIES WILL_FAIL TRUE)
+  # Synthetic end-to-end simulation: an independently encoded dataset driven
+  # through calibrate+generate, recovering the known injected offsets. Exercises
+  # the real CLI and the PNG decoder on third-party-encoded input. It does not
+  # substitute for real-acquisition / SatDump verification (M3-01).
+  add_test(NAME simulation-flow COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/scripts/orbyx_simulate.py --orbyx $<TARGET_FILE:orbyx>)
+  set_tests_properties(simulation-flow PROPERTIES TIMEOUT 300)
   if(ORBYX_FUZZ)
     add_executable(orbyx_fuzz_parsers tests/fuzz_parsers.cpp)
     target_link_libraries(orbyx_fuzz_parsers PRIVATE orbyx_core)
