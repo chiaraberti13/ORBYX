@@ -257,6 +257,7 @@ std::string translate(const std::string& message,const std::string& language) {
     {"Expected non-symlink MSUGS_VIS directory","È richiesta una cartella MSUGS_VIS, non un collegamento simbolico"},
     {"All channels in a VIS product must have equal dimensions and depth","Tutti i canali VIS devono avere dimensioni e profondità uguali"},
     {"ECC did not produce a finite solution","ECC non ha prodotto una soluzione finita"},
+    {"Calibration backend: CPU (ECC)","Backend di calibrazione: CPU (ECC)"},
     {"Natural Color output must have a .png extension","L'uscita Natural Color deve avere estensione .png"},
     {"All channels must share dimensions and depth for composition","I canali da comporre devono avere dimensioni e profondità uguali"},
     {"Failed to encode composed RGB product","Impossibile codificare il prodotto RGB composto"},
@@ -319,8 +320,10 @@ void run(const RunOptions& options,const Log& log) {
   require(output!=input,"Input and output must differ");
   require(!fs::exists(fs::symlink_status(output)), "Output destination already exists");
   auto config=readConfig(options.config);
-  cv::ocl::setUseOpenCL(!options.cpu);
-  message(cv::ocl::useOpenCL()?"Backend: OpenCL":"Backend: CPU");
+  // OpenCV ECC here consumes Mat, not UMat: selecting an OpenCL device does
+  // not accelerate this estimator. Never label CPU ECC as GPU execution.
+  cv::ocl::setUseOpenCL(!options.cpu && !options.calibrate);
+  message(options.calibrate?"Calibration backend: CPU (ECC)":cv::ocl::useOpenCL()?"Backend: OpenCL":"Backend: CPU");
   const std::array<fs::path,2> dirs{input/"MSUGS_VIS1",input/"MSUGS_VIS2"};
   std::array<Channels,2> products;
   Staging stage(output);

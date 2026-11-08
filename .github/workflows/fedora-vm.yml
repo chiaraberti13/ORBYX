@@ -1,0 +1,40 @@
+name: Fedora 44 clean full VM
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - src/**
+      - include/**
+      - CMakeLists.txt
+      - scripts/ci/platforms.sh
+      - scripts/ci/fedora-vm.sh
+      - .github/workflows/fedora-vm.yml
+permissions:
+  contents: read
+jobs:
+  fedora-vm:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Install virtualization tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 qemu-utils cloud-image-utils openssh-client curl
+      - name: Build RPM then install and exercise it inside a fresh booted Fedora VM
+        run: bash scripts/ci/fedora-vm.sh "$RUNNER_TEMP/fedora-vm"
+      - name: Preserve VM evidence without private keys or guest disks
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: fedora44-clean-full-vm
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/fedora-vm/*.log
+            ${{ runner.temp }}/fedora-vm/runtime-packages.txt
+            ${{ runner.temp }}/fedora-vm/packages/*.rpm
+            ${{ runner.temp }}/fedora-vm/packages/*environment.txt

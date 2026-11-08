@@ -19,6 +19,12 @@ check_runtime() {
   QT_QPA_PLATFORM=offscreen orbyx-gui --lang en --cpu --satellite L2 \
     --input /tmp/orbyx-fixture/input --config /tmp/orbyx-fixture/profile.json \
     --output /tmp/orbyx-gui-output --run-and-exit
+  local channels=/tmp/orbyx-cli-output/MSUGS_VIS-1_Aligned
+  orbyx natural-color --ch1 "$channels/MSUGS-VIS-1.png" \
+    --ch2 "$channels/MSUGS-VIS-2.png" --ch3 "$channels/MSUGS-VIS-3.png" \
+    --output /tmp/orbyx-cli-natural.png
+  QT_QPA_PLATFORM=offscreen orbyx-gui --lang it --input "$channels" \
+    --output /tmp/orbyx-gui-natural.png --natural-color --run-and-exit
   python3 - <<'PY'
 from pathlib import Path
 import hashlib
@@ -29,7 +35,9 @@ def snapshot(root):
 a = snapshot(Path('/tmp/orbyx-cli-output'))
 b = snapshot(Path('/tmp/orbyx-gui-output'))
 assert len(a) == 8 and a == b, (a, b)
+assert Path('/tmp/orbyx-cli-natural.png').read_bytes() == Path('/tmp/orbyx-gui-natural.png').read_bytes()
 print('Installed CLI and GUI produced the same eight product files')
+print('Installed CLI and GUI produced identical Natural Color PNGs')
 PY
 }
 
