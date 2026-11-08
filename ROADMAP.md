@@ -155,7 +155,7 @@ Stati: pianificato, in corso, verificato, bloccato. Pubblicare ogni task verific
 - Deliverable: rilevamento affidabile e import automatico
 - Test: acquisizione incompleta, scritture concorrenti e metadati ambigui
 - Accettazione: nessun job avviato su prodotti incompleti, controllo manuale preservato
-- Stato: pianificato
+- Stato: verificato in parte (simulazione) — riconoscimento prodotti RDAS `scripts/orbyx_detect.py`: classifica completo/incompleto/instabile/non-prodotto (struttura MSUGS_VIS1/2 + stabilità delle dimensioni), rifiuta symlink/file vuoti, scansione di sola lettura che **elenca** i prodotti pronti senza avviare nulla né toccare i dati (controllo manuale preservato); gruppo CTest `detect-regression` su dataset simulati completi/incompleti/instabili. Import automatico e disambiguazione di metadati SatDump reali/ambigui restano aperti (dipendono da M3-01, dati reali)
 
 ## M3-04 — Natural Color validato
 
