@@ -21,18 +21,21 @@ jobs:
         with:
           persist-credentials: false
       - name: Install build dependencies
-        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build libopencv-dev libjsoncpp-dev qt6-base-dev qt6-qpa-plugins libgl-dev
+        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build libopencv-dev libjsoncpp-dev qt6-base-dev qt6-qpa-plugins libgl-dev rpm
       - name: Configure
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
       - name: Build
         run: cmake --build build --parallel 2
       - name: Regression and desktop smoke
         run: ctest --test-dir build --output-on-failure
-      - name: Source and experimental Debian package
+      - name: Source and experimental Debian/RPM packages
         run: |
           cmake --build build --target package_source
-          cpack --config build/CPackConfig.cmake -G DEB -B build/packages
+          cpack --config build/CPackConfig.cmake -G "DEB;RPM" -B build/packages
           dpkg-deb --info build/packages/*.deb
+          rpm -qpi build/packages/*.rpm
+          # The licence must be declared, not "unknown".
+          rpm -qp --queryformat '%{LICENSE}\n' build/packages/*.rpm | grep -qx GPLv3
           sudo dpkg -i build/packages/*.deb
           orbyx --version
           QT_QPA_PLATFORM=offscreen orbyx-gui --smoke-test
@@ -47,6 +50,7 @@ jobs:
           name: orbyx-${{ matrix.os }}-experimental
           path: |
             build/packages/*.deb
+            build/packages/*.rpm
             build/packages/*.json
             build/*Source.tar.gz
           if-no-files-found: error

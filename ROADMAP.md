@@ -99,7 +99,7 @@ Stati: pianificato, in corso, verificato, bloccato. Pubblicare ogni task verific
 - Deliverable: Pacchetti e build riproducibili
 - Test: Ubuntu 22.04/24.04/26.04; smoke pacchetti
 - Accettazione: Solo piattaforme effettivamente testate dichiarate
-- Stato: in corso — CPack TGZ, installazione locale e DEB CI; RPM/AppImage/ARM64 e installazione pulita ancora da verificare
+- Stato: in corso — CPack TGZ, installazione locale, DEB (CI) e ora RPM: generazione, metadati (licenza GPLv3, gruppo, URL) e requires automatici verificati con `rpmbuild` su Ubuntu e aggiunti alla CI (`docs/PACKAGING.md`). Installazione su distribuzione RPM reale (Fedora), AppImage, ARM64 e installazione su VM pulita ancora da verificare
 
 ## M3-03 — Prestazioni, GPU e fuzzing
 

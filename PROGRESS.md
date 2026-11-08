@@ -96,3 +96,9 @@ Attività indipendente dalla coda desktop (M2-03). Implementato `tests/fuzz_pars
 Verifica effettiva su `main` (Ubuntu 24.04.5, Clang 18.1.3, con `libclang-rt-18-dev`): build dell'harness riuscita; 20000 run completate senza crash/leak/UB; gruppo CTest `fuzz-parsers-smoke` passato in ~7,5 s. La dir di build `fuzz/` è aggiunta a `.gitignore`.
 
 Limiti dichiarati: i codec nativi (OpenCV) non sono strumentati; il fuzzing del profilo JSON e dell'intera pipeline `run()`, un corpus persistente e i benchmark/equivalenza GPU-OpenCL (resto di M3-03) restano aperti e richiedono hardware reale. M3-03 è quindi «verificato in parte», non completato. Documentazione in `docs/FUZZING.md`.
+
+## M3-02 packaging RPM (avanzamento) — 2026-11-08
+
+Difetto di metadati accertato e corretto: il pacchetto RPM riportava `License : unknown` e `Group : unknown`. Aggiunti i tag CPack mancanti (`CPACK_RPM_PACKAGE_LICENSE "GPLv3"`, gruppo, URL) e, per il DEB, `Section: science` e `Homepage`. Verifica effettiva su Ubuntu 24.04.5 con `rpmbuild` 4.18.2: generazione RPM riuscita, `License: GPLv3`, requires automatici corretti (`libopencv_core.so.406`, `libjsoncpp.so.25`, `libc`, `python3 >= 3.10`), payload con CLI/batch/calibrazione/licenze; DEB rigenerato con Section/Homepage e Depends auto-risolti. La CI ora genera DEB+RPM, stampa `rpm -qpi` e fallisce se la licenza non è `GPLv3`; gli artifact includono il `.rpm`.
+
+Limiti dichiarati: la generazione RPM su Ubuntu non implica compatibilità Fedora; installazione su una distribuzione RPM reale, AppImage, ARM64 e installazione su VM pulita restano da verificare. M3-02 resta «in corso».

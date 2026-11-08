@@ -81,7 +81,14 @@ set(CPACK_PACKAGE_NAME "orbyx")
 set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
 set(CPACK_PACKAGE_CONTACT "https://github.com/chiaraberti13/ORBYX/issues")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "RDAS satellite channel alignment studio")
+set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/chiaraberti13/ORBYX")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+# Declare the licence explicitly so packages do not report "unknown".
+set(CPACK_RPM_PACKAGE_LICENSE "GPLv3")
+set(CPACK_RPM_PACKAGE_GROUP "Applications/Multimedia")
+set(CPACK_RPM_PACKAGE_URL "https://github.com/chiaraberti13/ORBYX")
+set(CPACK_DEBIAN_PACKAGE_SECTION "science")
+set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/chiaraberti13/ORBYX")
 # Native libraries remain distro-resolved through shlibdeps/rpm automatic requirements.
 # Python is used by the optional installed script and is invisible to ELF scanners.
 if(ORBYX_INSTALL_BATCH)

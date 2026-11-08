@@ -7,7 +7,7 @@
 | Installazione CMake / CMake install | Layout verificato localmente: CLI, GUI, batch, profilo, licenze, desktop e icona / Layout checked locally |
 | Archivio sorgenti TGZ / Source TGZ | Generato e ispezionato: sorgenti e licenze presenti, `.git` e cartelle build esclusi / Generated and inspected |
 | DEB | Generazione, installazione e smoke degli eseguibili passati nei runner Ubuntu22.04/24.04/26.04; VM pulita ancora da verificare / Generation, runner install and binary smoke passed; clean VM pending |
-| RPM | Procedura predisposta; generazione e installazione non verificate / Procedure prepared; generation and install unverified |
+| RPM | Generazione, metadati (licenza GPLv3, gruppo, URL) e requires automatici verificati con `rpmbuild` su Ubuntu e in CI; installazione su distribuzione RPM reale (Fedora) e VM pulita ancora da verificare / Generation, metadata and auto-requires verified with rpmbuild on Ubuntu and in CI; install on a real RPM distro and clean VM pending |
 | AppImage | Procedura di assemblaggio proposta, nessuna AppImage verificata / Proposed assembly; no verified AppImage |
 
 ## Italiano
@@ -67,10 +67,13 @@ rpm -qpl FILE.rpm
 ```
 
 CPack usa il rilevamento automatico RPM per le librerie native e aggiunge
-`python3 >= 3.10` se il batch è installato. Questa procedura deve ancora essere
-eseguita e verificata su una distribuzione RPM; non implica compatibilità Fedora,
-Arch o altre piattaforme. Ripetere i controlli di installazione e del flusso completo
-in una VM pulita prima di pubblicare un RPM.
+`python3 >= 3.10` se il batch è installato. La licenza è dichiarata `GPLv3`
+(`CPACK_RPM_PACKAGE_LICENSE`), con gruppo e URL impostati. La **generazione** del
+pacchetto, i metadati e i requires automatici sono verificati con `rpmbuild` su
+Ubuntu e nella CI (`rpm -qpi` e un controllo che la licenza non sia `unknown`).
+L'**installazione** su una distribuzione RPM reale (Fedora o altra) e il flusso
+completo in una VM pulita restano da verificare; la generazione su Ubuntu non
+implica compatibilità Fedora, Arch o altre piattaforme.
 
 ### AppImage (procedura proposta, non verificata)
 
@@ -128,5 +131,8 @@ and checksum-verified linuxdeploy/Qt-plugin versions compatible with Qt 6. The p
 AppDir excludes the Python batch runner. Verify the final bundle on clean machines
 without Qt/OpenCV; GPU drivers, glibc and dynamically loaded plugins need separate
 coverage. Preserve licenses, attribution and corresponding-source availability in
-every distribution format. RPM and AppImage support must remain unverified until
-those builds and complete installed workflows have actually passed.
+every distribution format. RPM generation, metadata (GPLv3 licence, group, URL)
+and auto-requires are verified with `rpmbuild` on Ubuntu and in CI; RPM
+installation on a real RPM distribution and AppImage support must remain
+unverified until those builds and complete installed workflows have actually
+passed.
