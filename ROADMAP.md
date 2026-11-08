@@ -1,0 +1,136 @@
+# ORBYX — Roadmap operativa
+
+Stati: pianificato, in corso, verificato, bloccato. Pubblicare ogni task verificato direttamente su main senza force push.
+
+## M0-01 — Audit sorgenti, licenze e capacità originali
+
+- Priorità: P0
+- Dipendenze: —
+- Responsabile: Technical Lead / Secure Code Auditor
+- Competenze: C++, OpenCV, licensing
+- Deliverable: docs/AUDIT.md; inventario upstream
+- Test: Revisione di tutti i sorgenti e kernel
+- Accettazione: Baseline fissata a commit e limiti espliciti
+- Stato: verificato (revisione statica; validazione runtime successiva)
+
+## M0-02 — Valutazione linguaggi e architettura
+
+- Priorità: P0
+- Dipendenze: M0-01
+- Responsabile: Languages Architect
+- Competenze: C++, Rust, memoria, Qt
+- Deliverable: docs/ADR-001-language.md
+- Test: Confronto documentato
+- Accettazione: Nessuna migrazione senza regressioni di riferimento
+- Stato: verificato (revisione statica; validazione runtime successiva)
+
+## M0-03 — Identità, README bilingui e attribuzioni
+
+- Priorità: P1
+- Dipendenze: M0-01
+- Responsabile: Product Designer / Technical Writer
+- Competenze: SVG, localizzazione, GPL
+- Deliverable: banner, README, documenti legali
+- Test: XML SVG e link locali
+- Accettazione: Stile coerente e capacità dichiarate reali
+- Stato: pianificato
+
+## M1-01 — Core sicuro e CLI indipendente
+
+- Priorità: P0
+- Dipendenze: M0-02
+- Responsabile: Computer Vision Engineer / AppSec
+- Competenze: ECC, affine, JSON, filesystem
+- Deliverable: Core e comandi generate/calibrate
+- Test: Fixture sintetiche 8/16 bit e input invalidi
+- Accettazione: Canali corretti, errori gestiti, originali preservati
+- Stato: pianificato
+
+## M1-02 — Regressioni, sanitizers e CI
+
+- Priorità: P0
+- Dipendenze: M1-01
+- Responsabile: QA / DevSecOps
+- Competenze: CMake, CTest, Linux
+- Deliverable: Suite, workflow e Dependabot
+- Test: Build e CTest locali; CI remota
+- Accettazione: Risultati registrati senza inventare compatibilità
+- Stato: pianificato
+
+## M2-01 — Desktop bilingue con elaborazione asincrona
+
+- Priorità: P1
+- Dipendenze: M1-01
+- Responsabile: Qt Engineer / UX Designer
+- Competenze: Qt6, accessibilità, concorrenza
+- Deliverable: GUI con import, parametri, preview e log
+- Test: Build, smoke offscreen, revisione UI
+- Accettazione: GUI fluida, lingua e tema persistenti
+- Stato: pianificato
+
+## M2-02 — Profili, batch, code e ripresa
+
+- Priorità: P1
+- Dipendenze: M2-01
+- Responsabile: Application Engineer
+- Competenze: Job persistence, atomicità
+- Deliverable: Workflow e profili versionati
+- Test: Interruzione, ripresa e input modificato
+- Accettazione: Nessun output parziale scambiato per completo
+- Stato: pianificato
+
+## M3-01 — Dataset reali e interoperabilità SatDump
+
+- Priorità: P0
+- Dipendenze: M1-02
+- Responsabile: Satellite Imaging Specialist
+- Competenze: MSU-GS, CBOR, SatDump
+- Deliverable: Dataset con provenienza e report
+- Test: Confronto pixel e apertura in SatDump
+- Accettazione: Precisione e metadati verificati su acquisizioni reali
+- Stato: pianificato
+
+## M3-02 — Packaging e matrice piattaforme
+
+- Priorità: P1
+- Dipendenze: M2-01
+- Responsabile: Linux Systems / Release Engineer
+- Competenze: deb, rpm, AppImage, ARM64
+- Deliverable: Pacchetti e build riproducibili
+- Test: Ubuntu 22.04/24.04/26.04; smoke pacchetti
+- Accettazione: Solo piattaforme effettivamente testate dichiarate
+- Stato: pianificato
+
+## M3-03 — Prestazioni, GPU e fuzzing
+
+- Priorità: P1
+- Dipendenze: M1-02
+- Responsabile: GPU Engineer / Security Auditor
+- Competenze: OpenCL, ASan, fuzz, benchmark
+- Deliverable: Benchmark CPU/GPU e harness
+- Test: Corpora invalidi e confronto CPU/GPU
+- Accettazione: Nessuna regressione numerica o vulnerabilità nota ignorata
+- Stato: pianificato
+
+## M4-01 — Accessibilità, onboarding e calibrazione guidata
+
+- Priorità: P2
+- Dipendenze: M2-02
+- Responsabile: Accessibility / Interaction Designer
+- Competenze: Keyboard, screen reader, UX
+- Deliverable: Flussi guidati e componenti rifiniti
+- Test: Test tastiera e utenti
+- Accettazione: Flussi completi EN/IT
+- Stato: pianificato
+
+## M4-02 — Aggiornamenti sicuri e manutenzione periodica
+
+- Priorità: P2
+- Dipendenze: M3-02
+- Responsabile: DevSecOps / AppSec
+- Competenze: Firma release, dipendenze
+- Deliverable: Release firmate e procedura aggiornamenti
+- Test: Verifica firma, rollback, scansioni
+- Accettazione: Nessun aggiornamento eseguito senza verifica
+- Stato: pianificato
+
