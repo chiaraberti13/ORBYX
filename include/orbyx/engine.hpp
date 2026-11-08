@@ -1,5 +1,6 @@
 // ORBYX — GPL-3.0. Algorithm derived from Digitelektro/rdas_layer_aligner.
 #pragma once
+#include <array>
 #include <filesystem>
 #include <functional>
 #include <string>
@@ -23,4 +24,11 @@ Inspection inspect(const std::filesystem::path& image);
 // modified and the destination must not already exist.
 void duplicateProfile(const std::filesystem::path& source, const std::string& fromSatellite,
                       const std::string& toSatellite, const std::filesystem::path& destination);
+// Compose a 3-channel RGB product (CH1->R, CH2->G, CH3->B) from three aligned
+// grayscale channels of equal size and depth, preserving bit depth with no
+// implicit conversion. Inputs are never modified; the destination must not
+// exist. This is the composition foundation only: hue-corrected Natural Color
+// and its validation on real scenes are not performed here.
+void composeRgb(const std::array<std::filesystem::path, 3>& channels,
+                const std::filesystem::path& destination);
 }

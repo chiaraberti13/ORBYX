@@ -33,6 +33,7 @@ This is an initial implementation, not a finished release. Synthetic regressions
 - Separate output published by atomic directory rename; existing destinations are refused. Inputs and source profiles remain unchanged.
 - Desktop source/config/output selection, asynchronous processing, input/output preview, zoom/pan, diagnostic log, persistent language and light/dark theme.
 - Desktop processing queue delegating to the verified batch runner for durable, resumable, no-overwrite sequential execution, and calibration profile duplication (new satellite id from an existing one).
+- RGB composition of aligned channels (CH1/CH2/CH3 → R/G/B) preserving 8/16-bit depth with no implicit conversion or loss — the composition foundation only; hue-corrected Natural Color and real-scene colour validation are not done.
 - English/Italian UI, CLI help and application diagnostics; third-party technical error details may remain in their original language.
 
 L2, L3, **L5**, M1 and M2 coefficients are retained. L4 has no bundled coefficients and requires calibration. Automatic satellite identification, folder monitoring, guided ROI editing, Natural Color export and application updating are planned, not implemented. The desktop queue and profile duplication are verified at the execution and core level; full interactive and screen-reader verification of the new widgets is still pending. `-n/--nc` was disabled upstream and is not exposed as a working feature.

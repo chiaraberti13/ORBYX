@@ -138,6 +138,28 @@ void profiles(const fs::path& root) {
  fails([&]{orbyx::duplicateProfile(profile,"L2","L2",root/"dup-same.json");});
  check(!fs::exists(root/"dup-bad.json")&&!fs::exists(root/"dup-same.json"),"No profile written on rejection");
 }
+void compose(const fs::path& root) {
+ for(int type:{CV_8U,CV_16U}) {
+  const auto dir=root/("rgb-"+std::to_string(type));fs::create_directories(dir);
+  std::array<fs::path,3> paths;const std::array<int,3> base{{10,20,30}};
+  for(int i=0;i<3;++i) {
+   cv::Mat ch(16,24,type,cv::Scalar(type==CV_8U?base[i]:base[i]*257));
+   paths[i]=dir/("c"+std::to_string(i)+".png");
+   check(cv::imwrite(paths[i].string(),ch),"compose channel write");
+  }
+  const auto out=dir/"rgb.png";orbyx::composeRgb(paths,out);
+  const auto rgb=cv::imread(out.string(),cv::IMREAD_UNCHANGED);
+  check(rgb.channels()==3&&rgb.depth()==type&&rgb.cols==24&&rgb.rows==16,"RGB shape and depth preserved");
+  // OpenCV reads BGR: value order is [B=CH3, G=CH2, R=CH1].
+  if(type==CV_8U){const auto px=rgb.at<cv::Vec3b>(0,0);check(px[2]==10&&px[1]==20&&px[0]==30,"RGB channel mapping 8-bit");}
+  else {const auto px=rgb.at<cv::Vec3w>(0,0);check(px[2]==10*257&&px[1]==20*257&&px[0]==30*257,"RGB channel mapping 16-bit");}
+  check(cv::imread(paths[0].string(),cv::IMREAD_UNCHANGED).channels()==1,"compose inputs unchanged");
+  fails([&]{orbyx::composeRgb(paths,out);}); // destination must not be overwritten
+  cv::imwrite(paths[0].string(),cv::Mat(16,24,type==CV_8U?CV_16U:CV_8U,cv::Scalar(5)));
+  fails([&]{orbyx::composeRgb(paths,dir/"mismatch.png");});
+  check(!fs::exists(dir/"mismatch.png"),"No RGB product on depth mismatch");
+ }
+}
 int main(int argc,char** argv) {
  fs::path root;
  if(argc!=1) {
@@ -155,7 +177,7 @@ int main(int argc,char** argv) {
  try {
   root=fs::temp_directory_path()/("orbyx-tests-"+std::to_string(std::random_device{}()));
   fs::create_directory(root);
-  separate(root,CV_8U,"8bit");separate(root,CV_16U,"16bit");calibration(root);profiles(root);
+  separate(root,CV_8U,"8bit");separate(root,CV_16U,"16bit");calibration(root);profiles(root);compose(root);
   auto options=orbyx::RunOptions{"../bad",root,root/"bad",root/"8bit.json",true,false};
   fails([&]{orbyx::run(options);});
   auto config=identity();writeJson(root/"valid.json",config);

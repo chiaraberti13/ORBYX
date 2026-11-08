@@ -96,8 +96,10 @@ cv::Rect roi(const Json::Value& section, const cv::Size& size) {
           w <= size.width - x && h <= size.height - y, "ROI outside aligned image");
   return {x,y,w,h};
 }
-cv::Mat readImage(const fs::path& file) {
+cv::Mat readImage(const fs::path& file, bool rdas=true) {
   // Bound allocations from the same immutable PNG bytes passed to the decoder.
+  // rdas=false relaxes the raw-channel height rule for already-cropped aligned
+  // products (composition inputs), keeping every other bound and format check.
   const auto bytes=snapshot(file,1024ULL*1024*1024,"PNG file exceeds 1 GiB");
   require(bytes.size()>=33,"Invalid PNG signature or IHDR");
   std::array<unsigned char,33> header{};
@@ -110,7 +112,7 @@ cv::Mat readImage(const fs::path& file) {
   auto integer=[&](int i){return (std::uint32_t(header[i])<<24)|(std::uint32_t(header[i+1])<<16)|
                               (std::uint32_t(header[i+2])<<8)|header[i+3];};
   const auto width=integer(16),height=integer(20);
-  require(width>0&&height>ch2offset&&width<=100000&&height<=100000&&
+  require(width>0&&height>(rdas?std::uint32_t(ch2offset):0u)&&width<=100000&&height<=100000&&
           std::uint64_t(width)*height<=150000000, "PNG dimensions exceed RDAS safety limits");
   require((header[24]==8||header[24]==16)&&header[25]==0 && header[26]==0&&header[27]==0&&header[28]<=1,
           "Expected an unsigned 8-bit or 16-bit grayscale PNG");
@@ -120,7 +122,7 @@ cv::Mat readImage(const fs::path& file) {
           "Expected an unsigned 8-bit or 16-bit grayscale channel");
   require(image.cols==static_cast<int>(width) && image.rows==static_cast<int>(height),
           "Decoded PNG dimensions differ from IHDR");
-  require(image.rows > ch2offset && image.cols > 0 && image.total() <= 150000000,
+  require((!rdas || image.rows > ch2offset) && image.cols > 0 && image.total() <= 150000000,
           "Invalid RDAS channel dimensions (height must exceed 3606; max 150 Mpx)");
   return image;
 }
@@ -253,6 +255,8 @@ std::string translate(const std::string& message,const std::string& language) {
     {"Input must be a directory","L'input deve essere una cartella"},
     {"Input and output must differ","Input e output devono essere diversi"},
     {"Source and destination satellites must differ","I satelliti di origine e destinazione devono essere diversi"},
+    {"All channels must share dimensions and depth for composition","Tutti i canali devono avere dimensioni e profondità uguali per la composizione"},
+    {"Failed to encode composed RGB product","Impossibile codificare il prodotto RGB composto"},
     {"No calibration for ","Calibrazione mancante per "},
     {"Failed to save calibration profile","Impossibile salvare il profilo di calibrazione"},
     {"Calibrated profile; merge ROIs still require manual validation","Profilo calibrato; le ROI di fusione richiedono ancora una verifica manuale"},
@@ -373,6 +377,35 @@ void duplicateProfile(const fs::path& source,const std::string& from,const std::
     stream.flush(); stream.close();
     if(!stream){ std::error_code ig; fs::remove(temp,ig); require(false,"Failed to save calibration profile"); }
   }
+  bool published=false;
+#ifdef __linux__
+  published=::syscall(SYS_renameat2,AT_FDCWD,temp.c_str(),AT_FDCWD,destination.c_str(),1)==0;
+#elif defined(__APPLE__)
+  published=::renamex_np(temp.c_str(),destination.c_str(),RENAME_EXCL)==0;
+#endif
+  if(!published) {
+    std::error_code ig; fs::remove(temp,ig);
+#if defined(__linux__) || defined(__APPLE__)
+    throw std::runtime_error("Cannot publish output exclusively: "+std::string(std::strerror(errno)));
+#else
+    throw std::runtime_error("Exclusive atomic publication is unsupported on this platform");
+#endif
+  }
+}
+void composeRgb(const std::array<fs::path,3>& channels,const fs::path& destination) {
+  std::array<cv::Mat,3> mats;
+  for(int i=0;i<3;++i) mats[i]=readImage(channels[i],false);
+  for(int i=1;i<3;++i)
+    require(mats[i].size()==mats[0].size() && mats[i].type()==mats[0].type(),
+            "All channels must share dimensions and depth for composition");
+  require(fs::is_directory(destination.parent_path()),"Output parent directory must exist");
+  require(!fs::exists(fs::symlink_status(destination)),"Output destination already exists");
+  // OpenCV stores channels BGR; map CH1->R, CH2->G, CH3->B as the upstream composite.
+  cv::Mat rgb; std::vector<cv::Mat> bgr{mats[2],mats[1],mats[0]}; cv::merge(bgr,rgb);
+  std::random_device random;
+  const fs::path temp=destination.parent_path()/
+    (".orbyx-rgb-"+std::to_string(random())+"-"+std::to_string(random())+".png");
+  require(cv::imwrite(temp.string(),rgb),"Failed to encode composed RGB product");
   bool published=false;
 #ifdef __linux__
   published=::syscall(SYS_renameat2,AT_FDCWD,temp.c_str(),AT_FDCWD,destination.c_str(),1)==0;
