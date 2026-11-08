@@ -101,6 +101,8 @@ Stati: pianificato, in corso, verificato, bloccato. Pubblicare ogni task verific
 - Accettazione: Solo piattaforme effettivamente testate dichiarate
 - Stato: verificato per la matrice Linux dichiarata — Ubuntu22.04/24.04/26.04 x86_64, ARM64 Ubuntu24.04 nativo, Fedora44 RPM in userspace pulito e VM KVM con kernel proprio6.19.10-300.fc44.x86_64, AppImage x86_64 in userspace Ubuntu22.04 pulito. Installazione/esecuzione CLI/GUI/Natural Color, equivalenza e disinstallazione con input preservati verificate su commit9a52e07: [VM42517397293](https://github.com/chiaraberti13/ORBYX/actions/runs/42517397293), piattaforme42517397266, AppImage42517397247. Non esteso a sessione grafica interattiva/FUSE/macOS o distro non testate (`docs/FEDORA_VM.md`, `docs/PLATFORMS_REAL.md`, `docs/APPIMAGE_REAL.md`).
 
+Installer Ubuntu: `install.sh` con dipendenze complete, attesa APT, stop alla prima failure, installazione utente e launcher senza percorsi manuali. Log/errori locali esclusi da git e archivi. Verifica effettiva Ubuntu26.04: [run42519134799](https://github.com/chiaraberti13/ORBYX/actions/runs/42519134799), successo (`docs/INSTALLATION.md`).
+
 ## M3-03 — Prestazioni, GPU e fuzzing
 
 - Priorità: P1

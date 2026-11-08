@@ -217,3 +217,11 @@ Recepita segnalazione reale: contesa APT con unattended-upgrades, CMake inizialm
 Cartella logs con log per sessione ed errors.log; include errori stdout/stderr e fase/codice, ignorata da git e senza upload automatico dei log utente. La CI carica solo i propri log del runner temporaneo. Lock locale condiviso installazione/avvio. README aggiornati con comandi senza percorsi da compilare manualmente; documentazione in docs/INSTALLATION.md.
 
 Bash e sintassi Python verificati localmente. I test installer richiedono utente non-root: il runtime locale non permette un UID secondario e li registra come saltati, non passati. Workflow dedicato Ubuntu26.04 predisposto per eseguire sia regressioni con comandi simulati sia dipendenze/build/test/installazione reali e smoke dei launcher come utente normale. Risultato remoto ancora da osservare prima della dichiarazione di verifica.
+
+### Installer Ubuntu26.04 verificato
+
+[Run42519134799](https://github.com/chiaraberti13/ORBYX/actions/runs/42519134799), commit632b15ea1a3591aa1369eae34a4882d9377a1454: `success`. Quattro test di flusso con comandi simulati passati, compreso retry del lock, stop dopo build/test falliti, stdout negli errori e symlink log rifiutato. Corretto durante la CI il conteggio del test retry, che contava anche la riga del wrapper sudo oltre alle vere invocazioni APT: nessun rilassamento del controllo di contesa.
+
+Poi lo stesso job ha installato realmente le dipendenze su Ubuntu26.04, configurato/compilato, passato CTest, installato per l'utente normale e verificato CLI/GUI tramite i launcher senza percorsi manuali. Conferma finale creata solo dopo gli smoke installati. I log del runner sono negli artifact; quelli delle installazioni utente restano locali. Un controllo locale separato ha confermato uscita23 e conservazione nel file errori di una failure emessa solo su stdout. Log e lock locali esclusi anche dagli archivi sorgenti CPack, non solo da git.
+
+La macchina Ubuntu26.04 della segnalazione non è accessibile da questa sessione: la correzione è pubblicata e verificata nel repository, da usare con git pull e bash install.sh, poi bash start.sh. Non occorre inventare o inserire percorsi di dati per installare/avviare il desktop.
