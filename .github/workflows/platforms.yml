@@ -1,0 +1,81 @@
+name: Native platforms and clean runtime installs
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["**/*.md", "assets/*.png", "assets/banner.svg"]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  fedora-native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      FEDORA_IMAGE: registry.fedoraproject.org/fedora@sha256:5aae8bdc5f40bf70f8f189a70770e6f1fabcb04976e841262431c3bbfdbe3538
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Build and test natively in Fedora 44 x86_64
+        run: |
+          mkdir -p "$RUNNER_TEMP/fedora-artifacts"
+          docker pull "$FEDORA_IMAGE"
+          docker image inspect "$FEDORA_IMAGE" --format '{{json .RepoDigests}}' | tee "$RUNNER_TEMP/fedora-artifacts/image-digest.txt"
+          docker run --rm --security-opt=no-new-privileges \
+            -v "$GITHUB_WORKSPACE:/src:ro" -v "$RUNNER_TEMP/fedora-artifacts:/out" \
+            "$FEDORA_IMAGE" bash /src/scripts/ci/platforms.sh build-fedora
+      - name: Install RPM and run real binaries in a separate clean Fedora container
+        run: |
+          set -o pipefail
+          docker run --rm --security-opt=no-new-privileges -e EXPECTED_ARCH=x86_64 \
+            -v "$GITHUB_WORKSPACE/scripts/ci:/checks:ro" -v "$RUNNER_TEMP/fedora-artifacts:/packages:ro" \
+            "$FEDORA_IMAGE" bash /checks/platforms.sh test-fedora 2>&1 \
+            | tee "$RUNNER_TEMP/fedora-artifacts/clean-runtime.log"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: orbyx-fedora44-native
+          path: ${{ runner.temp }}/fedora-artifacts/
+          if-no-files-found: error
+          retention-days: 14
+  arm64-native:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 35
+    env:
+      UBUNTU_IMAGE: ubuntu@sha256:fe81560990fae86dc4743202b2cb4d3df98d0bcf949173cecef15ce1127ef852
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Verify native ARM64 host and install development dependencies
+        run: |
+          test "$(uname -m)" = aarch64
+          cat /etc/os-release
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build libopencv-dev libjsoncpp-dev qt6-base-dev qt6-qpa-plugins libgl-dev gnupg binutils
+      - name: Build, test and package on native ARM64
+        run: |
+          cmake -S . -B build-arm -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
+          cmake --build build-arm --parallel 2
+          ctest --test-dir build-arm --output-on-failure
+          cpack --config build-arm/CPackConfig.cmake -G DEB -B build-arm/packages
+          dpkg-deb --info build-arm/packages/*.deb
+          test "$(dpkg-deb --field build-arm/packages/*.deb Architecture)" = arm64
+          cp build-arm/orbyx_tests build-arm/packages/orbyx-fixture-tool
+      - name: Install DEB in a fresh Ubuntu ARM64 container and compare installed CLI/GUI
+        run: |
+          docker pull "$UBUNTU_IMAGE"
+          docker image inspect "$UBUNTU_IMAGE" --format '{{json .RepoDigests}}' | tee build-arm/packages/runtime-image-digest.txt
+          set -o pipefail
+          docker run --rm --security-opt=no-new-privileges -e EXPECTED_ARCH=aarch64 \
+            -v "$GITHUB_WORKSPACE/scripts/ci:/checks:ro" -v "$GITHUB_WORKSPACE/build-arm/packages:/packages:ro" \
+            "$UBUNTU_IMAGE" bash /checks/platforms.sh test-ubuntu 2>&1 \
+            | tee build-arm/packages/clean-runtime.log
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: orbyx-ubuntu24-native-arm64
+          path: build-arm/packages/
+          if-no-files-found: error
+          retention-days: 14

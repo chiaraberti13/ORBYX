@@ -144,3 +144,9 @@ Aggiunta `orbyx::composeRgb` nel core: compone un prodotto RGB a 3 canali (CH1�
 ## M4-02 firma release — meccanica (simulazione) — 2026-11-08
 
 Aggiunto `scripts/orbyx_sign.py`: passo esplicito di release (nessuna rete, nessuna shell implicita) che firma e verifica una firma GPG staccata su `SHA256SUMS`. Lo strumento non genera né incorpora chiavi: la chiave è fornita dall'operatore via keyring/GNUPGHOME. Nuovo gruppo CTest `sign-regression` (3 casi): genera una **chiave effimera** di test in un `GNUPGHOME` isolato, firma, verifica («Good signature»), e conferma che la manomissione del file fa fallire la verifica. Verifica effettiva su Ubuntu 24.04.5 con GnuPG 2.4.4. Documentazione in `docs/PACKAGING.md`. Limite dichiarato: è provata la **meccanica** firma/verifica con chiave effimera; la firma con la **chiave reale** di release (secret fuori dal repo) e la procedura di aggiornamento/rollback restano aperte. M4-02 passa da «in corso» a «verificato in parte».
+
+## Risorse reali e verifiche indipendenti — 2026-11-08
+
+Ripartenza dal commit7fc0953, preservando il lavoro remoto e senza sovrascrivere il checkout precedente. Recuperata acquisizione RDAS reale Elektro-L4 dall'issue2 del progetto originale:769938432byte, SHA256 b92ded3c71f1752d12208ed358e0d392e05d2ddbefe97f2e72b69e3c09498d48; decodifica/validazione ancora in corso. Il raw resta esterno al repository: la pagina non concede una licenza esplicita di redistribuzione.
+
+Aggiunti workflow separati per build/installazione Fedora44 in container puliti e ARM64 nativo GitHub, e per attestazione autentica Sigstore/GitHub OIDC dei pacchetti senza chiave personale. YAML, Bash e pin delle risorse verificati; esiti remoti ancora da osservare. Un container Fedora reale non viene descritto come una VM completa. La firma OIDC certifica il workflow ORBYX, non impersona la firma GPG personale dell'utente.

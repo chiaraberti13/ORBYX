@@ -1,0 +1,78 @@
+name: Signed artifact provenance
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["**/*.md", "assets/*.png", "assets/banner.svg"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  attest:
+    if: github.repository == 'chiaraberti13/ORBYX' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build libopencv-dev libjsoncpp-dev qt6-base-dev qt6-qpa-plugins libgl-dev gnupg binutils
+      - name: Build and test the actual desktop and headless products
+        run: |
+          cmake -S . -B build-provenance -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-provenance --parallel 2
+          ctest --test-dir build-provenance --output-on-failure
+      - name: Package binaries, corresponding source and checked digests
+        run: |
+          cmake --build build-provenance --target package_source
+          cpack --config build-provenance/CPackConfig.cmake -G TGZ -B build-provenance/packages
+          mkdir dist
+          cp build-provenance/packages/*.tar.gz build-provenance/*Source.tar.gz dist/
+          (cd dist && sha256sum -- *.tar.gz > SHA256SUMS && sha256sum -c SHA256SUMS)
+      - name: Sign artifact provenance with repository OIDC identity
+        id: provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4, resolved 2026-11-08
+        with:
+          subject-path: dist/*
+          create-storage-record: false
+      - name: Verify the real signatures and reject a modified subject
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ORBYX_ATTESTATION_BUNDLE: ${{ steps.provenance.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          for artifact in dist/*.tar.gz dist/SHA256SUMS; do
+            gh attestation verify "$artifact" \
+              --bundle "$ORBYX_ATTESTATION_BUNDLE" \
+              --repo "$GITHUB_REPOSITORY" \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/attest.yml" \
+              --source-ref refs/heads/main \
+              --source-digest "$GITHUB_SHA" \
+              --deny-self-hosted-runners \
+              --format json > "$artifact.verification.json"
+          done
+          cp dist/SHA256SUMS "$RUNNER_TEMP/orbyx-tampered-checksums"
+          printf '\nmodified after signing\n' >> "$RUNNER_TEMP/orbyx-tampered-checksums"
+          if gh attestation verify "$RUNNER_TEMP/orbyx-tampered-checksums" \
+            --bundle "$ORBYX_ATTESTATION_BUNDLE" \
+            --repo "$GITHUB_REPOSITORY" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/attest.yml" \
+            --source-ref refs/heads/main --source-digest "$GITHUB_SHA" \
+            --deny-self-hosted-runners > "$RUNNER_TEMP/orbyx-tamper-verification.log" 2>&1; then
+            echo 'ERROR: modified content unexpectedly verified'
+            exit 1
+          fi
+          echo 'Modified subject rejected after authentic subjects verified'
+          cp "$ORBYX_ATTESTATION_BUNDLE" dist/provenance.sigstore.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: orbyx-signed-provenance-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
