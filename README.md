@@ -41,7 +41,7 @@ Ubuntu build dependencies:
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y build-essential cmake ninja-build libopencv-dev libjsoncpp-dev qt6-base-dev qt6-qpa-plugins
+sudo apt-get install -y build-essential cmake ninja-build libopencv-dev libjsoncpp-dev qt6-base-dev qt6-qpa-plugins libgl-dev
 git clone https://github.com/chiaraberti13/ORBYX.git
 cd ORBYX
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
