@@ -123,7 +123,7 @@ Installer Ubuntu: `install.sh` con dipendenze complete, attesa APT, stop alla pr
 - Deliverable: Flussi guidati e componenti rifiniti
 - Test: Test tastiera e utenti
 - Accettazione: Flussi completi EN/IT
-- Stato: pianificato — base presente: i nuovi widget della coda e del profilo hanno nomi accessibili EN/IT e scorciatoie da tastiera coerenti col resto della GUI. La verifica completa con screen reader, l'onboarding e la calibrazione guidata restano da fare e richiedono tecnologia assistiva reale (non simulabile)
+- Stato: verificato in parte — guida iniziale passo passo EN/IT, installer e launcher automatici, demo sintetica guidata con calibrazione/allineamento/Natural Color e desktop precompilato; base accessibile presente: i nuovi widget della coda e del profilo hanno nomi accessibili EN/IT e scorciatoie da tastiera coerenti col resto della GUI. La verifica completa con screen reader, il wizard interattivo di calibrazione resta da rifinire e richiedono tecnologia assistiva reale (non simulabile)
 
 ## M4-02 — Aggiornamenti sicuri e manutenzione periodica
 

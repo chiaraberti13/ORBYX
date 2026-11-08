@@ -82,7 +82,7 @@ const QMap<QString, QString> italian = {
  {"Browse the RDAS input folder", "Sfoglia la cartella RDAS di origine"},
  {"Browse calibration profiles", "Sfoglia i profili di calibrazione"},
  {"Choose a parent folder and edit the new destination name", "Scegli una cartella padre e modifica il nome della nuova destinazione"},
- {"L4 has no bundled calibration; calculate one before alignment.", "L4 non dispone di una calibrazione inclusa; calcolane una prima di allineare."},
+ {"L4 needs a calibrated profile. Select an existing L4 profile or calculate a new one.", "L4 richiede un profilo calibrato. Seleziona un profilo L4 esistente oppure calcolane uno nuovo."},
  {"Zoom in", "Ingrandisci"}, {"Zoom out", "Riduci"},
  {"Processing queue", "Coda di elaborazione"},
  {"Add to queue", "Aggiungi alla coda"}, {"Remove", "Rimuovi"}, {"Run queue", "Avvia coda"},
@@ -99,6 +99,7 @@ const QMap<QString, QString> italian = {
  {"Save duplicated profile", "Salva profilo duplicato"},
  {"Profile duplicated", "Profilo duplicato"}, {"Could not duplicate the profile", "Impossibile duplicare il profilo"},
  {"Export Natural Color…", "Esporta Natural Color…"},
+ {"Synthetic demo — no real satellite imagery", "Demo sintetica — nessuna acquisizione satellitare reale"},
  {"Choose aligned VIS channels", "Scegli i canali VIS allineati"},
  {"Save Natural Color PNG", "Salva PNG Natural Color"},
  {"Natural Color exported", "Natural Color esportato"},
@@ -111,6 +112,7 @@ class Window final : public QMainWindow {
     bool it = false;
     bool dark = true;
     bool quitAfterRun = false;
+    bool demoMode = false;
     QString lastOutput;
     QPixmap image;
     double zoom = 1.0;
@@ -138,7 +140,7 @@ class Window final : public QMainWindow {
         return QString::fromStdString(orbyx::translate(message.toStdString(), it ? "it" : "en"));
     }
     void applyText() {
-        subtitle->setText(trText("Satellite imaging workspace")); eyebrow->setText(trText("ALIGN / CALIBRATE / EXPLORE"));
+        subtitle->setText(trText(demoMode?"Synthetic demo — no real satellite imagery":"Satellite imaging workspace")); eyebrow->setText(trText("ALIGN / CALIBRATE / EXPLORE"));
         setup->setTitle(trText("Processing setup"));
         inputLabel->setText(trText("RDAS input folder")); configLabel->setText(trText("Calibration profile")); outputLabel->setText(trText("New output folder"));
         satLabel->setText(trText("Satellite")); modeLabel->setText(trText("Operation")); engineLabel->setText(trText("Processing engine"));
@@ -151,7 +153,7 @@ class Window final : public QMainWindow {
         source->setItemText(0, trText("Input")); source->setItemText(1, trText("Output"));
         theme->setItemText(0, trText("Dark")); theme->setItemText(1, trText("Light"));
         start->setText(trText(busy ? "Processing…" : "Start processing"));
-        hint->setText(trText(satellite->currentText() == "L4" && mode->currentIndex() == 0 ? "L4 has no bundled calibration; calculate one before alignment." : mode->currentIndex() == 1 ? "Calibration writes a new calibration.json in the output folder. Merge regions remain manual." : "Alignment preserves the original input and uses the selected calibration profile."));
+        hint->setText(trText(satellite->currentText() == "L4" && mode->currentIndex() == 0 ? "L4 needs a calibrated profile. Select an existing L4 profile or calculate a new one." : mode->currentIndex() == 1 ? "Calibration writes a new calibration.json in the output folder. Merge regions remain manual." : "Alignment preserves the original input and uses the selected calibration profile."));
         previewTitle->setText(trText("Image preview")); empty->setText(trText("Drop one local RDAS folder here, or select it using the browser."));
         previewNote->setText(trText("Full-resolution exports are unchanged; preview is limited to 2048 pixels."));
         fit->setText(trText("Fit")); plus->setAccessibleName(trText("Zoom in")); minus->setAccessibleName(trText("Zoom out"));
@@ -475,6 +477,7 @@ public:
         applyText(); applyTheme();
     }
     void loadArguments(const QStringList &args) {
+        demoMode=args.contains("--demo"); applyText();
         auto value=[&](const QString &key){const int i=args.indexOf(key);return i>=0&&i+1<args.size()?args.at(i+1):QString{};};
         if (!value("--input").isEmpty()) input->setText(value("--input"));
         if (!value("--config").isEmpty()) config->setText(value("--config"));

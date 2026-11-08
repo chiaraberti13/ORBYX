@@ -229,3 +229,7 @@ La macchina Ubuntu26.04 della segnalazione non è accessibile da questa sessione
 ## Guida iniziale per principianti
 
 README principale ora in italiano, con guida inglese separata e alias italiano conservato. Passaggi numerati per terminale, primo clone oppure aggiornamento, installazione, controllo del messaggio di successo, avvio, primi lavori GUI/L4, Natural Color ed errori con log. Rimossi dal percorso iniziale parametri numerici, comandi di compilazione e cartelle di dati dimostrative. I comandi di installazione/avvio sono quelli già verificati realmente su Ubuntu26.04. Questa modifica documentale viene pubblicata separatamente prima degli altri sviluppi.
+
+## Onboarding: demo senza dati o percorsi manuali
+
+Dopo la pubblicazione separata della guida f4dca8f, aggiunto demo.sh: verifica installazione, genera fixture dichiaratamente sintetiche, esegue calibrazione/allineamento reali del motore e composizione Natural Color, apre il desktop con input/profilo/destinazione predisposti quando esiste una sessione grafica. Nuovi risultati per esecuzione, nessuna sovrascrittura; cartella demo-output e log esclusi da git/archivi sorgenti. Non è una nuova acquisizione reale né una validazione geometrica. CI Ubuntu26.04 estesa alla demo installata; sintassi e collegamenti verificati, risultato remoto da osservare. Hint L4 reso coerente con un profilo personalizzato già calibrato. La finestra demo mostra esplicitamente «Demo sintetica — nessuna acquisizione satellitare reale»; build GUI e smoke offscreen locali passati.

@@ -62,6 +62,14 @@ bash start.sh
 
 Reuse this command on later launches. For updates, close the application, run `git pull`, then rerun the installer.
 
+### No data yet? Try the demo
+
+```bash
+bash demo.sh --lang en
+```
+
+It creates explicitly synthetic images, calibrates, aligns and exports Natural Color automatically. From a desktop session it opens ORBYX with the input/profile preselected; press Start processing to repeat the job. Results stay in demo-output and logs. It downloads no real imagery and needs no manual paths.
+
 ### 5. Process your data
 
 You need RDAS products already decoded by SatDump, including both VIS sensors and their channels. ORBYX does not receive satellite signals. You can install/open it without data.

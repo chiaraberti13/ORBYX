@@ -7,6 +7,7 @@ on:
       - install.sh
       - start.sh
       - orbyx.sh
+      - demo.sh
       - scripts/lib/**
       - tests/test_install.py
       - .github/workflows/ubuntu-install.yml
@@ -33,6 +34,8 @@ jobs:
         run: |
           bash orbyx.sh --lang it --help
           bash start.sh --smoke-test
+          bash demo.sh --no-open
+          test -n "$(find demo-output -name natural-color.png -print -quit)"
           test -f build-desktop/.orbyx-install-success
       - name: Preserve installation and startup evidence from the disposable runner
         if: always()
