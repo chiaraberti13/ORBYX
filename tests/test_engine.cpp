@@ -5,6 +5,7 @@
 #include <json/json.h>
 #include <filesystem>
 #include <array>
+#include <algorithm>
 #include <cmath>
 #include <fstream>
 #include <iostream>
@@ -66,6 +67,73 @@ void separate(const fs::path& root,int type,const std::string& name) {
  check(cv::countNonZero(merged(cv::Rect(20,10,20,6)))==0,"Uncovered merged pixels initialized to zero");
  config["L2VIS1"]["ROI"]["width"]=1000;writeJson(profile,config);options.output=root/(name+"-badroi");
  fails([&]{orbyx::run(options);});check(!fs::exists(options.output),"Invalid ROI leaves no destination");
+}
+// Independent double-precision scalar RGB/HSV oracle, without cvtColor.
+cv::Vec3d naturalOracle(cv::Vec3d bgr,double maximum) {
+ const double r=bgr[2]/maximum,g=bgr[1]/maximum,b=bgr[0]/maximum;
+ const double high=std::max({r,g,b}),low=std::min({r,g,b}),delta=high-low;
+ double h=0;
+ if(delta>0) {
+  if(high==r)h=60*std::fmod((g-b)/delta+6,6);
+  else if(high==g)h=60*((b-r)/delta+2);
+  else h=60*((r-g)/delta+4);
+ }
+ if(h>=340 || h<=40)h+=60;
+ else if(h<=100)h-=6;
+ h=std::fmod(h,360);
+ const double saturation=high==0?0:delta/high,c=high*saturation;
+ const double x=c*(1-std::abs(std::fmod(h/60,2)-1)),m=high-c;
+ cv::Vec3d rgb;
+ if(h<60)rgb={c,x,0};else if(h<120)rgb={x,c,0};else if(h<180)rgb={0,c,x};
+ else if(h<240)rgb={0,x,c};else if(h<300)rgb={x,0,c};else rgb={c,0,x};
+ return cv::Vec3d(0.6*bgr[0]+0.4*(rgb[2]+m)*maximum,
+                   0.6*bgr[1]+0.4*(rgb[1]+m)*maximum,
+                   0.6*bgr[2]+0.4*(rgb[0]+m)*maximum);
+}
+void naturalColor(const fs::path& root,int type,const std::string& name) {
+ const double maximum=type==CV_16U?65535:255;
+ // Red, yellow, blue, green, magenta, grey, black, white, and interior hues.
+ const std::array<cv::Vec3d,12> samples{{{0,0,1},{0,1,1},{1,0,0},{0,1,0},{1,0,1},
+   {.37,.37,.37},{0,0,0},{1,1,1},{.11,.21,.93},{.04,.81,.97},{.2,.7,.4},{.9,.2,.3}}};
+ std::array<cv::Mat,3> mats;
+ std::array<fs::path,3> paths;
+ std::array<std::string,3> originals;
+ for(int channel=0;channel<3;++channel) {
+  mats[channel].create(261,37,type);
+  for(int y=0;y<261;++y)for(int x=0;x<37;++x) {
+   const int value=cvRound(samples[(y*37+x)%samples.size()][channel]*maximum);
+   if(type==CV_16U)mats[channel].at<unsigned short>(y,x)=static_cast<unsigned short>(value);
+   else mats[channel].at<unsigned char>(y,x)=static_cast<unsigned char>(value);
+  }
+  paths[channel]=root/(name+"-ch"+std::to_string(channel)+".png");
+  cv::imwrite(paths[channel].string(),mats[channel]);originals[channel]=read(paths[channel]);
+ }
+ const auto output=root/(name+"-natural.png");
+ orbyx::composeNaturalColor(paths,output);
+ const auto actual=cv::imread(output.string(),cv::IMREAD_UNCHANGED);
+ check(actual.size()==mats[0].size()&&actual.type()==CV_MAKETYPE(type,3),"Natural Color dimensions and depth");
+ for(int y=0;y<actual.rows;++y)for(int x=0;x<actual.cols;++x) {
+  cv::Vec3d original,result;
+  for(int c=0;c<3;++c) {
+   original[c]=type==CV_16U?mats[c].at<unsigned short>(y,x):mats[c].at<unsigned char>(y,x);
+   result[c]=type==CV_16U?actual.at<cv::Vec<unsigned short,3>>(y,x)[c]:actual.at<cv::Vec3b>(y,x)[c];
+  }
+  check(cv::norm(result-naturalOracle(original,maximum))<=2.0,"Natural Color scalar RGB321/HSV oracle, including tile boundaries");
+ }
+ for(int c=0;c<3;++c)check(read(paths[c])==originals[c],"Natural Color inputs unchanged");
+ const auto before=read(output);fails([&]{orbyx::composeNaturalColor(paths,output);});
+ check(read(output)==before,"Natural Color must not overwrite output");
+ fails([&]{orbyx::composeNaturalColor(paths,root/(name+".jpg"));});
+ auto mismatch=paths; mismatch[2]=root/(name+"-mismatch.png");
+ cv::imwrite(mismatch[2].string(),cv::Mat(2,2,type,cv::Scalar(1)));
+ fails([&]{orbyx::composeNaturalColor(mismatch,root/(name+"-invalid.png"));});
+ check(!fs::exists(root/(name+"-invalid.png")),"Invalid colour input leaves no destination");
+ if(type==CV_16U) {
+  // Low bits must survive: a neutral 10001 cannot be represented by 8-bit scaling.
+  for(int c=0;c<3;++c)cv::imwrite(paths[c].string(),cv::Mat(1,2,CV_16U,cv::Scalar(10001)));
+  const auto low=root/(name+"-low-bits.png");orbyx::composeNaturalColor(paths,low);
+  check(cv::imread(low.string(),cv::IMREAD_UNCHANGED).at<cv::Vec<unsigned short,3>>(0,0)==cv::Vec<unsigned short,3>(10001,10001,10001),"Natural Color preserves neutral 16-bit low bits");
+ }
 }
 void scaledCalibration(const fs::path& root) {
  const auto input=root/"scaled-ecc", output=root/"scaled-ecc-output", profile=root/"scaled-ecc.json";
@@ -211,7 +279,7 @@ int main(int argc,char** argv) {
  try {
   root=fs::temp_directory_path()/("orbyx-tests-"+std::to_string(std::random_device{}()));
   fs::create_directory(root);
-  separate(root,CV_8U,"8bit");separate(root,CV_16U,"16bit");calibration(root);scaledCalibration(root);profiles(root);compose(root);
+  separate(root,CV_8U,"8bit");separate(root,CV_16U,"16bit");calibration(root);scaledCalibration(root);profiles(root);compose(root);naturalColor(root,CV_8U,"nc8");naturalColor(root,CV_16U,"nc16");
   auto options=orbyx::RunOptions{"../bad",root,root/"bad",root/"8bit.json",true,false};
   fails([&]{orbyx::run(options);});
   auto config=identity();writeJson(root/"valid.json",config);

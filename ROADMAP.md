@@ -166,7 +166,7 @@ Stati: pianificato, in corso, verificato, bloccato. Pubblicare ogni task verific
 - Deliverable: composizione e conversione 8/16 bit documentata
 - Test: scene reali e fixture cromatiche
 - Accettazione: nessuna conversione implicita o perdita dei canali originali
-- Stato: verificato in parte (simulazione, meccanica) — base di composizione `orbyx::composeRgb`: compone un RGB a 3 canali (CH1→R, CH2→G, CH3→B) dai canali allineati di pari dimensioni/profondità, preservando 8/16 bit senza conversione implicita né perdita, input immutati, destinazione non sovrascritta (rename atomico esclusivo), rifiuto di profondità/dimensioni incoerenti; casi in `engine-regression` su fixture 8 e 16 bit. Restano aperti la correzione cromatica Natural Color (passo hue, 8-bit nell'upstream) e la validazione su **scene reali** (dipende da M3-01)
+- Stato: verificato per resa visiva Natural Color — core/CLI e worker desktop EN/IT, RGB321 MSU-GS con regole hue legacy in floating point, 8/16bit senza quantizzazione intermedia a8bit, originali immutati e PNG atomico esclusivo. Fixture cromatiche con oracolo scalare indipendente, limiti delle strisce e bit bassi16bit verificati; CLI e GUI producono gli stessi byte. Due scene VIS reali Elektro-L4 esportate a6004×13594×3 uint16: oltre25000campioni confrontati con colorsys, scarto≤0,48 livelli, confini hue conteggiati separatamente; scena ispezionata. Non è colore vero calibrato radiometricamente e non corregge geometria/artefatti sorgenti (`docs/NATURAL_COLOR.md`). Risultati CI da registrare dopo completamento.
 
 ## M1-03 — Inventario dipendenze, SBOM e scansione vulnerabilità runtime
 

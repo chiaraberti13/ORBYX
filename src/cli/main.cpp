@@ -24,7 +24,8 @@ void help(const std::string& language) {
       "  -h, --help         Mostra questa guida\n"
       "      --version      Mostra la versione\n"
       "calibrate salva OUTPUT/calibration.json. Gli input originali restano invariati.\n"
-      "Natural Color non disponibile: disabilitato nell'implementazione originale.\n";
+      "Composizione: orbyx [natural-color|compose-rgb] --ch1 PNG --ch2 PNG --ch3 PNG --output NUOVO.png\n"
+      "Natural Color: RGB321 con correzione hue; mantiene 8/16 bit, non è colore scientificamente calibrato.\n";
     return;
   }
   std::cout << "ORBYX " ORBYX_VERSION " — RDAS channel alignment\n"
@@ -40,7 +41,28 @@ void help(const std::string& language) {
     "  -h, --help         Show help\n"
     "      --version      Print version\n"
     "Calibrate writes OUTPUT/calibration.json. Original inputs remain unchanged.\n"
-    "No Natural Color export: it was disabled in the upstream implementation.\n";
+    "Composition: orbyx [natural-color|compose-rgb] --ch1 PNG --ch2 PNG --ch3 PNG --output NEW.png\n"
+    "Natural Color: RGB321 with hue correction; retains 8/16-bit depth, not calibrated true colour.\n";
+}
+int composeCommand(int argc,char** argv,const std::string& language) {
+  std::map<std::string,std::string> values;
+  for(int i=2;i<argc;++i) {
+    const std::string flag=argv[i];
+    if(flag=="--help"||flag=="-h") {help(language);return 0;}
+    if(flag!="--ch1"&&flag!="--ch2"&&flag!="--ch3"&&flag!="--output"&&flag!="--lang")
+      throw std::runtime_error("Unknown option: "+flag);
+    if(values.count(flag))throw std::runtime_error("Duplicate option: "+flag);
+    if(i+1>=argc || std::string(argv[i+1]).empty() || std::string(argv[i+1]).rfind("--",0)==0)
+      throw std::runtime_error("Missing value for "+flag);
+    values[flag]=argv[++i];
+  }
+  for(const char* flag:{"--ch1","--ch2","--ch3","--output"})
+    if(!values.count(flag))throw std::runtime_error("Missing value for "+std::string(flag));
+  const std::array<std::filesystem::path,3> channels{values["--ch1"],values["--ch2"],values["--ch3"]};
+  if(std::string(argv[1])=="natural-color")orbyx::composeNaturalColor(channels,values["--output"]);
+  else orbyx::composeRgb(channels,values["--output"]);
+  std::cout<<orbyx::translate("Completed: ",language)<<values["--output"]<<'\n';
+  return 0;
 }
 }
 int main(int argc,char** argv) {
@@ -49,6 +71,8 @@ int main(int argc,char** argv) {
   for(int i=1;i+1<argc;++i) if(std::string(argv[i])=="--lang") language=argv[i+1];
   try {
     if(language!="en"&&language!="it") throw std::runtime_error("Language must be en or it");
+    if(argc>1 && (std::string(argv[1])=="natural-color"||std::string(argv[1])=="compose-rgb"))
+      return composeCommand(argc,argv,language);
     orbyx::RunOptions options;
     options.config="config.json";
     options.language=language;

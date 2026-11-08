@@ -9,6 +9,7 @@ on:
       - include/orbyx/**
       - scripts/fetch_real_rdas.py
       - scripts/check_real_rdas.py
+      - scripts/check_natural_color.py
       - scripts/ci/real-rdas.sh
       - test-data/real/**
       - .github/workflows/real-rdas.yml

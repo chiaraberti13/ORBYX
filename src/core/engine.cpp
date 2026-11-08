@@ -257,6 +257,9 @@ std::string translate(const std::string& message,const std::string& language) {
     {"Expected non-symlink MSUGS_VIS directory","È richiesta una cartella MSUGS_VIS, non un collegamento simbolico"},
     {"All channels in a VIS product must have equal dimensions and depth","Tutti i canali VIS devono avere dimensioni e profondità uguali"},
     {"ECC did not produce a finite solution","ECC non ha prodotto una soluzione finita"},
+    {"Natural Color output must have a .png extension","L'uscita Natural Color deve avere estensione .png"},
+    {"All channels must share dimensions and depth for composition","I canali da comporre devono avere dimensioni e profondità uguali"},
+    {"Failed to encode composed RGB product","Impossibile codificare il prodotto RGB composto"},
     {"Calibration scale must be finite and in (0, 1]","La scala di calibrazione deve essere finita e compresa in (0, 1]"},
     {"Calibration scale is only valid in calibrate mode","La scala di calibrazione è valida solo in modalità calibrate"},
     {"Calibration working image is too small","L'immagine di lavoro per la calibrazione è troppo piccola"},
@@ -423,7 +426,9 @@ void duplicateProfile(const fs::path& source,const std::string& from,const std::
 #endif
   }
 }
-void composeRgb(const std::array<fs::path,3>& channels,const fs::path& destination) {
+namespace {
+void composeProduct(const std::array<fs::path,3>& channels,const fs::path& requested,bool natural) {
+  const auto destination=fs::absolute(requested).lexically_normal();
   std::array<cv::Mat,3> mats;
   for(int i=0;i<3;++i) mats[i]=readImage(channels[i],false);
   for(int i=1;i<3;++i)
@@ -431,11 +436,41 @@ void composeRgb(const std::array<fs::path,3>& channels,const fs::path& destinati
             "All channels must share dimensions and depth for composition");
   require(fs::is_directory(destination.parent_path()),"Output parent directory must exist");
   require(!fs::exists(fs::symlink_status(destination)),"Output destination already exists");
-  // OpenCV stores channels BGR; map CH1->R, CH2->G, CH3->B as the upstream composite.
-  cv::Mat rgb; std::vector<cv::Mat> bgr{mats[2],mats[1],mats[0]}; cv::merge(bgr,rgb);
-  std::random_device random;
-  const fs::path temp=destination.parent_path()/
-    (".orbyx-rgb-"+std::to_string(random())+"-"+std::to_string(random())+".png");
+  if(natural) require(destination.extension()==".png","Natural Color output must have a .png extension");
+  cv::Mat rgb;
+  if(!natural) {
+    // Preserve the established generic RGB API's CH1->R mapping.
+    std::vector<cv::Mat> bgr{mats[2],mats[1],mats[0]}; cv::merge(bgr,rgb);
+  } else {
+    // SatDump and the original aligner use RGB321 for MSU-GS. OpenCV is BGR.
+    rgb.create(mats[0].size(),CV_MAKETYPE(mats[0].depth(),3));
+    const double maximum=mats[0].depth()==CV_16U?65535.0:255.0;
+    const int tileRows=std::max(1,std::min(128,1000000/mats[0].cols));
+    for(int y=0;y<rgb.rows;y+=tileRows) {
+      const auto region=cv::Rect(0,y,rgb.cols,std::min(tileRows,rgb.rows-y));
+      std::vector<cv::Mat> bgr{mats[0](region),mats[1](region),mats[2](region)};
+      cv::Mat native,original,hsv,corrected,blended;
+      cv::merge(bgr,native);
+      native.convertTo(original,CV_32F,1.0/maximum);
+      cv::cvtColor(original,hsv,cv::COLOR_BGR2HSV);
+      for(int row=0;row<hsv.rows;++row) {
+        auto* pixels=hsv.ptr<cv::Vec3f>(row);
+        for(int x=0;x<hsv.cols;++x) {
+          float& hue=pixels[x][0];
+          if(hue>=340.0f || hue<=40.0f) hue+=60.0f;
+          else if(hue<=100.0f) hue-=6.0f;
+          if(hue>=360.0f) hue-=360.0f;
+        }
+      }
+      cv::cvtColor(hsv,corrected,cv::COLOR_HSV2BGR);
+      cv::addWeighted(original,0.6,corrected,0.4,0,blended);
+      blended.convertTo(rgb(region),rgb.type(),maximum);
+    }
+  }
+  // A private directory protects the encoder target from symlink substitution;
+  // RAII also removes temporary output if imwrite throws or publication loses a race.
+  Staging stage(destination);
+  const fs::path temp=stage.path/"composite.png";
   require(cv::imwrite(temp.string(),rgb),"Failed to encode composed RGB product");
   bool published=false;
 #ifdef __linux__
@@ -451,5 +486,12 @@ void composeRgb(const std::array<fs::path,3>& channels,const fs::path& destinati
     throw std::runtime_error("Exclusive atomic publication is unsupported on this platform");
 #endif
   }
+}
+}
+void composeRgb(const std::array<fs::path,3>& channels,const fs::path& destination) {
+  composeProduct(channels,destination,false);
+}
+void composeNaturalColor(const std::array<fs::path,3>& channels,const fs::path& destination) {
+  composeProduct(channels,destination,true);
 }
 }

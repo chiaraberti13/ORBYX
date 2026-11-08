@@ -46,6 +46,14 @@ satdump_libraries="$work/squashfs-root/usr/lib/x86_64-linux-gnu/satdump/plugins:
   --output "$work/calibrated" --cpu --calibration-scale 0.125 > "$work/calibrate.log" 2>&1
 "$binary" generate -s L4 -d "$work/decoded" --config "$work/calibrated/calibration.json" \
   --output "$work/aligned" --cpu > "$work/generate.log" 2>&1
+for vis in 1 2; do
+  channels="$work/aligned/MSUGS_VIS-${vis}_Aligned"
+  "$binary" natural-color --ch1 "$channels/MSUGS-VIS-1.png" \
+    --ch2 "$channels/MSUGS-VIS-2.png" --ch3 "$channels/MSUGS-VIS-3.png" \
+    --output "$work/natural-vis${vis}.png" > "$work/natural-vis${vis}.log" 2>&1
+  python3 "$repo/scripts/check_natural_color.py" --channels "$channels" \
+    --image "$work/natural-vis${vis}.png" --report "$work/natural-vis${vis}.json"
+done
 (cd "$work/decoded" && sha256sum --check "$work/decoded.sha256")
 python3 "$repo/scripts/check_real_rdas.py" --decoded "$work/decoded" --aligned "$work/aligned" \
   --profile "$work/calibrated/calibration.json" --report "$work/validation.json"
@@ -64,5 +72,6 @@ for vis in 1 2; do
 done
 mkdir "$work/evidence"
 cp "$work/"*.log "$work/decoded.sha256" "$work/download.json" "$work/validation.json" "$work/calibrated/calibration.json" "$work/evidence/"
+cp "$work/"natural-vis*.json "$work/evidence/"
 printf '%s\n' 'Real RDAS decode, native-resolution output and SatDump product load completed.' \
   'Absolute geolocation and ground-truth calibration are NOT certified by this sample.'

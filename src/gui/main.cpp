@@ -97,7 +97,12 @@ const QMap<QString, QString> italian = {
  {"Duplicate calibration profile", "Duplica profilo di calibrazione"},
  {"Source satellite", "Satellite di origine"}, {"New satellite", "Nuovo satellite"},
  {"Save duplicated profile", "Salva profilo duplicato"},
- {"Profile duplicated", "Profilo duplicato"}, {"Could not duplicate the profile", "Impossibile duplicare il profilo"}
+ {"Profile duplicated", "Profilo duplicato"}, {"Could not duplicate the profile", "Impossibile duplicare il profilo"},
+ {"Export Natural Color…", "Esporta Natural Color…"},
+ {"Choose aligned VIS channels", "Scegli i canali VIS allineati"},
+ {"Save Natural Color PNG", "Salva PNG Natural Color"},
+ {"Natural Color exported", "Natural Color esportato"},
+ {"RGB321 hue rendering preserves 8/16-bit depth. Select one aligned VIS product. This is not calibrated true colour.", "La resa RGB321 con correzione hue mantiene 8/16 bit. Seleziona un prodotto VIS allineato. Non è colore scientificamente calibrato."}
 };
 
 class Window final : public QMainWindow {
@@ -120,7 +125,7 @@ class Window final : public QMainWindow {
     QTextEdit *log{};
     QGroupBox *queueBox{};
     QTableWidget *queue{};
-    QPushButton *queueAdd{}, *queueRemove{}, *queueRun{}, *profileDup{};
+    QPushButton *queueAdd{}, *queueRemove{}, *queueRun{}, *profileDup{}, *naturalExport{};
     QProcess *queueProcess{};
     int queueCounter = 0;
 
@@ -159,6 +164,9 @@ class Window final : public QMainWindow {
         queueBox->setToolTip(trText("The queue runs jobs in order with durable, resumable state. Existing outputs are never overwritten."));
         queueAdd->setText(trText("Add to queue")); queueRemove->setText(trText("Remove")); queueRun->setText(trText("Run queue"));
         profileDup->setText(trText("Duplicate profile…"));
+        naturalExport->setText(trText("Export Natural Color…"));
+        naturalExport->setAccessibleName(trText("Export Natural Color…"));
+        naturalExport->setToolTip(trText("RGB321 hue rendering preserves 8/16-bit depth. Select one aligned VIS product. This is not calibrated true colour."));
         queue->setHorizontalHeaderLabels({trText("Job"), trText("Operation"), trText("Status")});
         queueAdd->setAccessibleName(trText("Add to queue")); queueRemove->setAccessibleName(trText("Remove"));
         queueRun->setAccessibleName(trText("Run queue")); profileDup->setAccessibleName(trText("Duplicate profile…"));
@@ -182,6 +190,10 @@ class Window final : public QMainWindow {
             "QLabel#muted,QLabel#eyebrow {color:%5;} QLabel#eyebrow {font-size:11px;letter-spacing:2px;}"
             "QLabel#section {font-size:16px;font-weight:600;}"
             "QLineEdit,QComboBox,QTextEdit {background:%3;border:1px solid %6;border-radius:6px;padding:4px 8px;selection-background-color:#238d87;}"
+            "QTableWidget {background:%3;alternate-background-color:%2;gridline-color:%6;border:1px solid %6;}"
+            "QTableWidget::item:selected {background:#238d87;color:#ffffff;}"
+            "QHeaderView::section {background:%2;color:%4;border:1px solid %6;padding:5px;}"
+            "QTableCornerButton::section {background:%2;border:1px solid %6;}"
             "QComboBox::drop-down {border:0;width:22px;} QComboBox QAbstractItemView {background:%2;color:%4;selection-background-color:#238d87;}"
             "QPushButton {background:%2;border:1px solid %6;border-radius:6px;padding:4px 10px;}"
             "QPushButton:hover {border-color:#46cabc;} QPushButton:focus,QLineEdit:focus,QComboBox:focus {border:2px solid #46cabc;}"
@@ -227,6 +239,38 @@ class Window final : public QMainWindow {
         if (!image.isNull()) fitImage();
         else if (!file.isEmpty()) log->append(trText("No readable PNG preview"));
     }
+    void exportNatural(const QString &folder,const QString &destination) {
+        if (busy) return;
+        setQueueBusy(true); progress->setRange(0,0); status->setText(trText("Processing…")); applyText();
+        auto *worker=QThread::create([this,folder,destination] {
+            QString error;
+            try {
+                std::array<std::filesystem::path,3> channels;
+                for(int i=0;i<3;++i)channels[i]=QDir(folder).filePath(QString("MSUGS-VIS-%1.png").arg(i+1)).toStdString();
+                orbyx::composeNaturalColor(channels,destination.toStdString());
+            } catch(const std::exception &e) {error=QString::fromUtf8(e.what());}
+            catch(...) {error="Unknown processing exception";}
+            QMetaObject::invokeMethod(this,[this,error,destination] {
+                setQueueBusy(false); progress->setRange(0,100); progress->setValue(error.isEmpty()?100:0); applyText();
+                status->setText(trText(error.isEmpty()?"Natural Color exported":"Processing failed"));
+                if(quitAfterRun) {QApplication::exit(error.isEmpty()?0:2);return;}
+                if(error.isEmpty())log->append((trText("Natural Color exported")+": "+destination).toHtmlEscaped());
+                else {
+                    log->append(diagnostic(error).toHtmlEscaped());
+                    QMessageBox box(QMessageBox::Warning,trText("Processing failed"),diagnostic(error),QMessageBox::Ok,this);
+                    box.setTextFormat(Qt::PlainText);box.exec();
+                }
+            },Qt::QueuedConnection);
+        });
+        connect(worker,&QThread::finished,worker,&QObject::deleteLater);worker->start();
+    }
+    void naturalColorDialog() {
+        if(busy)return;
+        const auto folder=QFileDialog::getExistingDirectory(this,trText("Choose aligned VIS channels"),lastOutput);
+        if(folder.isEmpty())return;
+        const auto destination=QFileDialog::getSaveFileName(this,trText("Save Natural Color PNG"),QDir(folder).filePath("natural-color.png"),"PNG (*.png)");
+        if(!destination.isEmpty())exportNatural(folder,destination);
+    }
     void execute() {
         if (busy) return;
         if (input->text().isEmpty() || config->text().isEmpty() || output->text().isEmpty()) {
@@ -237,8 +281,7 @@ class Window final : public QMainWindow {
         options.input = input->text().toStdString(); options.config = config->text().toStdString(); options.output = output->text().toStdString();
         options.language = it ? "it" : "en";
         options.satellite = satellite->currentText().toStdString(); options.cpu = engine->currentIndex() == 1; options.calibrate = mode->currentIndex() == 1;
-        lastOutput = output->text(); busy = true;
-        for (auto *w : {static_cast<QWidget*>(setup), static_cast<QWidget*>(start)}) w->setEnabled(false);
+        lastOutput = output->text(); setQueueBusy(true);
         progress->setRange(0,0); status->setText(trText("Processing…")); applyText();
         if (!quitAfterRun) { settings.setValue("input", input->text()); settings.setValue("config", config->text()); settings.setValue("satellite", satellite->currentText()); }
         auto *worker = QThread::create([this, options] {
@@ -251,7 +294,7 @@ class Window final : public QMainWindow {
             } catch (const std::exception &e) { error = QString::fromUtf8(e.what()); }
             catch (...) { error = "Unknown processing exception"; }
             QMetaObject::invokeMethod(this, [this,error] {
-                busy = false; setup->setEnabled(true); start->setEnabled(true); progress->setRange(0,100); progress->setValue(error.isEmpty()?100:0); applyText();
+                setQueueBusy(false); progress->setRange(0,100); progress->setValue(error.isEmpty()?100:0); applyText();
                 status->setText(trText(error.isEmpty()?"Completed":"Processing failed"));
                 if (quitAfterRun) { QApplication::exit(error.isEmpty()?0:2); return; }
                 if (!error.isEmpty()) { log->append(error.toHtmlEscaped()); QMessageBox box(QMessageBox::Warning,trText("Processing failed"),diagnostic(error),QMessageBox::Ok,this); box.setTextFormat(Qt::PlainText); box.setDetailedText(error); box.exec(); }
@@ -304,6 +347,7 @@ class Window final : public QMainWindow {
     void setQueueBusy(bool running) {
         busy = running;
         setup->setEnabled(!running); start->setEnabled(!running);
+        naturalExport->setEnabled(!running);
         queueAdd->setEnabled(!running); queueRemove->setEnabled(!running);
         queueRun->setEnabled(!running && queue->rowCount() > 0);
     }
@@ -444,7 +488,10 @@ public:
         if (args.contains("--calibrate")) mode->setCurrentIndex(1);
         if (!value("--input").isEmpty()) loadPreview();
         quitAfterRun=args.contains("--run-and-exit");
-        if (quitAfterRun) QTimer::singleShot(0,this,[this]{execute();});
+        if (quitAfterRun) {
+            if(args.contains("--natural-color"))QTimer::singleShot(0,this,[this]{exportNatural(input->text(),output->text());});
+            else QTimer::singleShot(0,this,[this]{execute();});
+        }
     }
     Window() {
         it = settings.value("language", "it").toString() == "it"; dark = settings.value("dark",true).toBool();
@@ -472,6 +519,8 @@ public:
         engineLabel=label(); engine=new QComboBox; engine->addItems({"Automatic CPU / OpenCL","CPU only"}); form->addWidget(engineLabel); form->addWidget(engine);
         hint=label("muted"); hint->setWordWrap(true); hint->setMinimumHeight(48); hint->setSizePolicy(QSizePolicy::Preferred,QSizePolicy::Minimum); form->addWidget(hint); leftLayout->addWidget(setup);
         start=new QPushButton; start->setObjectName("start"); start->setShortcut(QKeySequence("Ctrl+Return")); leftLayout->addWidget(start);
+        naturalExport=new QPushButton; naturalExport->setObjectName("naturalExport");
+        naturalExport->setShortcut(QKeySequence("Ctrl+Shift+N"));leftLayout->addWidget(naturalExport);
         status=label("muted"); leftLayout->addWidget(status); progress=new QProgressBar; progress->setTextVisible(false); progress->setValue(0); leftLayout->addWidget(progress);
         queueBox=new QGroupBox; auto *queueLayout=new QVBoxLayout(queueBox); queueLayout->setSpacing(6); queueLayout->setContentsMargins(8,12,8,8);
         queue=new QTableWidget(0,3); queue->verticalHeader()->setVisible(false); queue->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
@@ -500,6 +549,7 @@ public:
         connect(input,&QLineEdit::editingFinished,this,[this]{loadPreview();}); connect(source,qOverload<int>(&QComboBox::currentIndexChanged),this,[this]{loadPreview();});
         connect(channel,qOverload<int>(&QComboBox::currentIndexChanged),this,[this](int i){settings.setValue("previewChannel",i);loadPreview();});
         connect(start,&QPushButton::clicked,this,[this]{execute();}); connect(clear,&QPushButton::clicked,log,&QTextEdit::clear);
+        connect(naturalExport,&QPushButton::clicked,this,[this]{naturalColorDialog();});
         connect(queueAdd,&QPushButton::clicked,this,[this]{addToQueue();}); connect(queueRemove,&QPushButton::clicked,this,[this]{removeQueued();});
         connect(queueRun,&QPushButton::clicked,this,[this]{executeQueue();}); connect(profileDup,&QPushButton::clicked,this,[this]{duplicateProfileDialog();});
         connect(fit,&QPushButton::clicked,this,[this]{fitImage();}); connect(plus,&QPushButton::clicked,this,[this]{zoom=std::min(zoom*1.25,8.0);resizeImage();}); connect(minus,&QPushButton::clicked,this,[this]{zoom=std::max(zoom/1.25,0.02);resizeImage();});

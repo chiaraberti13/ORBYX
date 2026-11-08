@@ -34,7 +34,7 @@ ORBYX modernizza [RDAS Layer Aligner](https://github.com/Digitelektro/rdas_layer
 - Desktop con scelta origine/profilo/destinazione, elaborazione asincrona, anteprima origine/risultato, zoom/pan, log, lingua e tema chiaro/scuro persistenti.
 - Interfaccia, aiuto CLI e diagnostica applicativa in italiano/inglese; i dettagli tecnici delle librerie possono mantenere la lingua originale.
 
-Sono conservati i coefficienti L2, L3, **L5**, M1 e M2. L4 richiede una calibrazione perché non ha coefficienti inclusi. Riconoscimento automatico del satellite, code batch desktop, monitoraggio cartelle, editor guidato delle ROI, Natural Color e aggiornamenti applicativi sono pianificati. L'opzione `-n/--nc` era disabilitata nell'originale e non viene presentata come funzionante.
+Sono conservati i coefficienti L2, L3, **L5**, M1 e M2. L4 richiede una calibrazione perché non ha coefficienti inclusi. Riconoscimento automatico del satellite, monitoraggio cartelle, editor guidato delle ROI, aggiornamenti applicativi sono pianificati. L'opzione legacy `-n/--nc` resta esclusa; usare `natural-color` o il pulsante desktop di esportazione.
 
 ## Compilazione e installazione
 
@@ -112,3 +112,5 @@ Sul commit `4190002` sono passate le build CI x86_64 seguenti: compilazione, set
 | 26.04 LTS | ✓ | ✓ |
 
 Per ridurre esplicitamente la memoria di calibrazione: `calibrate --calibration-scale 0.125` (intervallo `(0,1]`, predefinito1). Le trasformazioni restano in pixel originali; `generate` preserva risoluzione e profondità. Scala ridotta e precisione sono descritte in [REAL_RDAS.md](docs/REAL_RDAS.md).
+
+[Esportazione Natural Color RGB321](docs/NATURAL_COLOR.md) disponibile da CLI (`natural-color`) e desktop, a 8/16 bit, verificata anche sui due VIS reali Elektro-L4. La composizione RGB generica mantiene la sua mappatura precedente.

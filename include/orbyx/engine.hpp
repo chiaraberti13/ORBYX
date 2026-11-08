@@ -33,4 +33,9 @@ void duplicateProfile(const std::filesystem::path& source, const std::string& fr
 // and its validation on real scenes are not performed here.
 void composeRgb(const std::array<std::filesystem::path, 3>& channels,
                 const std::filesystem::path& destination);
+// MSU-GS RGB321 (CH3->R, CH2->G, CH1->B), legacy hue rules in floating
+// point and 40% corrected blend. Preserves 8/16-bit depth; not calibrated
+// true colour. Inputs unchanged; exclusive atomic PNG publication.
+void composeNaturalColor(const std::array<std::filesystem::path, 3>& channels,
+                         const std::filesystem::path& destination);
 }
