@@ -31,7 +31,6 @@ import sys
 work=Path(sys.argv[1]);public=(work/'ssh_key.pub').read_text().strip()
 (work/'meta-data').write_text('instance-id: orbyx-clean-fedora44\nlocal-hostname: orbyx-vm\n')
 (work/'user-data').write_text('''#cloud-config
-datasource_list: [NoCloud]
 ssh_pwauth: false
 disable_root: true
 users:
@@ -66,7 +65,7 @@ for attempt in $(seq 1 120); do
   sleep 5
 done
 if [[ "$ready" != true ]]; then tail -100 "$work/vm-serial.log" >&2; exit 1; fi
-ssh "${ssh_options[@]}" -p 2222 orbyx@127.0.0.1 'sudo cloud-init status --wait'
+ssh "${ssh_options[@]}" -p 2222 orbyx@127.0.0.1 'sudo cloud-init status --wait --long' | tee "$work/cloud-init.log"
 ssh "${ssh_options[@]}" -p 2222 orbyx@127.0.0.1 'sudo mkdir -p /packages /checks; sudo chown orbyx:orbyx /packages /checks'
 scp "${ssh_options[@]}" -P 2222 "$work/packages/"*.rpm "$work/packages/orbyx-fixture-tool" orbyx@127.0.0.1:/packages/
 scp "${ssh_options[@]}" -P 2222 "$repo/scripts/ci/platforms.sh" orbyx@127.0.0.1:/checks/
