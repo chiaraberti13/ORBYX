@@ -62,3 +62,7 @@ Un corpus iniziale versionato include PNG valido, profili validi separati/uniti 
 La riproduzione locale di tutti i semi tramite il driver dell'harness è passata. Campagna libFuzzer/ASan/UBSan remota da osservare prima di dichiarare il nuovo percorso coverage-guided verificato. Restano fuori dall'instrumentazione le librerie native distro, e il ramo di stima ECC non è fuzzato da questo harness. Nessuna campagna finita prova l'assenza di vulnerabilità.
 
 The harness now drives structured JSON seeds through the actual profile reader and CPU generation API on fixed small synthetic images, covering affine/ROI validation and transactional product writing. Source seeds remain versioned and unchanged; build-local mutations and reproductions are retained separately. Temporary storage uses a random private directory. Local corpus replay passed; observed sanitizer/coverage-guided CI evidence is required for the extended campaign. Distribution libraries and the ECC estimator are not instrumented/fuzzed here; no absence-of-vulnerabilities guarantee is implied.
+
+## Campagna osservata / Observed campaign
+
+[Run42520331102](https://github.com/chiaraberti13/ORBYX/actions/runs/42520331102), revisione bc0f536:104219run in61secondi, cov1563, corpus69elementi; campagna completata senza crash/ASan/UB osservati. ASAN detect_leaks=0 per il fuzzer; i risultati non certificano codice nativo distro o assenza vulnerabilità. La campagna è stata ripetuta con successo anche nel run42521133979 della revisione3fb4d32.

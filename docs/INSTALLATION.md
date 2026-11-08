@@ -38,3 +38,7 @@ Failed phases stop installation. Launchers require its final success marker and 
 ### Esito Ubuntu26.04 / Observed Ubuntu26.04 result
 
 [Run42519134799](https://github.com/chiaraberti13/ORBYX/actions/runs/42519134799), commit `632b15ea1a3591aa1369eae34a4882d9377a1454`: **success**. Quattro regressioni installer eseguite come utente normale, poi installazione effettiva delle dipendenze, configurazione/build/CTest, installazione utente e avvio dei launcher CLI/GUI riusciti. I log del runner temporaneo sono negli artifact del run. Non è un accesso remoto alla macchina della segnalazione: su quella macchina occorre aggiornare il clone ed eseguire i comandi iniziali. / Actual regular-user setup and installed launchers passed remotely; the reporting machine itself is not remotely accessed.
+
+### Sistema italiano: verifica della correzione SBOM
+
+[Run42521133995](https://github.com/chiaraberti13/ORBYX/actions/runs/42521133995), revisione3fb4d32: procedura completa riuscita con locale it_IT.UTF-8 effettivamente generato. Corretto il parser dell'etichetta readelf tradotta e fissata la lingua delle sole sonde macchina; il controllo DT_NEEDED rimane attivo. La conferma vale anche per la demo installata; non equivale ad accesso remoto alla macchina dell'utente. / Full Italian-locale installation and installed demo passed with the SBOM regression enabled.
