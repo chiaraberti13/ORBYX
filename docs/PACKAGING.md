@@ -137,8 +137,18 @@ sha256sum -c SHA256SUMS
 ```
 
 Checksums establish integrity against accidental corruption, **not**
-authenticity: GPG-signed releases and a verified update/rollback procedure
-(M4-02) require signing keys and are not yet implemented.
+authenticity. Authenticity comes from a detached GPG signature over
+`SHA256SUMS`:
+
+```sh
+scripts/orbyx_sign.py sign SHA256SUMS --output SHA256SUMS.asc --key <release-key>
+scripts/orbyx_sign.py verify SHA256SUMS --signature SHA256SUMS.asc
+```
+
+The signing/verification **mechanics** are verified by the `sign-regression`
+test with an ephemeral throwaway key. A real release requires the project's real
+signing key (kept outside the repository, e.g. a CI secret) and a verified
+update/rollback procedure (M4-02), which are the remaining open items.
 
 La CI genera un `SHA256SUMS` riproducibile su tutti gli artifact e lo verifica
 con `sha256sum -c`. I checksum garantiscono l'integrità, non l'autenticità: la

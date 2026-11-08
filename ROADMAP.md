@@ -132,7 +132,7 @@ Stati: pianificato, in corso, verificato, bloccato. Pubblicare ogni task verific
 - Deliverable: Release firmate e procedura aggiornamenti
 - Test: Verifica firma, rollback, scansioni
 - Accettazione: Nessun aggiornamento eseguito senza verifica
-- Stato: in corso — checksum SHA-256 riproducibili generati e verificati (`sha256sum -c`) in CI su tutti gli artifact di release (DEB, RPM, sorgenti, SBOM) e pubblicati come `SHA256SUMS`. Firma GPG delle release, procedura di aggiornamento/rollback e scansioni firmate restano da implementare (richiedono chiavi di firma)
+- Stato: verificato in parte — checksum SHA-256 riproducibili generati e verificati (`sha256sum -c`) in CI su tutti gli artifact (DEB, RPM, sorgenti, SBOM) come `SHA256SUMS`; meccanica di **firma/verifica** GPG (`scripts/orbyx_sign.py`) provata dal gruppo CTest `sign-regression` con chiave effimera (firma, verifica, rilevamento manomissione). Restano aperti: la firma con la **chiave reale** di release (secret fuori dal repo) e la procedura di aggiornamento/rollback firmata (`docs/PACKAGING.md`)
 
 
 ## M2-03 — Coda desktop e gestione dei profili
