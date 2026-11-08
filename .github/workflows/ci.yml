@@ -47,6 +47,8 @@ jobs:
           cat "build/packages/orbyx-sbom-${{ matrix.os }}.json"
           python3 scripts/orbyx_sbom.py "$(command -v orbyx)" "$(command -v orbyx-gui)" \
             --format cyclonedx --output "build/packages/orbyx-cyclonedx-${{ matrix.os }}.json"
+          python3 scripts/orbyx_sbom.py "$(command -v orbyx)" "$(command -v orbyx-gui)" \
+            --format spdx --output "build/packages/orbyx-spdx-${{ matrix.os }}.json"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: orbyx-${{ matrix.os }}-experimental

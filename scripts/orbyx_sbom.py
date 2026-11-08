@@ -25,6 +25,7 @@ import re
 import shutil
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -246,6 +247,78 @@ def orbyx_version(repo_root: Path) -> str:
     return "0.1.0"
 
 
+def _spdx_id(prefix: str, text: str) -> str:
+    return prefix + re.sub(r"[^0-9A-Za-z.-]+", "-", text).strip("-")
+
+
+def to_spdx(document: dict, *, namespace: str, created: str) -> dict:
+    """Convert an orbyx-sbom inventory into an SPDX 2.3 JSON document.
+
+    The ORBYX application is the described package; each distinct resolved
+    (package, version) pair is a package with a deb purl external reference.
+    SPDXIDs are sanitised to the SPDX grammar and de-duplicated. `created` is
+    injected so the document is reproducible under test.
+    """
+    primary = (document.get("components") or [{}])[0]
+    name = primary.get("name", "orbyx")
+    version = primary.get("version", "0.0.0")
+    licence = primary.get("licence", "NOASSERTION")
+
+    packages = [{
+        "SPDXID": "SPDXRef-Package-orbyx",
+        "name": name,
+        "versionInfo": version,
+        "downloadLocation": "NOASSERTION",
+        "filesAnalyzed": False,
+        "licenseConcluded": "NOASSERTION",
+        "licenseDeclared": licence,
+    }]
+    seen: set[tuple[str, str]] = set()
+    used_ids: set[str] = {"SPDXRef-Package-orbyx"}
+    resolved = []
+    for entry in document.get("binaries", []):
+        for library in entry.get("libraries", []):
+            package, pkg_version = library.get("package"), library.get("version")
+            if not package or not pkg_version or (package, pkg_version) in seen:
+                continue
+            seen.add((package, pkg_version))
+            spdx_id = _spdx_id("SPDXRef-Package-", f"{package}-{pkg_version}")
+            candidate, suffix = spdx_id, 1
+            while candidate in used_ids:
+                candidate = f"{spdx_id}-{suffix}"
+                suffix += 1
+            used_ids.add(candidate)
+            resolved.append({
+                "SPDXID": candidate,
+                "name": package,
+                "versionInfo": pkg_version,
+                "downloadLocation": "NOASSERTION",
+                "filesAnalyzed": False,
+                "licenseConcluded": "NOASSERTION",
+                "licenseDeclared": "NOASSERTION",
+                "externalRefs": [{
+                    "referenceCategory": "PACKAGE-MANAGER",
+                    "referenceType": "purl",
+                    "referenceLocator": f"pkg:deb/{namespace}/{package}@{pkg_version}",
+                }],
+            })
+    packages.extend(sorted(resolved, key=lambda p: (p["name"], p["versionInfo"])))
+    return {
+        "spdxVersion": "SPDX-2.3",
+        "dataLicense": "CC0-1.0",
+        "SPDXID": "SPDXRef-DOCUMENT",
+        "name": f"{name}-{version}-runtime",
+        "documentNamespace": f"https://github.com/chiaraberti13/ORBYX/spdx/{name}-{version}",
+        "creationInfo": {"created": created, "creators": ["Tool: orbyx-sbom"]},
+        "packages": packages,
+        "relationships": [{
+            "spdxElementId": "SPDXRef-DOCUMENT",
+            "relatedSpdxElement": "SPDXRef-Package-orbyx",
+            "relationshipType": "DESCRIBES",
+        }],
+    }
+
+
 def main() -> int:
     language = "en"
     for index, value in enumerate(sys.argv[1:], 1):
@@ -261,7 +334,7 @@ def main() -> int:
                         help="eseguibili ORBYX da inventariare" if italian else "ORBYX executables to inventory")
     parser.add_argument("--output", type=Path,
                         help="file JSON di output (predefinito: stdout)" if italian else "output JSON file (default: stdout)")
-    parser.add_argument("--format", choices=("inventory", "cyclonedx"), default="inventory",
+    parser.add_argument("--format", choices=("inventory", "cyclonedx", "spdx"), default="inventory",
                         help="formato di output" if italian else "output format")
     parser.add_argument("--lang", choices=("en", "it"), default="en",
                         help="lingua dei messaggi" if italian else "message language")
@@ -293,6 +366,9 @@ def main() -> int:
         )
         if args.format == "cyclonedx":
             document = to_cyclonedx(document, namespace=os_release_id())
+        elif args.format == "spdx":
+            created = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            document = to_spdx(document, namespace=os_release_id(), created=created)
         text = json.dumps(document, ensure_ascii=False, indent=2, sort_keys=False) + "\n"
         if args.output:
             try:

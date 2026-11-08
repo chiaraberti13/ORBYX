@@ -135,6 +135,50 @@ class CycloneDxTests(unittest.TestCase):
                          json.dumps(sbom.to_cyclonedx(inv, namespace="ubuntu"), sort_keys=True))
 
 
+class SpdxTests(unittest.TestCase):
+    def _inventory(self):
+        return {
+            "components": [{"name": "orbyx", "version": "0.1.0", "licence": "GPL-3.0-only"}],
+            "binaries": [
+                {"binary": "/bin/orbyx", "libraries": [
+                    {"soname": "libstdc++.so.6", "path": "/lib/libstdc++.so.6",
+                     "package": "libstdc++6", "version": "13.1"},
+                    {"soname": "liba.so.1", "path": "/lib/liba.so.1",
+                     "package": "pkg-a", "version": "1.0"},
+                    {"soname": "libgone.so.9", "path": None, "package": None, "version": None},
+                ]},
+            ],
+        }
+
+    def test_document_shape(self):
+        doc = sbom.to_spdx(self._inventory(), namespace="ubuntu", created="2026-11-08T00:00:00Z")
+        self.assertEqual(doc["spdxVersion"], "SPDX-2.3")
+        self.assertEqual(doc["dataLicense"], "CC0-1.0")
+        self.assertEqual(doc["SPDXID"], "SPDXRef-DOCUMENT")
+        self.assertEqual(doc["creationInfo"]["created"], "2026-11-08T00:00:00Z")
+        # Root package carries the declared licence.
+        root = doc["packages"][0]
+        self.assertEqual(root["SPDXID"], "SPDXRef-Package-orbyx")
+        self.assertEqual(root["licenseDeclared"], "GPL-3.0-only")
+
+    def test_spdxids_sanitised_and_unique(self):
+        doc = sbom.to_spdx(self._inventory(), namespace="ubuntu", created="2026-11-08T00:00:00Z")
+        ids = [pkg["SPDXID"] for pkg in doc["packages"]]
+        self.assertEqual(len(ids), len(set(ids)), "SPDXIDs must be unique")
+        for spdx_id in ids:
+            # SPDX grammar: letters, digits, '.' and '-' only (note: libstdc++6).
+            self.assertRegex(spdx_id, r"^SPDXRef-[0-9A-Za-z.\-]+$")
+        libs = {pkg["name"]: pkg for pkg in doc["packages"][1:]}
+        self.assertEqual(libs["libstdc++6"]["externalRefs"][0]["referenceLocator"],
+                         "pkg:deb/ubuntu/libstdc++6@13.1")
+
+    def test_deterministic_for_fixed_created(self):
+        inv = self._inventory()
+        a = sbom.to_spdx(inv, namespace="ubuntu", created="2026-11-08T00:00:00Z")
+        b = sbom.to_spdx(inv, namespace="ubuntu", created="2026-11-08T00:00:00Z")
+        self.assertEqual(json.dumps(a, sort_keys=True), json.dumps(b, sort_keys=True))
+
+
 class CliValidationTests(unittest.TestCase):
     def test_missing_binary_argument_fails(self):
         result = subprocess.run([sys.executable, str(SCRIPT)], capture_output=True, text=True)
@@ -197,6 +241,20 @@ class IntegrationTests(unittest.TestCase):
         self.assertEqual(names, sorted(set(names)), "components must be unique and sorted")
         for component in bom["components"]:
             self.assertTrue(component["purl"].startswith("pkg:deb/"))
+
+    def test_real_spdx_export(self):
+        if not BINARIES:
+            self.skipTest("no real binaries supplied")
+        if not (shutil.which("readelf") and shutil.which("ldd")):
+            self.skipTest("binutils/ldd not available")
+        result = subprocess.run([sys.executable, str(SCRIPT), *BINARIES, "--format", "spdx"],
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        doc = json.loads(result.stdout)
+        self.assertEqual(doc["spdxVersion"], "SPDX-2.3")
+        self.assertEqual(doc["packages"][0]["SPDXID"], "SPDXRef-Package-orbyx")
+        ids = [pkg["SPDXID"] for pkg in doc["packages"]]
+        self.assertEqual(len(ids), len(set(ids)), "SPDXIDs must be unique")
 
 
 if __name__ == "__main__":

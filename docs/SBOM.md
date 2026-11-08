@@ -38,14 +38,15 @@ resolved absolute path (`ldd`), and the owning package/version (`dpkg-query`).
 On a non-dpkg system package/version fields are `null`; the soname/path mapping
 is still produced. The output is stable across runs for the same inputs.
 
-Add `--format cyclonedx` to emit a CycloneDX 1.5 BOM instead: the ORBYX
-application as BOM metadata and each distinct resolved package as a library
-component with a `pkg:deb/<distro>/<name>@<version>` purl. CI publishes both the
-native inventory and the CycloneDX BOM as per-OS artifacts.
+Add `--format cyclonedx` for a CycloneDX 1.5 BOM (ORBYX as BOM metadata, each
+resolved package a library component with a `pkg:deb/<distro>/<name>@<version>`
+purl) or `--format spdx` for an SPDX 2.3 JSON document (ORBYX as the described
+package, each resolved package with a deb purl external reference). CI publishes
+the native inventory and both standard BOMs as per-OS artifacts.
 
-Con `--format cyclonedx` l'output è un BOM CycloneDX 1.5: l'applicazione ORBYX
-nei metadati e ogni pacchetto risolto come componente con purl deb. La CI
-pubblica inventario nativo e BOM CycloneDX come artifact per-OS.
+Con `--format cyclonedx` l'output è un BOM CycloneDX 1.5; con `--format spdx` un
+documento SPDX 2.3. La CI pubblica inventario nativo e i due BOM standard come
+artifact per-OS.
 
 Ogni voce elenca i `DT_NEEDED` (`readelf -d`), il percorso risolto (`ldd`) e il
 pacchetto/versione proprietario (`dpkg-query`). Su sistemi senza dpkg i campi
@@ -81,11 +82,11 @@ binari reali (gruppo CTest `sbom-regression`), confronta l'output con
 
 Verified: deterministic generation, soname→path→package→version resolution on
 Ubuntu, parsing of resolved/unresolved/loader `ldd` lines, reproducible CTest
-integration, and CycloneDX 1.5 export (shape and purls checked by tests). Not
-yet done: automated advisory correlation against a live feed, and an SPDX
-export.
+integration, and CycloneDX 1.5 and SPDX 2.3 export (shape, SPDXID sanitisation
+and purls checked by tests). Not yet done: automated advisory correlation
+against a live vulnerability feed.
 
 Verificato: generazione deterministica, risoluzione su Ubuntu, parsing,
-integrazione CTest riproducibile ed export CycloneDX 1.5 (struttura e purl
-verificati dai test). Da fare: correlazione automatica con un feed ed export
-SPDX.
+integrazione CTest riproducibile ed export CycloneDX 1.5 e SPDX 2.3 (struttura,
+SPDXID e purl verificati dai test). Da fare: correlazione automatica con un feed
+di vulnerabilità.

@@ -106,3 +106,7 @@ Limiti dichiarati: la generazione RPM su Ubuntu non implica compatibilità Fedor
 ## M1-03 export CycloneDX — 2026-11-08
 
 Chiuso uno dei limiti dichiarati per M1-03: aggiunto `--format cyclonedx` a `scripts/orbyx_sbom.py` (funzione pura `to_cyclonedx`), che emette un BOM CycloneDX 1.5 con l'applicazione ORBYX nei metadati (licenza `GPL-3.0-only`) e ogni pacchetto risolto come componente `library` con purl `pkg:deb/<distro>/<nome>@<versione>`, deterministico e deduplicato. Nuovi test (`CycloneDxTests` + integrazione sui binari reali): 13 test SBOM passati. La CI genera anche il BOM CycloneDX per-OS. Restano aperti la correlazione con un feed di sicurezza e l'export SPDX.
+
+## M1-03 export SPDX — 2026-11-08
+
+Aggiunto anche `--format spdx` (funzione pura `to_spdx`): documento SPDX 2.3 JSON con ORBYX come pacchetto descritto (`licenseDeclared` GPL-3.0-only), ogni pacchetto risolto con `externalRefs` purl deb, SPDXID sanitizzati alla grammatica SPDX (es. `libstdc++6`) e deduplicati, timestamp `created` iniettabile per riproducibilità sotto test. Nuovi test (`SpdxTests` + integrazione reale): 17 test SBOM passati. La CI pubblica anche il documento SPDX per-OS. Con CycloneDX e SPDX entrambi presenti e verificati, per M1-03 resta aperta soltanto la correlazione automatica con un feed di vulnerabilità, che richiede il feed della distribuzione e non è eseguibile offline.
