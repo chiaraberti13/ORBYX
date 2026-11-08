@@ -88,7 +88,7 @@ Stati: pianificato, in corso, verificato, bloccato. Pubblicare ogni task verific
 - Deliverable: Dataset con provenienza e report
 - Test: Confronto pixel e apertura in SatDump
 - Accettazione: Precisione e metadati verificati su acquisizioni reali
-- Stato: verificato in parte su dati reali — campione Elektro-L4 disponibile nella release `rdas-cadu-l4`, dimensioni/SHA256 fissati; decodifica SatDump autentica, calibrazione ECC a scala esplicita, generazione 16bit a risoluzione originale, confronto pixel esatto con riferimento OpenCV4.6 e riapertura headless dei due prodotti SatDump riusciti (`docs/REAL_RDAS.md`). Restano aperte precisione rispetto a verità a terra, geolocalizzazione assoluta e ROI di merge: il campione non contiene proiezione/calibrazione utilizzabili. Nessuna calibrazione universale L4 dichiarata.
+- Stato: verificato in parte su dati reali — campione Elektro-L4 disponibile nella release `rdas-cadu-l4`, dimensioni/SHA256 fissati; decodifica SatDump autentica, calibrazione ECC a scala esplicita, generazione 16bit a risoluzione originale, confronto pixel esatto con riferimento OpenCV4.6 e riapertura headless dei due prodotti SatDump riusciti (`docs/REAL_RDAS.md`, [run42514688645](https://github.com/chiaraberti13/ORBYX/actions/runs/42514688645), commitde60721). Restano aperte precisione rispetto a verità a terra, geolocalizzazione assoluta e ROI di merge: il campione non contiene proiezione/calibrazione utilizzabili. Nessuna calibrazione universale L4 dichiarata.
 
 ## M3-02 — Packaging e matrice piattaforme
 

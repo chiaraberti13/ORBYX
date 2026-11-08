@@ -12,6 +12,8 @@ Calibrazione CPU a scala esplicita 0,125 riuscita: 5,36 s e picco RSS 863364 KiB
 
 **Limite geometrico:** questo confronto certifica l'applicazione dell'affine stimata e la conservazione dei canali/metadati, non la precisione dell'affine rispetto a una verità a terra. SatDump segnala correttamente l'assenza di calibrazione/proiezione (`Using Dummy`, `Not a standard projection`). Nessuna geolocalizzazione assoluta è dichiarata verificata. Confrontando scale 0,125 e 0,25, lo scarto massimo delle trasformazioni ai quattro angoli del dominio d'uscita è circa 0,95/1,25 pixel (VIS1 CH2/CH3) e 5,83/5,98 pixel (VIS2): la scelta della scala può influenzare il risultato. Il profilo ottenuto è evidenza di test, **non** una calibrazione L4 universale distribuita come predefinita. ROI e unione dei due VIS richiedono verifica dedicata.
 
+Report completo locale conservato in [REAL_RDAS_EVIDENCE.md](REAL_RDAS_EVIDENCE.md), con digest per ciascun canale e revisione del codice.
+
 ### Riproduzione
 
 Occorrono Linux x86_64, curl, timeout, Python con OpenCV4.6/numpy/cbor2 e un binario ORBYX CPU costruito con OpenCV4.6. Prevedere diversi GiB liberi. Nessuna GPU o chiave privata richiesta.
@@ -23,7 +25,7 @@ bash scripts/ci/real-rdas.sh /percorso/assoluto/orbyx /nuova/cartella/test
 
 Il secondo comando scarica esplicitamente campione e SatDump, verifica entrambi prima dell'uso, decodifica, calibra, genera a piena risoluzione, confronta i pixel e riapre entrambi i prodotti in SatDump. La cartella finale deve essere nuova; l'AppImage viene estratta senza FUSE e carica soltanto il plugin necessario. Configurazione isolata, auto-processing e aggiornamento Kepler disattivati nel file di configurazione della prova. Il pin della nightly è intenzionale: se l'upstream cambia i byte il test fallisce, senza accettare automaticamente il nuovo binario. Report/log/profilo sono raccolti in `evidence`; immagini e raw non vengono caricati come artifact CI.
 
-Il [workflow dedicato](../.github/workflows/real-rdas.yml) esegue questa stessa procedura su Ubuntu24.04, conserva i risultati 14 giorni e resta avviabile manualmente. La sua sola configurazione non costituisce un risultato superato: consultare il run collegato in `PROGRESS.md`.
+Il [workflow dedicato](../.github/workflows/real-rdas.yml) esegue questa stessa procedura su Ubuntu24.04, conserva i risultati 14 giorni e resta avviabile manualmente. Verifica remota completata con successo sul commit `de60721671061040fae6af46fb7fec4ac2133368`: [run42514688645](https://github.com/chiaraberti13/ORBYX/actions/runs/42514688645). Report, log e profilo sono negli artifact; il report locale è conservato anche in git.
 
 ### Calibrazione con memoria contenuta
 
