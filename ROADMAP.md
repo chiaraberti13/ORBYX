@@ -33,7 +33,7 @@ Stati: pianificato, in corso, verificato, bloccato. Pubblicare ogni task verific
 - Deliverable: banner, README, documenti legali
 - Test: XML SVG e link locali
 - Accettazione: Stile coerente e capacità dichiarate reali
-- Stato: pianificato
+- Stato: verificato (SVG XML e link locali; banner originale)
 
 ## M1-01 — Core sicuro e CLI indipendente
 
