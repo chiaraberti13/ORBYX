@@ -1,0 +1,100 @@
+name: Real OpenCL GPU availability
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/gpu-probe.yml
+permissions:
+  contents: read
+jobs:
+  hosted-macos-probe:
+    if: github.event.repository.private == false
+    runs-on: macos-15-intel
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Query actual Apple OpenCL GPU devices on a standard public runner
+        id: hardware
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/gpu-probe.cpp" <<'CPP'
+          #define CL_SILENCE_DEPRECATION
+          #include <OpenCL/opencl.h>
+          #include <iostream>
+          #include <vector>
+          int main() {
+            cl_uint count=0;
+            const cl_int first=clGetPlatformIDs(0,nullptr,&count);
+            if(first==-1001 || (first==CL_SUCCESS && count==0)) {std::cout<<"No OpenCL platform; GPU test unavailable\n";return 77;}
+            if(first!=CL_SUCCESS || count>32)return 1;
+            std::vector<cl_platform_id> platforms(count);
+            if(clGetPlatformIDs(count,platforms.data(),nullptr)!=CL_SUCCESS)return 1;
+            unsigned gpus=0;
+            for(auto platform:platforms) {
+              cl_uint devices=0;
+              const auto status=clGetDeviceIDs(platform,CL_DEVICE_TYPE_GPU,0,nullptr,&devices);
+              if(status==CL_DEVICE_NOT_FOUND)continue;
+              if(status!=CL_SUCCESS || devices>256)return 1;
+              std::vector<cl_device_id> ids(devices);
+              if(clGetDeviceIDs(platform,CL_DEVICE_TYPE_GPU,devices,ids.data(),nullptr)!=CL_SUCCESS)return 1;
+              for(auto device:ids) {
+                cl_bool available=CL_FALSE;char name[1024]={0};
+                if(clGetDeviceInfo(device,CL_DEVICE_AVAILABLE,sizeof(available),&available,nullptr)!=CL_SUCCESS)return 1;
+                if(clGetDeviceInfo(device,CL_DEVICE_NAME,sizeof(name),name,nullptr)!=CL_SUCCESS)return 1;
+                std::cout<<"GPU device: "<<name<<"; available="<<available<<'\n';
+                if(available)++gpus;
+              }
+            }
+            std::cout<<"Available real OpenCL GPU devices: "<<gpus<<'\n';
+            if(!gpus) {std::cout<<"SKIPPED: CPU devices do not count as a GPU\n";return 77;}
+            return 0;
+          }
+          CPP
+          clang++ -std=c++17 "$RUNNER_TEMP/gpu-probe.cpp" -framework OpenCL -o "$RUNNER_TEMP/gpu-probe"
+          set +e
+          "$RUNNER_TEMP/gpu-probe" > "$RUNNER_TEMP/gpu-inventory.txt" 2>&1
+          result=$?
+          set -e
+          cat "$RUNNER_TEMP/gpu-inventory.txt"
+          if [ "$result" -eq 0 ]; then
+            echo 'available=true' >> "$GITHUB_OUTPUT"
+          elif [ "$result" -eq 77 ]; then
+            echo 'available=false' >> "$GITHUB_OUTPUT"
+            echo '## GPU hardware unavailable; no GPU test passed' >> "$GITHUB_STEP_SUMMARY"
+          else
+            exit "$result"
+          fi
+      - name: Build and execute the project GPU verifier only when native GPU hardware exists
+        if: steps.hardware.outputs.available == 'true'
+        shell: bash
+        env:
+          OPENCV_OPENCL_DEVICE: ':GPU:'
+        run: |
+          brew install cmake opencv jsoncpp
+          brew list --versions cmake opencv jsoncpp > "$RUNNER_TEMP/gpu-build-versions.txt"
+          cmake -S . -B build-gpu -DORBYX_BUILD_GUI=OFF -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-gpu --target orbyx_gpu_verify --parallel 2
+          set +e
+          ./build-gpu/orbyx_gpu_verify > "$RUNNER_TEMP/gpu-project-verification.json"
+          result=$?
+          set -e
+          cat "$RUNNER_TEMP/gpu-project-verification.json"
+          if [ "$result" -eq 77 ]; then
+            echo '## Native GPU exists but this OpenCV backend is unavailable; project GPU test skipped' >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$result" -ne 0 ]; then
+            exit "$result"
+          fi
+      - name: Preserve actual device evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: hosted-macos-opencl-inventory
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/gpu-inventory.txt
+            ${{ runner.temp }}/gpu-build-versions.txt
+            ${{ runner.temp }}/gpu-project-verification.json
