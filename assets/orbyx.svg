@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">ORBYX</title>
+  <desc id="desc">A circular orbit around three aligned satellite image layers.</desc>
+  <rect width="256" height="256" rx="56" fill="#0B1220"/>
+  <circle cx="128" cy="128" r="84" fill="none" stroke="#294052" stroke-width="8"/>
+  <path d="M128 44a84 84 0 0 1 84 84" fill="none" stroke="#5EEAD4" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="212" cy="128" r="12" fill="#5EEAD4"/>
+  <path d="m76 128 52-30 52 30-52 30Z" fill="#15384A" stroke="#67E8F9" stroke-width="6" stroke-linejoin="round"/>
+  <path d="m76 146 52 30 52-30M76 164l52 30 52-30" fill="none" stroke="#67E8F9" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

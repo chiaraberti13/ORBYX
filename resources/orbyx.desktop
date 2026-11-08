@@ -4,5 +4,7 @@ Name=ORBYX
 Comment=RDAS satellite channel alignment
 Comment[it]=Allineamento dei canali satellitari RDAS
 Exec=orbyx-gui
+Icon=orbyx
+StartupNotify=true
 Terminal=false
 Categories=Graphics;Science;

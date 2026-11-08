@@ -88,7 +88,7 @@ Stati: pianificato, in corso, verificato, bloccato. Pubblicare ogni task verific
 - Deliverable: Dataset con provenienza e report
 - Test: Confronto pixel e apertura in SatDump
 - Accettazione: Precisione e metadati verificati su acquisizioni reali
-- Stato: pianificato
+- Stato: bloccato — dataset RDAS reali redistribuibili e ambiente SatDump non disponibili nella sessione
 
 ## M3-02 — Packaging e matrice piattaforme
 
@@ -99,7 +99,7 @@ Stati: pianificato, in corso, verificato, bloccato. Pubblicare ogni task verific
 - Deliverable: Pacchetti e build riproducibili
 - Test: Ubuntu 22.04/24.04/26.04; smoke pacchetti
 - Accettazione: Solo piattaforme effettivamente testate dichiarate
-- Stato: pianificato
+- Stato: in corso — CPack TGZ, installazione locale e DEB CI; RPM/AppImage/ARM64 e installazione pulita ancora da verificare
 
 ## M3-03 — Prestazioni, GPU e fuzzing
 

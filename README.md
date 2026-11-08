@@ -12,7 +12,7 @@
 
 > Align channels. Reveal the Earth. An independent desktop and headless workflow for RDAS satellite channel alignment.
 
-<p align="center"><a href="ROADMAP.md">Roadmap</a> · <a href="PROGRESS.md">Verification status</a> · <a href="docs/AUDIT.md">Audit</a> · <a href="SECURITY.md">Security</a> · <a href="THIRD_PARTY_NOTICES.md">Attributions</a></p>
+<p align="center"><a href="ROADMAP.md">Roadmap</a> · <a href="PROGRESS.md">Verification status</a> · <a href="docs/AUDIT.en.md">Audit</a> · <a href="SECURITY.md">Security</a> · <a href="THIRD_PARTY_NOTICES.md">Attributions</a></p>
 
 ## Overview
 
@@ -86,7 +86,7 @@ An optional Python 3.10+ runner executes sequential jobs with durable state, per
 - `resources`: original calibration coefficients and desktop entry.
 - `tests`: deterministic synthetic image and malformed-input regressions.
 - `third_party/rdas_layer_aligner`: pinned, unmodified reference snapshot, excluded from the normal build.
-- `docs`: [language decision](docs/ADR-001-language.md), audit, verification and design records.
+- `docs`: [language decision](docs/ADR-001-language.en.md), audit, verification and design records.
 
 Build sanitizers with `-DORBYX_SANITIZE=ON -DORBYX_BUILD_GUI=OFF -DCMAKE_BUILD_TYPE=Debug`. Run `ctest --test-dir build --output-on-failure`. CI covers Ubuntu 22.04/24.04/26.04, sanitizers and static analysis; configured jobs are not proof that the matrix has passed. Distribution packages can be generated experimentally with CPack; they are not a verified release. Debian/Fedora/Arch/Mint, ARM64, macOS and AppImage remain unverified.
 
@@ -97,3 +97,5 @@ Use ordinary privileges and trusted parent directories. Native decoders and GPU 
 GNU GPL version 3, with upstream attribution and dependency notices retained. [LICENSE](LICENSE), [NOTICE](NOTICE), [third-party inventory](THIRD_PARTY_NOTICES.md). No upstream affiliation is implied. The original example photographs are not redistributed.
 
 [Verification record / Registro verifiche](docs/VERIFICATION.md) · [Memory limits / Limiti memoria](docs/RESOURCE_LIMITS.md)
+
+[Packaging / Distribuzione](docs/PACKAGING.md)

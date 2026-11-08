@@ -1,5 +1,7 @@
 # Audit iniziale RDAS Layer Aligner
 
+[English](AUDIT.en.md) · [Italiano](AUDIT.md)
+
 Data: 8 novembre 2026. Responsabili funzionali: Technical Lead, Computer Vision Engineer, Secure Code Auditor, Open Source Licensing Specialist.
 
 ## Provenienza e perimetro

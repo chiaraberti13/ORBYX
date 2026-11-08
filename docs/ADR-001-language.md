@@ -1,5 +1,7 @@
 # ADR-001 — Linguaggio del motore e confini della migrazione
 
+[English](ADR-001-language.en.md) · [Italiano](ADR-001-language.md)
+
 Stato: decisione iniziale, riesaminabile dopo la baseline algoritmica. Data: 8 novembre 2026.
 
 Responsabili: Technical Lead, Programming Languages Architect, Secure Code Auditor, Computer Vision Engineer, Linux Systems Engineer.

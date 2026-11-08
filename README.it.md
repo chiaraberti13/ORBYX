@@ -97,3 +97,5 @@ Usare privilegi ordinari e cartelle di destinazione fidate. Decoder nativi e dri
 GNU GPL versione 3, con attribuzioni originali e avvisi sulle dipendenze. [LICENSE](LICENSE), [NOTICE](NOTICE), [inventario delle dipendenze](THIRD_PARTY_NOTICES.md). Nessuna affiliazione con il progetto originale. Le fotografie dimostrative originali non sono redistribuite.
 
 [Verification record / Registro verifiche](docs/VERIFICATION.md) · [Memory limits / Limiti memoria](docs/RESOURCE_LIMITS.md)
+
+[Packaging / Distribuzione](docs/PACKAGING.md)
