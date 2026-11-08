@@ -209,3 +209,11 @@ Sulla stessa revisione9a52e07 tutti gli altri run `success`: [build/regressioni4
 Tentata anche una risorsa standard pubblica alternativa, senza runner a pagamento: [inventario Apple OpenCL42517297975](https://github.com/chiaraberti13/ORBYX/actions/runs/42517297975), commitf2bf5b5, macos-15-intel. API native:0GPU OpenCL disponibili. Compilazione/esecuzione del verifier GPU conseguentemente saltata; il successo del job d'inventario non è un pass hardware né una verifica dell'app su macOS.
 
 Stato delle cinque verifiche riepilogato in [docs/VERIFICATION_STATUS.md](docs/VERIFICATION_STATUS.md). Completati Natural Color visivo e matrice Linux inclusa VM reale; autenticazione artifact OIDC reale verificata. Restano non certificati GPU effettiva e geometria assoluta/verità a terra. Firma GPG personale, aggiornamento/rollback automatico e gli altri sviluppi pianificati della roadmap non vengono dichiarati completati da queste prove.
+
+## Installazione guidata e log Ubuntu26.04 — 2026-11-08
+
+Recepita segnalazione reale: contesa APT con unattended-upgrades, CMake inizialmente assente e tentativi di avviare binari mai compilati. Aggiunti install.sh/start.sh/orbyx.sh: rilevamento automatico delle cartelle, dipendenze complete, attesa lock APT senza rimuoverli/interrompere processi, configurazione/build/test/installazione per utente normale e verifica finale. Nessun upgrade generale/autoremove. Interruzione alla prima fase fallita e launcher che rifiuta un'installazione incompleta.
+
+Cartella logs con log per sessione ed errors.log; include errori stdout/stderr e fase/codice, ignorata da git e senza upload automatico dei log utente. La CI carica solo i propri log del runner temporaneo. Lock locale condiviso installazione/avvio. README aggiornati con comandi senza percorsi da compilare manualmente; documentazione in docs/INSTALLATION.md.
+
+Bash e sintassi Python verificati localmente. I test installer richiedono utente non-root: il runtime locale non permette un UID secondario e li registra come saltati, non passati. Workflow dedicato Ubuntu26.04 predisposto per eseguire sia regressioni con comandi simulati sia dipendenze/build/test/installazione reali e smoke dei launcher come utente normale. Risultato remoto ancora da osservare prima della dichiarazione di verifica.

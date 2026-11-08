@@ -38,33 +38,23 @@ Sono conservati i coefficienti L2, L3, **L5**, M1 e M2. L4 richiede una calibraz
 
 ## Compilazione e installazione
 
-Dipendenze Ubuntu:
+Dal terminale del repository, senza configurare percorsi:
 
 ```bash
-sudo apt-get update
-sudo apt-get install -y build-essential cmake ninja-build libopencv-dev libjsoncpp-dev qt6-base-dev qt6-qpa-plugins libgl-dev
-git clone https://github.com/chiaraberti13/ORBYX.git
-cd ORBYX
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build build --parallel 2
-ctest --test-dir build --output-on-failure
-./build/orbyx-gui
+bash install.sh
+bash start.sh
 ```
 
-Per la sola CLI aggiungere `-DORBYX_BUILD_GUI=OFF`: Qt non sarà necessario. Non serve un SDK OpenCL diretto; OpenCV seleziona il backend disponibile, con fallback CPU. `--cpu` forza il percorso CPU di riferimento.
+L'installer attende APT se gli aggiornamenti automatici lo occupano, installa tutte le dipendenze, configura, compila, esegue i test e installa per l'utente. Chiede sudo solo per le dipendenze; non eseguire lo script intero con sudo. Non prosegue dopo una fase fallita. I log completi e gli errori di installazione/avvio sono nella cartella **logs**, esclusi da git e mai inviati automaticamente.
 
-Installazione facoltativa: `sudo cmake --install build --prefix /usr/local`. Il profilo installato si trova in `/usr/local/share/orbyx/calibration.json`: indicarlo esplicitamente alla CLI. Le preferenze desktop usano le impostazioni Qt dell'utente. L'elaborazione non richiede rete né privilegi amministrativi.
+La CLI installata si avvia con `bash orbyx.sh --help`; non serve modificare PATH. Dati e destinazioni si selezionano dal desktop, senza copiare percorsi dimostrativi. [Installazione e risoluzione errori](docs/INSTALLATION.md).
 
 ## Uso della CLI
 
 ```bash
-./build/orbyx --help
-./build/orbyx --lang it --help
-./build/orbyx --version
-./build/orbyx generate --lang it -s L3 -d /data/rdas \
-  --config resources/calibration.json --output /data/allineati-nuovi --cpu
-./build/orbyx calibrate --lang it -s L4 -d /data/rdas \
-  --config resources/calibration.json --output /data/calibrazione-nuova --cpu
+bash orbyx.sh --help
+bash orbyx.sh --lang it --help
+bash orbyx.sh --version
 ```
 
 La cartella di output non deve esistere e la cartella che la conterrà deve già esistere. La calibrazione scrive un **nuovo** `calibration.json` nella destinazione, preservando le voci degli altri satelliti. Le ROI di fusione richiedono una verifica manuale. Per utilizzare il nuovo profilo passarlo con `--config`; non presumere che le ROI esistenti vadano bene per una nuova acquisizione.

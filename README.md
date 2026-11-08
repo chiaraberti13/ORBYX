@@ -40,33 +40,23 @@ L2, L3, **L5**, M1 and M2 coefficients are retained. L4 has no bundled coefficie
 
 ## Build and install
 
-Ubuntu build dependencies:
+From the repository terminal, without configuring paths:
 
 ```bash
-sudo apt-get update
-sudo apt-get install -y build-essential cmake ninja-build libopencv-dev libjsoncpp-dev qt6-base-dev qt6-qpa-plugins libgl-dev
-git clone https://github.com/chiaraberti13/ORBYX.git
-cd ORBYX
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build build --parallel 2
-ctest --test-dir build --output-on-failure
-./build/orbyx-gui
+bash install.sh
+bash start.sh
 ```
 
-For a headless build, add `-DORBYX_BUILD_GUI=OFF`. Qt is then not required. No direct OpenCL SDK is required; OpenCV selects an available backend and otherwise uses CPU. `--cpu` forces the reference CPU path.
+Setup waits for busy automatic package updates, installs dependencies, configures, builds, tests and installs for the current user. Sudo is requested only for APT; run the script as your regular user. Any failed phase stops subsequent steps. Complete installation/startup logs and error context stay in **logs**, excluded from git with no automatic upload.
 
-Optional installation: `sudo cmake --install build --prefix /usr/local`. Installed calibration data is at `/usr/local/share/orbyx/calibration.json`; pass it explicitly to the CLI. Desktop preferences use the current user's Qt settings. No network access or administrator rights are needed to process images.
+Use `bash orbyx.sh --help` for the installed CLI without editing PATH. Select data and destinations in the desktop instead of copying example paths. [Setup and troubleshooting](docs/INSTALLATION.md).
 
 ## CLI
 
 ```bash
-./build/orbyx --help
-./build/orbyx --lang it --help
-./build/orbyx --version
-./build/orbyx generate -s L3 -d /data/rdas \
-  --config resources/calibration.json --output /data/aligned-new --cpu
-./build/orbyx calibrate -s L4 -d /data/rdas \
-  --config resources/calibration.json --output /data/calibration-new --cpu
+bash orbyx.sh --help
+bash orbyx.sh --lang it --help
+bash orbyx.sh --version
 ```
 
 The output directory must not exist and its parent must exist. Calibration writes a **new** `calibration.json` inside the output directory, preserving other satellite entries; merge ROIs still need manual validation. To use it, pass that new file with `--config`. Do not assume existing ROIs are valid for a new acquisition.

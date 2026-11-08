@@ -1,0 +1,44 @@
+name: Ubuntu 26.04 guided installation
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - install.sh
+      - start.sh
+      - orbyx.sh
+      - scripts/lib/**
+      - tests/test_install.py
+      - .github/workflows/ubuntu-install.yml
+permissions:
+  contents: read
+jobs:
+  install:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Exercise bounded lock retry and failure logging with stubbed commands
+        run: python3 tests/test_install.py
+      - name: Install actual dependencies, compile, test and install as the regular user
+        env:
+          XDG_DATA_HOME: ${{ runner.temp }}/orbyx-user-data
+        run: bash install.sh
+      - name: Launch installed CLI and desktop without manual application paths
+        env:
+          XDG_DATA_HOME: ${{ runner.temp }}/orbyx-user-data
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          bash orbyx.sh --lang it --help
+          bash start.sh --smoke-test
+          test -f build-desktop/.orbyx-install-success
+      - name: Preserve installation and startup evidence from the disposable runner
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ubuntu26-installation-logs
+          path: logs/*.log
+          retention-days: 14
+          if-no-files-found: warn

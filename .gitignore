@@ -7,3 +7,6 @@
 *.AppImage
 __pycache__/
 .claude/settings.local.json
+/.orbyx-install.lock
+/logs/*
+!/logs/README.md

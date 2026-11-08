@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-only
+# Explicit networked setup. Build and application run as the invoking user.
+set -Eeuo pipefail
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/scripts/lib/session.sh"
+install_dependencies=true
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --no-deps) install_dependencies=false;shift ;;
+    --lang) orbyx_lang=${2:?Expected it or en};shift 2 ;;
+    -h|--help) printf '%s\n' 'bash install.sh [--lang it|en] [--no-deps]';exit 0 ;;
+    *) printf 'Opzione non valida / Invalid option: %s\n' "$1" >&2;exit 2 ;;
+  esac
+done
+[[ "$orbyx_lang" == it || "$orbyx_lang" == en ]]
+orbyx_logs install
+orbyx_phase=prerequisiti
+if [[ $EUID -eq 0 ]]; then
+  orbyx_message 'Esegui questo script con il tuo utente, senza sudo. I privilegi saranno richiesti solo per APT.' \
+    'Run this script as your user, without sudo. Privileges are requested only for APT.' >&2
+  exit 2
+fi
+command -v flock >/dev/null
+exec 9> "$orbyx_repo/.orbyx-install.lock"
+if ! flock -n 9; then
+  orbyx_message 'Chiudi ORBYX o attendi che termini l’altra installazione.' 'Close ORBYX or wait for the other installation to finish.' >&2
+  exit 2
+fi
+apt_wait=${ORBYX_APT_LOCK_TIMEOUT:-900}
+[[ "$apt_wait" =~ ^[0-9]+$ && ${#apt_wait} -le 4 ]] && ((apt_wait>=1 && apt_wait<=3600))
+apt_run() {
+  local started=$SECONDS status output
+  output=$(mktemp "$orbyx_repo/logs/.apt-XXXXXX")
+  while true; do
+    if sudo env LC_ALL=C apt-get -o DPkg::Lock::Timeout=30 -o Acquire::Retries=3 "$@" > "$output" 2>&1; then
+      cat "$output";rm -f "$output";return 0
+    else
+      status=$?
+    fi
+    cat "$output"
+    if grep -Eq 'Could not get lock|Unable to acquire.*lock|Unable to lock' "$output" && ((SECONDS-started<apt_wait)); then
+      orbyx_message 'Gestore pacchetti occupato. Attendo gli aggiornamenti automatici senza interromperli…' \
+        'Package manager busy. Waiting for automatic updates without interrupting them…'
+      sleep 5
+    else
+      cat "$output" >&2;rm -f "$output";return "$status"
+    fi
+  done
+}
+if "$install_dependencies"; then
+  command -v apt-get >/dev/null
+  command -v sudo >/dev/null
+  orbyx_phase=dipendenze
+  orbyx_message 'Installazione delle dipendenze. APT può attendere gli aggiornamenti automatici.' \
+    'Installing dependencies. APT may wait for automatic updates.'
+  sudo -v
+  apt_run update
+  apt_run install -y build-essential cmake ninja-build libopencv-dev libjsoncpp-dev \
+    qt6-base-dev qt6-qpa-plugins libgl-dev gnupg binutils python3 fonts-dejavu-core
+fi
+for tool in cmake ctest ninja c++ python3; do
+  if ! command -v "$tool" >/dev/null; then
+    orbyx_message "Dipendenza mancante: $tool. Ripeti l'installazione senza --no-deps." \
+      "Missing dependency: $tool. Retry without --no-deps." >&2
+    exit 2
+  fi
+done
+build="$orbyx_repo/build-desktop"
+prefix=$(orbyx_prefix)
+orbyx_phase=configurazione
+orbyx_run cmake -S "$orbyx_repo" -B "$build" -G Ninja -DCMAKE_BUILD_TYPE=Release \
+  -DORBYX_BUILD_GUI=ON -DBUILD_TESTING=ON -DCMAKE_INSTALL_PREFIX="$prefix"
+orbyx_phase=compilazione
+orbyx_run cmake --build "$build" --parallel 2
+orbyx_phase=test
+orbyx_run ctest --test-dir "$build" --output-on-failure
+orbyx_phase=installazione
+rm -f "$build/.orbyx-install-success"
+orbyx_run cmake --install "$build"
+orbyx_phase=verifica
+orbyx_run "$prefix/bin/orbyx" --version
+QT_QPA_PLATFORM=offscreen orbyx_run "$prefix/bin/orbyx-gui" --smoke-test
+printf '%s\n' "$(date -u +%FT%TZ)" > "$build/.orbyx-install-success"
+orbyx_message 'Installazione completata. Avvio desktop: bash start.sh — CLI: bash orbyx.sh --help' \
+  'Installation completed. Desktop: bash start.sh — CLI: bash orbyx.sh --help'
+orbyx_message 'Log di installazione ed errori disponibili nella cartella logs.' 'Installation logs and errors are available in the logs directory.'
