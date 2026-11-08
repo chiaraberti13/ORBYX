@@ -6,6 +6,7 @@ on:
     paths:
       - src/**
       - include/**
+      - tests/**
       - CMakeLists.txt
       - scripts/ci/platforms.sh
       - scripts/ci/fedora-vm.sh
