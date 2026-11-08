@@ -18,4 +18,9 @@ struct Inspection { int width, height, depth; };
 void run(const RunOptions&, const Log& log = {});
 std::string translate(const std::string& message, const std::string& language);
 Inspection inspect(const std::filesystem::path& image);
+// Copy one satellite's calibration entries to a new satellite id, writing a new
+// profile that also preserves every original entry. The source profile is never
+// modified and the destination must not already exist.
+void duplicateProfile(const std::filesystem::path& source, const std::string& fromSatellite,
+                      const std::string& toSatellite, const std::filesystem::path& destination);
 }

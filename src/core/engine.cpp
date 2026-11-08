@@ -252,6 +252,7 @@ std::string translate(const std::string& message,const std::string& language) {
     {"Input, output and calibration profile are required","Sono richiesti input, output e profilo di calibrazione"},
     {"Input must be a directory","L'input deve essere una cartella"},
     {"Input and output must differ","Input e output devono essere diversi"},
+    {"Source and destination satellites must differ","I satelliti di origine e destinazione devono essere diversi"},
     {"No calibration for ","Calibrazione mancante per "},
     {"Failed to save calibration profile","Impossibile salvare il profilo di calibrazione"},
     {"Calibrated profile; merge ROIs still require manual validation","Profilo calibrato; le ROI di fusione richiedono ancora una verifica manuale"},
@@ -341,5 +342,50 @@ void run(const RunOptions& options,const Log& log) {
   }
   stage.publish(output);
   message("Completed: "+output.string());
+}
+void duplicateProfile(const fs::path& source,const std::string& from,const std::string& to,
+                      const fs::path& destination) {
+  auto validId=[](const std::string& s){
+    if(s.empty()||s.size()>32) return false;
+    for(char c:s) if(!((c>='A'&&c<='Z')||(c>='0'&&c<='9')||c=='_')) return false;
+    return true;
+  };
+  require(validId(from)&&validId(to),"Invalid satellite identifier");
+  require(from!=to,"Source and destination satellites must differ");
+  const auto config=readConfig(source);
+  Json::Value result=config;
+  for(int vis=1;vis<=2;++vis) {
+    const std::string f=from+"VIS"+std::to_string(vis), t=to+"VIS"+std::to_string(vis);
+    require(config[f].isObject(),"No calibration for "+f);
+    result[t]=config[f];
+  }
+  require(fs::is_directory(destination.parent_path()),"Output parent directory must exist");
+  require(!fs::exists(fs::symlink_status(destination)),"Output destination already exists");
+  // Write to a private temp file, then publish by exclusive atomic rename so a
+  // concurrent creator of the destination can never be overwritten.
+  std::random_device random;
+  const fs::path temp=destination.parent_path()/
+    (".orbyx-profile-"+std::to_string(random())+"-"+std::to_string(random()));
+  {
+    std::ofstream stream(temp,std::ios::binary|std::ios::trunc);
+    Json::StreamWriterBuilder writer; writer["indentation"]="  ";
+    stream<<Json::writeString(writer,result)<<'\n';
+    stream.flush(); stream.close();
+    if(!stream){ std::error_code ig; fs::remove(temp,ig); require(false,"Failed to save calibration profile"); }
+  }
+  bool published=false;
+#ifdef __linux__
+  published=::syscall(SYS_renameat2,AT_FDCWD,temp.c_str(),AT_FDCWD,destination.c_str(),1)==0;
+#elif defined(__APPLE__)
+  published=::renamex_np(temp.c_str(),destination.c_str(),RENAME_EXCL)==0;
+#endif
+  if(!published) {
+    std::error_code ig; fs::remove(temp,ig);
+#if defined(__linux__) || defined(__APPLE__)
+    throw std::runtime_error("Cannot publish output exclusively: "+std::string(std::strerror(errno)));
+#else
+    throw std::runtime_error("Exclusive atomic publication is unsupported on this platform");
+#endif
+  }
 }
 }

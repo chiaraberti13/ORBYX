@@ -116,6 +116,28 @@ void calibration(const fs::path& root) {
  fs::create_symlink(input/"MSUGS_VIS1/MSUGS-VIS-2.png",input/"MSUGS_VIS2/MSUGS-VIS-2.png");
  options.output=root/"input-link";fails([&]{orbyx::run(options);});check(!fs::exists(options.output),"Input symlink rejected");
 }
+void profiles(const fs::path& root) {
+ const auto profile=root/"dup-src.json";writeJson(profile,identity());
+ const auto out=root/"dup-out.json";
+ orbyx::duplicateProfile(profile,"L2","L4",out);
+ Json::Value result;std::ifstream(out)>>result;
+ check(result["L2VIS1"].isObject()&&result["L2VIS2"].isObject(),"Original entries preserved");
+ for(const char* vis:{"VIS1","VIS2"}) {
+  const std::string from=std::string("L2")+vis,to=std::string("L4")+vis;
+  check(result[to].isObject(),"Duplicated satellite present");
+  for(const char* ch:{"CH2","CH3"})
+   check(result[to][ch]["ty"].asDouble()==result[from][ch]["ty"].asDouble(),"Duplicated satellite matches source");
+ }
+ Json::Value original;std::ifstream(profile)>>original;
+ check(!original.isMember("L4VIS1"),"Source profile unchanged");
+ // Existing destinations, missing source satellites and invalid ids are rejected.
+ fails([&]{orbyx::duplicateProfile(profile,"L2","L5",out);});
+ fails([&]{orbyx::duplicateProfile(profile,"M9","L4",root/"dup-missing.json");});
+ check(!fs::exists(root/"dup-missing.json"),"No profile written for missing source");
+ fails([&]{orbyx::duplicateProfile(profile,"l2","L4",root/"dup-bad.json");});
+ fails([&]{orbyx::duplicateProfile(profile,"L2","L2",root/"dup-same.json");});
+ check(!fs::exists(root/"dup-bad.json")&&!fs::exists(root/"dup-same.json"),"No profile written on rejection");
+}
 int main(int argc,char** argv) {
  fs::path root;
  if(argc!=1) {
@@ -133,7 +155,7 @@ int main(int argc,char** argv) {
  try {
   root=fs::temp_directory_path()/("orbyx-tests-"+std::to_string(std::random_device{}()));
   fs::create_directory(root);
-  separate(root,CV_8U,"8bit");separate(root,CV_16U,"16bit");calibration(root);
+  separate(root,CV_8U,"8bit");separate(root,CV_16U,"16bit");calibration(root);profiles(root);
   auto options=orbyx::RunOptions{"../bad",root,root/"bad",root/"8bit.json",true,false};
   fails([&]{orbyx::run(options);});
   auto config=identity();writeJson(root/"valid.json",config);
