@@ -90,3 +90,11 @@ Verificato: generazione deterministica, risoluzione su Ubuntu, parsing,
 integrazione CTest riproducibile ed export CycloneDX 1.5 e SPDX 2.3 (struttura,
 SPDXID e purl verificati dai test). Da fare: correlazione automatica con un feed
 di vulnerabilità.
+
+## Chiusura ELF transitiva / Transitive ELF closure
+
+L'inventario ora comprende anche le librerie transitive e il loader restituiti da ldd, non soltanto le dipendenze DT_NEEDED dirette. Il campo aggiuntivo `direct` distingue le due categorie; CycloneDX/SPDX includono anche i pacchetti transitivi risolti. Risoluzione dpkg compatibile con i due nomi /lib e /usr/lib nei sistemi usr-merge; cache locale al processo per evitare query ripetute.
+
+Verificato su due binari reali con confronto DT_NEEDED/readelf e chiusura ldd, oltre alle fixture dirette/transitive/loader:18test passati. Non inventaria i plugin caricati successivamente tramite dlopen né librerie non caricate nell'avvio ldd. Le librerie senza pacchetto/versione rimangono esplicitamente irrisolte: non equivalgono a componenti sicuri.
+
+The inventory now includes the complete startup ldd closure, including transitive libraries and the loader, with an additive direct flag. Real readelf/ldd integration and synthetic closure fixtures pass; late dlopen plugins remain outside this static startup inventory. Unresolved entries are preserved rather than treated as safe.

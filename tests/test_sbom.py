@@ -96,6 +96,16 @@ class BuildInventoryTests(unittest.TestCase):
         self.assertEqual(json.dumps(self._doc(), sort_keys=True),
                          json.dumps(self._doc(), sort_keys=True))
 
+    def test_transitive_libraries_and_loader_are_included(self):
+        doc=sbom.build_inventory(['binary'],needed_of=lambda _:['direct.so'],
+            paths_of=lambda _:{'direct.so':'/direct','transitive.so':'/transitive','loader.so':'/loader'},
+            package_of=lambda p:p,version_of=lambda p:'1',components=[],python_runtime=None,distribution='test')
+        libs={v['soname']:v for v in doc['binaries'][0]['libraries']}
+        self.assertEqual(set(libs),{'direct.so','transitive.so','loader.so'})
+        self.assertTrue(libs['direct.so']['direct'])
+        self.assertFalse(libs['transitive.so']['direct'])
+        self.assertFalse(libs['loader.so']['direct'])
+
 
 class CycloneDxTests(unittest.TestCase):
     def _inventory(self):
@@ -218,7 +228,9 @@ class IntegrationTests(unittest.TestCase):
         for entry in doc["binaries"]:
             expected = sbom.parse_needed(
                 subprocess.run(["readelf", "-d", entry["binary"]], capture_output=True, text=True).stdout)
-            self.assertEqual([lib["soname"] for lib in entry["libraries"]], expected)
+            self.assertEqual([lib["soname"] for lib in entry["libraries"] if lib['direct']], expected)
+            resolved=sbom.parse_ldd(subprocess.run(['ldd',entry['binary']],capture_output=True,text=True).stdout)
+            self.assertEqual({lib['soname'] for lib in entry['libraries']},set(expected)|set(resolved))
             self.assertTrue(expected, f"{entry['binary']} reported no NEEDED libraries")
             # Every resolved library must carry an existing absolute path.
             for lib in entry["libraries"]:

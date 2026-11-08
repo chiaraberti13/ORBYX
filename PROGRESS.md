@@ -239,3 +239,7 @@ Dopo la pubblicazione separata della guida f4dca8f, aggiunto demo.sh: verifica i
 Esteso l'harness libFuzzer al parser del profilo e al vero percorso run/generate CPU con fixture sintetiche piccole. Corpus versionato (PNG valido, profili separati/uniti e invalidi) e dizionario, copie/artefatti nella build, conservazione CI delle mutazioni/crash. Corretto anche il file temporaneo prevedibile del vecchio harness: directory privata mkdtemp e cleanup RAII. Nessun cambiamento all'algoritmo del prodotto.
 
 Compilazione e replay locale di tutti i semi passati su OpenCV4.6; campagna Clang/libFuzzer/ASan/UBSan estesa in CI da osservare. Codecs/JsonCpp distro non strumentati, stima ECC non fuzzata da questo harness; nessuna dichiarazione di assenza vulnerabilità. Pubblicazione separata dopo guida e demo, come richiesto.
+
+## Inventario runtime: dipendenze transitive
+
+Corretto l’inventario SBOM: prima enumerava soltanto DT_NEEDED diretti, ora include tutta la chiusura ldd e il loader, con campo direct. Export CycloneDX/SPDX ampliati di conseguenza, fallback usr-merge /lib-/usr/lib e cache delle query. Diciotto test, inclusa integrazione readelf/ldd su due binari reali, passati. I plugin dlopen successivi restano fuori dal perimetro statico; componenti irrisolti mantenuti come tali. Pubblicazione separata prima della correlazione avvisi.

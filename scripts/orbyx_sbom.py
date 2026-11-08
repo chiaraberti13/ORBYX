@@ -20,6 +20,7 @@ the real binaries or distribution tooling; see tests/test_sbom.py.
 from __future__ import annotations
 
 import argparse
+from functools import lru_cache
 import json
 import re
 import shutil
@@ -108,7 +109,9 @@ def build_inventory(
     for binary in sorted(binaries):
         resolved = paths_of(binary)
         libraries = []
-        for soname in needed_of(binary):
+        direct = needed_of(binary)
+        # ldd exposes the startup ELF closure, not just the binary's DT_NEEDED.
+        for soname in [*direct, *sorted(set(resolved)-set(direct))]:
             path = resolved.get(soname)
             package = package_of(path) if path else None
             libraries.append({
@@ -116,6 +119,7 @@ def build_inventory(
                 "path": path,
                 "package": package,
                 "version": version_of(package) if package else None,
+                "direct": soname in direct,
             })
         entries.append({"binary": binary, "libraries": libraries})
     return {
@@ -151,18 +155,29 @@ def real_paths_of(binary: str, language: str) -> dict[str, Optional[str]]:
         raise RuntimeError(f"ldd failed for {binary}: {error.stderr.strip()}") from error
 
 
+@lru_cache(maxsize=None)
 def real_package_of(path: str) -> Optional[str]:
     if not shutil.which("dpkg-query"):
         return None
-    try:
-        real = str(Path(path).resolve())
-        out = _run(["dpkg-query", "-S", real])
-        # Format: "package:arch: /path" (possibly several lines); take the first.
-        return out.splitlines()[0].split(":", 1)[0] or None
-    except (subprocess.CalledProcessError, OSError):
-        return None
+    real = str(Path(path).resolve())
+    candidates = list(dict.fromkeys([path, real]))
+    # usr-merge can leave /lib paths in dpkg's file database while ldd resolves
+    # them below /usr/lib, or vice versa. Query both spellings explicitly.
+    for value in list(candidates):
+        if value.startswith('/usr/lib/') or value.startswith('/usr/lib64/'):
+            candidates.append(value[4:])
+        elif value.startswith('/lib/') or value.startswith('/lib64/'):
+            candidates.append('/usr'+value)
+    for candidate in candidates:
+        try:
+            out = _run(["dpkg-query", "-S", candidate])
+            return out.splitlines()[0].split(":", 1)[0] or None
+        except (subprocess.CalledProcessError, OSError):
+            continue
+    return None
 
 
+@lru_cache(maxsize=None)
 def real_version_of(package: str) -> Optional[str]:
     if not package or not shutil.which("dpkg-query"):
         return None
