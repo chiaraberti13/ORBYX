@@ -172,13 +172,67 @@ def real_version_of(package: str) -> Optional[str]:
 
 
 def read_os_release() -> Optional[str]:
+    return _os_release_field("PRETTY_NAME")
+
+
+def os_release_id() -> str:
+    """Short distribution id for package URLs, e.g. 'ubuntu'; 'deb' as fallback."""
+    return _os_release_field("ID") or "deb"
+
+
+def _os_release_field(key: str) -> Optional[str]:
     try:
         for line in Path("/etc/os-release").read_text(encoding="utf-8").splitlines():
-            if line.startswith("PRETTY_NAME="):
+            if line.startswith(key + "="):
                 return line.split("=", 1)[1].strip().strip('"') or None
     except OSError:
         return None
     return None
+
+
+def to_cyclonedx(document: dict, *, namespace: str) -> dict:
+    """Convert an orbyx-sbom inventory into a CycloneDX 1.5 BOM (deterministic).
+
+    The first ORBYX component becomes BOM metadata; each distinct resolved
+    (package, version) pair becomes a library component with a deb purl.
+    Unresolved libraries (no package) are omitted from the component list, as
+    CycloneDX components require an identity.
+    """
+    primary = (document.get("components") or [{}])[0]
+    metadata_component = {
+        "type": "application",
+        "name": primary.get("name", "orbyx"),
+        "version": primary.get("version", "0.0.0"),
+    }
+    licence = primary.get("licence")
+    if licence:
+        metadata_component["licenses"] = [{"license": {"id": licence}}]
+
+    seen: set[tuple[str, str]] = set()
+    components = []
+    for entry in document.get("binaries", []):
+        for library in entry.get("libraries", []):
+            package, version = library.get("package"), library.get("version")
+            if not package or not version:
+                continue
+            key = (package, version)
+            if key in seen:
+                continue
+            seen.add(key)
+            components.append({
+                "type": "library",
+                "name": package,
+                "version": version,
+                "purl": f"pkg:deb/{namespace}/{package}@{version}",
+            })
+    components.sort(key=lambda component: (component["name"], component["version"]))
+    return {
+        "bomFormat": "CycloneDX",
+        "specVersion": "1.5",
+        "version": 1,
+        "metadata": {"component": metadata_component},
+        "components": components,
+    }
 
 
 def orbyx_version(repo_root: Path) -> str:
@@ -207,6 +261,8 @@ def main() -> int:
                         help="eseguibili ORBYX da inventariare" if italian else "ORBYX executables to inventory")
     parser.add_argument("--output", type=Path,
                         help="file JSON di output (predefinito: stdout)" if italian else "output JSON file (default: stdout)")
+    parser.add_argument("--format", choices=("inventory", "cyclonedx"), default="inventory",
+                        help="formato di output" if italian else "output format")
     parser.add_argument("--lang", choices=("en", "it"), default="en",
                         help="lingua dei messaggi" if italian else "message language")
     args = parser.parse_args()
@@ -235,6 +291,8 @@ def main() -> int:
             python_runtime=">=3.10 (optional batch runner)",
             distribution=read_os_release(),
         )
+        if args.format == "cyclonedx":
+            document = to_cyclonedx(document, namespace=os_release_id())
         text = json.dumps(document, ensure_ascii=False, indent=2, sort_keys=False) + "\n"
         if args.output:
             try:

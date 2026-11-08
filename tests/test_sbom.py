@@ -97,6 +97,44 @@ class BuildInventoryTests(unittest.TestCase):
                          json.dumps(self._doc(), sort_keys=True))
 
 
+class CycloneDxTests(unittest.TestCase):
+    def _inventory(self):
+        return {
+            "components": [{"name": "orbyx", "version": "0.1.0", "licence": "GPL-3.0-only"}],
+            "binaries": [
+                {"binary": "/bin/orbyx", "libraries": [
+                    {"soname": "libb.so.2", "path": "/lib/libb.so.2", "package": "pkg-b", "version": "2.0"},
+                    {"soname": "liba.so.1", "path": "/lib/liba.so.1", "package": "pkg-a", "version": "1.0"},
+                    {"soname": "libgone.so.9", "path": None, "package": None, "version": None},
+                ]},
+                {"binary": "/bin/orbyx-gui", "libraries": [
+                    {"soname": "liba.so.1", "path": "/lib/liba.so.1", "package": "pkg-a", "version": "1.0"},
+                ]},
+            ],
+        }
+
+    def test_bom_shape_and_metadata(self):
+        bom = sbom.to_cyclonedx(self._inventory(), namespace="ubuntu")
+        self.assertEqual(bom["bomFormat"], "CycloneDX")
+        self.assertEqual(bom["specVersion"], "1.5")
+        self.assertEqual(bom["metadata"]["component"]["name"], "orbyx")
+        self.assertEqual(bom["metadata"]["component"]["licenses"],
+                         [{"license": {"id": "GPL-3.0-only"}}])
+
+    def test_components_deduped_sorted_with_purl(self):
+        bom = sbom.to_cyclonedx(self._inventory(), namespace="ubuntu")
+        # pkg-a appears in two binaries but must be listed once; unresolved
+        # libraries carry no component.
+        self.assertEqual([(c["name"], c["version"]) for c in bom["components"]],
+                         [("pkg-a", "1.0"), ("pkg-b", "2.0")])
+        self.assertEqual(bom["components"][0]["purl"], "pkg:deb/ubuntu/pkg-a@1.0")
+
+    def test_deterministic(self):
+        inv = self._inventory()
+        self.assertEqual(json.dumps(sbom.to_cyclonedx(inv, namespace="ubuntu"), sort_keys=True),
+                         json.dumps(sbom.to_cyclonedx(inv, namespace="ubuntu"), sort_keys=True))
+
+
 class CliValidationTests(unittest.TestCase):
     def test_missing_binary_argument_fails(self):
         result = subprocess.run([sys.executable, str(SCRIPT)], capture_output=True, text=True)
@@ -142,6 +180,23 @@ class IntegrationTests(unittest.TestCase):
             for lib in entry["libraries"]:
                 if lib["path"] is not None:
                     self.assertTrue(Path(lib["path"]).exists(), lib["path"])
+
+    def test_real_cyclonedx_export(self):
+        if not BINARIES:
+            self.skipTest("no real binaries supplied")
+        if not (shutil.which("readelf") and shutil.which("ldd")):
+            self.skipTest("binutils/ldd not available")
+        result = subprocess.run([sys.executable, str(SCRIPT), *BINARIES, "--format", "cyclonedx"],
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        bom = json.loads(result.stdout)
+        self.assertEqual(bom["bomFormat"], "CycloneDX")
+        self.assertEqual(bom["specVersion"], "1.5")
+        self.assertEqual(bom["metadata"]["component"]["name"], "orbyx")
+        names = [component["name"] for component in bom["components"]]
+        self.assertEqual(names, sorted(set(names)), "components must be unique and sorted")
+        for component in bom["components"]:
+            self.assertTrue(component["purl"].startswith("pkg:deb/"))
 
 
 if __name__ == "__main__":

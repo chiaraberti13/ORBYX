@@ -38,6 +38,15 @@ resolved absolute path (`ldd`), and the owning package/version (`dpkg-query`).
 On a non-dpkg system package/version fields are `null`; the soname/path mapping
 is still produced. The output is stable across runs for the same inputs.
 
+Add `--format cyclonedx` to emit a CycloneDX 1.5 BOM instead: the ORBYX
+application as BOM metadata and each distinct resolved package as a library
+component with a `pkg:deb/<distro>/<name>@<version>` purl. CI publishes both the
+native inventory and the CycloneDX BOM as per-OS artifacts.
+
+Con `--format cyclonedx` l'output è un BOM CycloneDX 1.5: l'applicazione ORBYX
+nei metadati e ogni pacchetto risolto come componente con purl deb. La CI
+pubblica inventario nativo e BOM CycloneDX come artifact per-OS.
+
 Ogni voce elenca i `DT_NEEDED` (`readelf -d`), il percorso risolto (`ldd`) e il
 pacchetto/versione proprietario (`dpkg-query`). Su sistemi senza dpkg i campi
 pacchetto/versione sono `null`; la mappatura soname/percorso resta prodotta.
@@ -71,10 +80,12 @@ binari reali (gruppo CTest `sbom-regression`), confronta l'output con
 ## Scope / Limiti
 
 Verified: deterministic generation, soname→path→package→version resolution on
-Ubuntu, parsing of resolved/unresolved/loader `ldd` lines, and reproducible
-CTest integration. Not yet done: automated advisory correlation against a live
-feed, and SBOM export in a standardized interchange format (CycloneDX/SPDX).
+Ubuntu, parsing of resolved/unresolved/loader `ldd` lines, reproducible CTest
+integration, and CycloneDX 1.5 export (shape and purls checked by tests). Not
+yet done: automated advisory correlation against a live feed, and an SPDX
+export.
 
-Verificato: generazione deterministica, risoluzione su Ubuntu, parsing e
-integrazione CTest riproducibile. Da fare: correlazione automatica con un feed
-e export in formato standard (CycloneDX/SPDX).
+Verificato: generazione deterministica, risoluzione su Ubuntu, parsing,
+integrazione CTest riproducibile ed export CycloneDX 1.5 (struttura e purl
+verificati dai test). Da fare: correlazione automatica con un feed ed export
+SPDX.

@@ -177,4 +177,4 @@ Stati: pianificato, in corso, verificato, bloccato. Pubblicare ogni task verific
 - Deliverable: inventario esatto dei binari e scansione versionata
 - Test: corrispondenza librerie caricate/SBOM e vulnerabilità campione
 - Accettazione: scansione riproducibile dei pacchetti runtime, oltre a Dependabot Actions
-- Stato: verificato in parte — generatore deterministico `scripts/orbyx_sbom.py` (soname→percorso→pacchetto→versione su Ubuntu via readelf/ldd/dpkg), gruppo CTest `sbom-regression` con integrazione sui binari reali e artifact SBOM per-OS in CI (`docs/SBOM.md`). Correlazione automatica con un feed di sicurezza ed export CycloneDX/SPDX non ancora implementati; resta documentato il passo di scansione avvisi.
+- Stato: verificato in parte — generatore deterministico `scripts/orbyx_sbom.py` (soname→percorso→pacchetto→versione su Ubuntu via readelf/ldd/dpkg) con export CycloneDX 1.5 (`--format cyclonedx`), gruppo CTest `sbom-regression` con integrazione sui binari reali e artifact SBOM+CycloneDX per-OS in CI (`docs/SBOM.md`). Restano aperti la correlazione automatica con un feed di sicurezza (passo documentato, non eseguito offline) e l'export SPDX.

@@ -102,3 +102,7 @@ Limiti dichiarati: i codec nativi (OpenCV) non sono strumentati; il fuzzing del 
 Difetto di metadati accertato e corretto: il pacchetto RPM riportava `License : unknown` e `Group : unknown`. Aggiunti i tag CPack mancanti (`CPACK_RPM_PACKAGE_LICENSE "GPLv3"`, gruppo, URL) e, per il DEB, `Section: science` e `Homepage`. Verifica effettiva su Ubuntu 24.04.5 con `rpmbuild` 4.18.2: generazione RPM riuscita, `License: GPLv3`, requires automatici corretti (`libopencv_core.so.406`, `libjsoncpp.so.25`, `libc`, `python3 >= 3.10`), payload con CLI/batch/calibrazione/licenze; DEB rigenerato con Section/Homepage e Depends auto-risolti. La CI ora genera DEB+RPM, stampa `rpm -qpi` e fallisce se la licenza non è `GPLv3`; gli artifact includono il `.rpm`.
 
 Limiti dichiarati: la generazione RPM su Ubuntu non implica compatibilità Fedora; installazione su una distribuzione RPM reale, AppImage, ARM64 e installazione su VM pulita restano da verificare. M3-02 resta «in corso».
+
+## M1-03 export CycloneDX — 2026-11-08
+
+Chiuso uno dei limiti dichiarati per M1-03: aggiunto `--format cyclonedx` a `scripts/orbyx_sbom.py` (funzione pura `to_cyclonedx`), che emette un BOM CycloneDX 1.5 con l'applicazione ORBYX nei metadati (licenza `GPL-3.0-only`) e ogni pacchetto risolto come componente `library` con purl `pkg:deb/<distro>/<nome>@<versione>`, deterministico e deduplicato. Nuovi test (`CycloneDxTests` + integrazione sui binari reali): 13 test SBOM passati. La CI genera anche il BOM CycloneDX per-OS. Restano aperti la correlazione con un feed di sicurezza e l'export SPDX.
