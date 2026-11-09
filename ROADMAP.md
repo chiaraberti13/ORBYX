@@ -307,8 +307,9 @@ progettazione, non dipendenze da integrare automaticamente.
   strategia manuale esplicita. È disponibile anche il lampeggio non distruttivo
   del livello selezionato e una mappa in falsi colori delle differenze nella
   sola area sovrapposta con il livello adiacente. È disponibile anche il
-  confronto a scacchiera della stessa coppia. Restano da implementare tendina,
-  punti di controllo e proposta di esclusione dei bordi uniformi.
+  confronto a scacchiera della stessa coppia e una tendina verticale regolabile.
+  Restano da implementare punti di controllo e proposta di esclusione dei bordi
+  uniformi.
 - Dipendenze: M2-07, M2-08
 - Responsabile: Computer Vision / Scientific Imaging UX / Qt / QA
 - Deliverable: strumenti mirati alla giunzione, senza trasformare ORBYX in un

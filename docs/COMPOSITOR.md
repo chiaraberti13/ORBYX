@@ -85,6 +85,9 @@ in M2-08.
    porzioni, utile per seguire continuità di coste, bordi e strutture senza
    perdere il contesto delle immagini originali. Anche questa modalità resta
    esclusa dal PNG finale.
+   **Tendina: selezionato e adiacente** divide la stessa coppia lungo una linea
+   verticale. Sposta il cursore da0 a100% per scegliere dove termina una
+   porzione e inizia l’altra; la linea colorata indica il confine della vista.
 7. Regola **Scala**, **Rotazione**, **Ritaglio**, **Opacità** e **Sfumatura bordi**.
    I valori del ritaglio sono nelle coordinate della sorgente; larghezza e altezza
    entrambe 0 significano immagine intera. Per eliminare intestazioni usa il

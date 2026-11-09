@@ -649,3 +649,16 @@ Test widget EN/IT: presenza delle tre modalità, coppia adiacente corretta,
 rendering completato e stato serializzato identico al ritorno all’anteprima
 composita. Compilazione e suite compositore passate. Pubblicazione codice:
 `dcf1f98163f92835ab91d8a4e7eee50dcdfb237e`.
+
+### M2-09 — Quinto incremento: tendina prima/dopo
+
+La modalità **Tendina: selezionato e adiacente** mostra la stessa coppia con un
+separatore verticale regolabile da0 a100%. A sinistra del separatore usa il
+livello selezionato, a destra quello adiacente; una linea colorata rende evidente
+la posizione di confronto. Il cursore è disabilitato nelle altre modalità per
+evitare controlli senza effetto.
+
+Test widget EN/IT: quarta modalità presente, abilitazione contestuale del
+cursore, valore35% realmente renderizzato, coppia corretta e stato invariato al
+ritorno alla composizione. Compilazione e suite compositore passate.
+Pubblicazione codice: `03a93cef65c3a8aeb84a58574ee58c72ab81ce23`.
