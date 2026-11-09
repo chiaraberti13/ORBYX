@@ -731,3 +731,19 @@ Test core con punti ampiamente distribuiti e gruppo concentrato; test widget
 EN/IT sul testo e sulla proprietà diagnostica. Entrambe le suite specifiche
 sono passate localmente. Pubblicazione codice:
 `75c47d9f0e0df9c5066294f88caac560b60a9e6c`.
+
+### M2-10 — Primo incremento: modalità di blending esplicite
+
+Ogni livello distingue ora **Nessun blending (il livello superiore
+sostituisce)** e **Sfumatura (transizione visuale)**. Nel primo modo opacità e
+feather non partecipano al calcolo e i controlli corrispondenti vengono
+disabilitati; nel secondo resta identico il comportamento storico. Il modo è
+salvato nel JSON e il parser assegna Feather ai progetti precedenti che non
+possiedono il campo, senza migrazioni distruttive.
+
+Test core: sostituzione esatta dell’immagine16bit nonostante opacità/feather,
+round-trip, rifiuto modo sconosciuto e fixture legacy. Test widget EN/IT:
+selezione dei due modi, stato e abilitazione contestuale dei controlli. Suite
+specifiche passate localmente. Seam ottimizzata e maschere non sono ancora
+dichiarate presenti. Pubblicazione codice:
+`b16d825bd6084259434467c3d5a84b9fcd0e2d56`.

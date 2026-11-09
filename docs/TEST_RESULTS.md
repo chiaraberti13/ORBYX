@@ -108,6 +108,16 @@ insieme ampio da uno ristretto; il test widget verifica messaggio e diagnostica
 in entrambe le lingue. Le due suite specifiche sono passate localmente; la CI
 remota è in corso.
 
+## Avvio M2-10: modalità di blending dichiarate
+
+Il commit `b16d825` separa per livello la sostituzione senza blending dalla
+sfumatura visuale esistente. Il test16bit verifica identità pixel per pixel del
+livello superiore in modalità sostituzione anche con opacità/feather non neutri.
+Sono coperti persistenza, modo non valido, apertura di un progetto legacy e
+controlli EN/IT. `mosaic-regression` e `mosaic-widget-flow` sono passati
+localmente. Questo incremento non viene presentato come seam ottimizzata:
+graph-cut, multibanda e maschere restano successivi.
+
 ## Funzioni completate
 
 - **Calibrazione guidata EN/IT**: tre passaggi, controllo degli input nativi,

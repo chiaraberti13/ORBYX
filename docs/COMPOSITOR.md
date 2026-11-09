@@ -114,22 +114,28 @@ in M2-08.
    l’origine del livello ritagliato; scala e rotazione si applicano attorno a
    quell’origine. Sono ammesse coordinate negative e il canvas include
    automaticamente l’estensione dei livelli visibili.
-8. **Alza/Abbassa** cambia l’ordine di sovrapposizione. La lista va dal fondo alla
+8. Scegli la modalità del livello selezionato. **Nessun blending (il livello
+   superiore sostituisce)** ignora opacità e sfumatura e usa i valori del livello
+   in primo piano; è la scelta più controllabile quando non vuoi mescolare i
+   pixel. **Sfumatura (transizione visuale)** usa opacità e distanza dai bordi
+   come nell’editor storico. La modalità viene salvata nel progetto; i progetti
+   creati prima di questa opzione mantengono automaticamente la sfumatura.
+9. **Alza/Abbassa** cambia l’ordine di sovrapposizione. La lista va dal fondo alla
    cima. La sfumatura attenua tutti i bordi del livello, non soltanto una giunzione:
    serve sovrapposizione reale per una transizione continua. Non ricostruisce
    parti mancanti e non elimina automaticamente le cuciture.
-9. Correggi i colori del livello selezionato: nero/bianco normalizzati 0–1,
+10. Correggi i colori del livello selezionato: nero/bianco normalizzati 0–1,
    gamma, esposizione EV, saturazione e guadagni rosso/verde/blu. Per una
    regolazione comune usa **Applica colori selezionati a tutti**. **Ripristina
    colori selezionati** torna ai valori neutri. Valori troppo forti possono
    saturare o tagliare le alte luci: controlla il risultato.
-10. **Annulla/Ripeti** conserva fino a 50 stati modificabili. **Salva progetto
+11. **Annulla/Ripeti** conserva fino a 50 stati modificabili. **Salva progetto
    modificabile…** conserva livelli e parametri in JSON; **Apri progetto…** li
    ricarica. Il progetto usa riferimenti assoluti, non incorpora le immagini:
    conserva originali e porzioni generate nelle loro posizioni. Le porzioni
    colore generate sono conservate nell’area dati dell’app, senza cancellazione
    automatica che renderebbe inutilizzabili i progetti salvati.
-11. Premi **Esporta immagine unica…** e scegli un nuovo PNG. Gli originali non
+12. Premi **Esporta immagine unica…** e scegli un nuovo PNG. Gli originali non
     vengono modificati e un file di destinazione esistente viene rifiutato.
     Il PNG è il risultato appiattito; salva anche il progetto per conservare
     l’editabilità. Alla chiusura l’app chiede come gestire modifiche non salvate.
@@ -174,6 +180,9 @@ prospettiche o filtri generici. Non è inclusa una nuova decodifica dei file gre
 ritaglio/scala/rotazione, ordine, opacità e sfumatura, oracoli colore, bit bassi16 bit
 conservati a trasformazioni neutre, JSON round-trip, parametri invalidi, link e
 limiti, export atomico senza sovrascritture.
+Verifica anche che **Nessun blending** sostituisca esattamente i pixel del livello
+superiore, che la modalità venga salvata/ripristinata, che valori sconosciuti
+siano rifiutati e che i vecchi progetti mantengano la semantica di sfumatura.
 Verifica inoltre sovrapposizioni automatiche su tre ritagli concatenati, recupero
 di rotazione/scala e rifiuto di una porzione uniforme o priva di corrispondenza.
 
