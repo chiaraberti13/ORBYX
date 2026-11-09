@@ -66,6 +66,9 @@ int main(int argc,char** argv){
             check(profileRoi.state().size()==2&&profileRoi.property("loadedProfileRoi").toBool(),"Profile ROI output was not opened as editable layers");
             check(profileRoi.state()[0].crop==cv::Rect(5,6,60,50)&&profileRoi.state()[1].crop==cv::Rect(10,8,55,45)&&profileRoi.state()[1].x==60,"Editable profile ROI geometry differs from historical merge");
             check(profileRoi.findChild<QLabel*>("mosaicStatus")->text().contains("ROI"),"Editable profile ROI explanation missing");
+            auto editedRoi=profileRoi.state();editedRoi[1].x+=17;profileRoi.setState(editedRoi);
+            QTest::mouseClick(profileRoi.findChild<QPushButton*>("mosaicRestoreRoi"),Qt::LeftButton);waitFor(profileRoi);
+            check(profileRoi.state()[1].x==60&&profileRoi.property("mergeStrategy").toString()=="profile-roi","Profile ROI could not be restored after a manual edit");
             profileRoi.saveProject(temp.path()+(it?"/profile-roi-it.json":"/profile-roi-en.json"));
             MosaicDialog automatic(it);automatic.show();automatic.appendFiles({temp.path()+"/auto-a.png",temp.path()+"/auto-b.png"});waitFor(automatic);
             auto* automaticButton=automatic.findChild<QPushButton*>("mosaicAutoOverlap");check(automaticButton&&automaticButton->isEnabled(),"Automatic overlap control missing");

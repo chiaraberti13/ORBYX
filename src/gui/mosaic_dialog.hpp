@@ -55,6 +55,7 @@ class MosaicDialog final:public QDialog {
     QScrollArea* previewView{};QComboBox* colourMode{};QDoubleSpinBox* zoom{};QCheckBox* visible{};
     std::vector<QDoubleSpinBox*> controls;
     std::vector<orbyx::MosaicLayer> layers;
+    std::vector<orbyx::MosaicLayer> profileRoiBaseline;
     std::vector<std::vector<orbyx::MosaicLayer>> undoStates,redoStates;
     QTimer previewTimer;QImage previewImage;double previewRatio=1;
     QString workingFolder,persistentNotice;std::vector<QPolygonF> outlines;
@@ -149,6 +150,16 @@ class MosaicDialog final:public QDialog {
         if(layers.empty())return;auto name=QFileDialog::getSaveFileName(this,t("Export new mosaic PNG","Esporta nuovo PNG del mosaico"),"mosaic.png","PNG (*.png)");if(name.isEmpty())return;
         if(!name.endsWith(".png"))name+=".png";exportTo(name);
     }
+    void restoreProfileRoi(){
+        if(busy)return;
+        if(profileRoiBaseline.empty()){
+            persistentNotice=t("No profile ROI starting point is available for this project.","Per questo progetto non è disponibile un punto di partenza ROI del profilo.");
+            status->setText(persistentNotice);return;
+        }
+        remember();layers=profileRoiBaseline;setProperty("mergeStrategy","profile-roi");
+        persistentNotice=t("Profile ROI restored. The historical geometry is again the editable starting point.","ROI del profilo ripristinata. La geometria storica è di nuovo il punto di partenza modificabile.");
+        refreshList();status->setText(persistentNotice);record("Profile ROI baseline restored");
+    }
 protected:
     void done(int result)override{
         if(busy)return;
@@ -171,6 +182,7 @@ public:
         list=new QListWidget;list->setObjectName("mosaicLayers");list->setAccessibleName(t("Layers, bottom to top","Livelli, dal basso verso l’alto"));list->setMaximumHeight(140);panel->addWidget(list);
         connect(list,&QListWidget::currentRowChanged,this,[this]{if(!updating){readControls();display();}});
         button("mosaicAutoOverlap",t("Automatically align overlaps…","Allinea automaticamente le sovrapposizioni…"),panel,[this]{autoAlign();});
+        button("mosaicRestoreRoi",t("Restore profile ROI","Ripristina ROI del profilo"),panel,[this]{restoreProfileRoi();});
         auto* ordering=new QHBoxLayout;panel->addLayout(ordering);
         button("mosaicDown",t("Lower","Abbassa"),ordering,[this]{reorder(-1);});button("mosaicUp",t("Raise","Alza"),ordering,[this]{reorder(1);});
         button("mosaicRemove",t("Remove","Rimuovi"),panel,[this]{int row=list->currentRow();if(row<0)return;remember();layers.erase(layers.begin()+row);refreshList();});
@@ -260,6 +272,8 @@ public:
             persistentNotice=imported->profileRoi?
                 t("Profile ROI loaded as two editable layers. The historical result is unchanged until you edit it.","ROI del profilo caricata come due livelli modificabili. Il risultato storico resta invariato finché non lo modifichi."):
                 t("No complete profile ROI: both aligned VIS products were loaded for visual or manual placement.","ROI del profilo non complete: i due prodotti VIS allineati sono stati caricati per il posizionamento visuale o manuale.");
+            if(imported->profileRoi){profileRoiBaseline=layers;setProperty("mergeStrategy","profile-roi");}
+            else {profileRoiBaseline.clear();setProperty("mergeStrategy","manual");}
             setProperty("loadedProfileRoi",imported->profileRoi);refreshList();status->setText(persistentNotice);
         });
     }
@@ -283,7 +297,7 @@ public:
             if(confirm&&QMessageBox::question(this,t("Automatic overlap","Sovrapposizione automatica"),summary,QMessageBox::Apply|QMessageBox::Cancel,QMessageBox::Cancel)!=QMessageBox::Apply){
                 persistentNotice=t("Automatic proposal cancelled; no changes applied.","Proposta automatica annullata; nessuna modifica applicata.");setProperty("autoOverlapApplied",false);setProperty("autoOverlapAccepted",0);status->setText(persistentNotice);record("Automatic overlap proposal cancelled");return;
             }
-            remember();layers=proposal->layers;record(summary);refreshList(int(anchor));
+            remember();layers=proposal->layers;setProperty("mergeStrategy","visual-auto");record(summary);refreshList(int(anchor));
             persistentNotice=t("Automatic proposal applied. Review every seam and adjust it manually before export.","Proposta automatica applicata. Controlla ogni giunzione e correggila manualmente prima dell’esportazione.");setProperty("autoOverlapApplied",true);setProperty("autoOverlapAccepted",int(proposal->accepted.size()));status->setText(persistentNotice);
         });
     }
