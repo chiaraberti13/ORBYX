@@ -636,3 +636,16 @@ dopo. Compilazione e suite compositore passate. Cppcheck locale non avviabile
 per configurazione mancante del pacchetto isolato; la pipeline pulita è il gate
 definitivo. Pubblicazione codice:
 `4063c60d4b670dc2f617ff0a37b5e177f4dd721a`.
+
+### M2-09 — Quarto incremento: confronto a scacchiera
+
+La modalità **Scacchiera: selezionato e adiacente** riusa la coppia scelta dal
+controllo differenza e alterna tasselli da32pixel delle due anteprime nello
+stesso sistema di coordinate. Nell’area comune permette di seguire la continuità
+dei dettagli; fuori dalla sovrapposizione mantiene visibili le rispettive
+estensioni. Non modifica livelli, cronologia, progetto o export.
+
+Test widget EN/IT: presenza delle tre modalità, coppia adiacente corretta,
+rendering completato e stato serializzato identico al ritorno all’anteprima
+composita. Compilazione e suite compositore passate. Pubblicazione codice:
+`dcf1f98163f92835ab91d8a4e7eee50dcdfb237e`.

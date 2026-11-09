@@ -306,9 +306,9 @@ progettazione, non dipendenze da integrare automaticamente.
   spostamenti di1pixel e `Shift`+freccia per10pixel, con annulla/ripeti e
   strategia manuale esplicita. È disponibile anche il lampeggio non distruttivo
   del livello selezionato e una mappa in falsi colori delle differenze nella
-  sola area sovrapposta con il livello adiacente. Restano da implementare
-  tendina/scacchiera, punti di controllo e proposta di esclusione dei bordi
-  uniformi.
+  sola area sovrapposta con il livello adiacente. È disponibile anche il
+  confronto a scacchiera della stessa coppia. Restano da implementare tendina,
+  punti di controllo e proposta di esclusione dei bordi uniformi.
 - Dipendenze: M2-07, M2-08
 - Responsabile: Computer Vision / Scientific Imaging UX / Qt / QA
 - Deliverable: strumenti mirati alla giunzione, senza trasformare ORBYX in un

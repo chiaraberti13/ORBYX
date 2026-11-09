@@ -81,6 +81,10 @@ in M2-08.
    il livello selezionato e quello immediatamente sotto, oppure quello sopra se
    è il primo. Il nero indica le zone fuori sovrapposizione. Anche questa vista
    è soltanto diagnostica e non modifica progetto o esportazione.
+   **Scacchiera: selezionato e adiacente** alterna invece tasselli delle due
+   porzioni, utile per seguire continuità di coste, bordi e strutture senza
+   perdere il contesto delle immagini originali. Anche questa modalità resta
+   esclusa dal PNG finale.
 7. Regola **Scala**, **Rotazione**, **Ritaglio**, **Opacità** e **Sfumatura bordi**.
    I valori del ritaglio sono nelle coordinate della sorgente; larghezza e altezza
    entrambe 0 significano immagine intera. Per eliminare intestazioni usa il
