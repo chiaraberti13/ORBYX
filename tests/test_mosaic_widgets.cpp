@@ -66,6 +66,8 @@ int main(int argc,char** argv){
             check(swipe->isEnabled()&&dialog.property("inspectionRendered").toInt()==3&&dialog.property("swipeRendered").toInt()==35,"Swipe seam inspection did not render the reviewed position");
             inspection->setCurrentIndex(0);waitFor(dialog);
             check(orbyx::mosaicProject(dialog.state())==beforeBlink,"Difference seam inspection changed editable or export state");
+            QTest::mouseClick(dialog.findChild<QPushButton*>("mosaicZoomSeam"),Qt::LeftButton);
+            check(dialog.property("seamZoomed").toBool()&&orbyx::mosaicProject(dialog.state())==beforeBlink,"Dedicated seam zoom failed or changed editable state");
             dialog.reorder(-1);waitFor(dialog);check(list->currentRow()==1,"Layer reordering failed");
             QString project=temp.path()+(it?"/it.json":"/en.json");dialog.saveProject(project);
             auto expected=orbyx::renderMosaic(dialog.state()).image;

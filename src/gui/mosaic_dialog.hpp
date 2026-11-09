@@ -30,6 +30,7 @@
 #include <QSaveFile>
 #include <QSlider>
 #include <QScrollArea>
+#include <QScrollBar>
 #include <QStandardPaths>
 #include <QThread>
 #include <QTimer>
@@ -123,6 +124,16 @@ class MosaicDialog final:public QDialog {
         });thread->start();
     }
     void fitPreview(){if(previewImage.isNull()||!previewView)return;double factor=std::min({1.,double(previewView->viewport()->width()-12)/previewImage.width(),double(previewView->viewport()->height()-12)/previewImage.height()});zoom->setValue(std::clamp(factor*100.,25.,400.));display();}
+    void zoomToOverlap(){
+        const int selected=list->currentRow();if(previewImage.isNull()||selected<0||layers.size()<2||selected>=int(outlines.size()))return;
+        const int comparison=selected>0?selected-1:selected+1;if(comparison>=int(outlines.size()))return;
+        const auto overlap=outlines[size_t(selected)].intersected(outlines[size_t(comparison)]);const auto area=overlap.boundingRect();
+        if(area.isEmpty()||area.width()<1||area.height()<1){status->setText(t("The selected adjacent pair has no visible overlap.","La coppia adiacente selezionata non ha una sovrapposizione visibile."));setProperty("seamZoomed",false);return;}
+        const double factor=std::min(double(previewView->viewport()->width()-24)/area.width(),double(previewView->viewport()->height()-24)/area.height());
+        zoom->setValue(std::clamp(factor*100.,25.,400.));display();
+        const auto centre=area.center()*zoom->value()/100.;previewView->horizontalScrollBar()->setValue(int(centre.x()-previewView->viewport()->width()/2.));previewView->verticalScrollBar()->setValue(int(centre.y()-previewView->viewport()->height()/2.));
+        setProperty("seamZoomed",true);status->setText(t("Overlap centred for seam inspection.","Sovrapposizione centrata per il controllo della giunzione."));
+    }
     void display(){
         if(previewImage.isNull())return;auto p=QPixmap::fromImage(previewImage);
         p=p.scaled(std::max(1,int(p.width()*zoom->value()/100.)),std::max(1,int(p.height()*zoom->value()/100.)),Qt::KeepAspectRatio,Qt::SmoothTransformation);
@@ -239,6 +250,7 @@ public:
         swipePosition=new QSlider(Qt::Horizontal);swipePosition->setObjectName("mosaicSwipe");swipePosition->setRange(0,100);swipePosition->setValue(50);swipePosition->setAccessibleName(t("Swipe comparison position","Posizione confronto a tendina"));swipePosition->setEnabled(false);panel->addWidget(swipePosition);
         connect(inspectionMode,qOverload<int>(&QComboBox::currentIndexChanged),this,[this](int mode){swipePosition->setEnabled(mode==3);schedule();});
         connect(swipePosition,&QSlider::valueChanged,this,[this]{if(inspectionMode->currentIndex()==3)schedule();});
+        button("mosaicZoomSeam",t("Zoom to selected overlap","Zoom sulla sovrapposizione selezionata"),panel,[this]{zoomToOverlap();});
         auto* ordering=new QHBoxLayout;panel->addLayout(ordering);
         button("mosaicDown",t("Lower","Abbassa"),ordering,[this]{reorder(-1);});button("mosaicUp",t("Raise","Alza"),ordering,[this]{reorder(1);});
         button("mosaicRemove",t("Remove","Rimuovi"),panel,[this]{int row=list->currentRow();if(row<0)return;remember();layers.erase(layers.begin()+row);refreshList();});
