@@ -2,6 +2,7 @@
 #pragma once
 #include "orbyx/compositor.hpp"
 #include "orbyx/engine.hpp"
+#include "control_points_dialog.hpp"
 #include <QApplication>
 #include <QCheckBox>
 #include <QCloseEvent>
@@ -221,6 +222,11 @@ class MosaicDialog final:public QDialog {
         persistentNotice=t("Profile ROI restored. The historical geometry is again the editable starting point.","ROI del profilo ripristinata. La geometria storica è di nuovo il punto di partenza modificabile.");
         refreshList();status->setText(persistentNotice);record("Profile ROI baseline restored");
     }
+    void controlPointsDialog(){
+        const int moving=list->currentRow();if(busy||moving<0||layers.size()<2){status->setText(t("Select a moving layer and add at least two portions.","Seleziona un livello mobile e aggiungi almeno due porzioni."));return;}
+        const int reference=moving>0?moving-1:moving+1;ControlPointsDialog dialog(it,layers[size_t(moving)],layers[size_t(reference)],this);
+        if(dialog.exec()!=QDialog::Accepted)return;applyControlPoints(dialog.solution(),moving,reference);
+    }
 protected:
     void done(int result)override{
         if(busy)return;
@@ -251,6 +257,7 @@ public:
         connect(inspectionMode,qOverload<int>(&QComboBox::currentIndexChanged),this,[this](int mode){swipePosition->setEnabled(mode==3);schedule();});
         connect(swipePosition,&QSlider::valueChanged,this,[this]{if(inspectionMode->currentIndex()==3)schedule();});
         button("mosaicZoomSeam",t("Zoom to selected overlap","Zoom sulla sovrapposizione selezionata"),panel,[this]{zoomToOverlap();});
+        button("mosaicControlPoints",t("Align with control points…","Allinea con punti di controllo…"),panel,[this]{controlPointsDialog();});
         auto* ordering=new QHBoxLayout;panel->addLayout(ordering);
         button("mosaicDown",t("Lower","Abbassa"),ordering,[this]{reorder(-1);});button("mosaicUp",t("Raise","Alza"),ordering,[this]{reorder(1);});
         button("mosaicRemove",t("Remove","Rimuovi"),panel,[this]{int row=list->currentRow();if(row<0)return;remember();layers.erase(layers.begin()+row);refreshList();});
@@ -290,6 +297,11 @@ public:
     }
     bool isBusy()const{return busy||previewTimer.isActive();}
     const std::vector<orbyx::MosaicLayer>& state()const{return layers;}
+    void applyControlPoints(const orbyx::ControlPointSolution& solution,int moving,int reference){
+        if(busy||moving<0||reference<0||moving>=int(layers.size())||reference>=int(layers.size())||moving==reference)throw std::runtime_error("Invalid control-point layer selection");
+        remember();layers[size_t(moving)]=solution.layer;setProperty("mergeStrategy","control-points");setProperty("controlPointInliers",int(solution.inliers.size()));setProperty("controlPointMedian",solution.medianError);setProperty("controlPointMaximum",solution.maxError);
+        persistentNotice=t("Control-point transform applied. Review residuals and every seam before export.","Trasformazione da punti di controllo applicata. Verifica residui e ogni giunzione prima dell’esportazione.");refreshList(moving);status->setText(persistentNotice);record(QString("Control points: %1 inliers, median %2 px, max %3 px").arg(solution.inliers.size()).arg(solution.medianError,0,'f',3).arg(solution.maxError,0,'f',3));
+    }
     void setState(const std::vector<orbyx::MosaicLayer>& state){if(busy)return;orbyx::mosaicProject(state);remember();layers=state;refreshList();}
     void appendDemo(QString sample={}){
         if(busy||layers.size()>30)return;

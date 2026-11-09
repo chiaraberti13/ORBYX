@@ -68,6 +68,14 @@ int main(int argc,char** argv){
             check(orbyx::mosaicProject(dialog.state())==beforeBlink,"Difference seam inspection changed editable or export state");
             QTest::mouseClick(dialog.findChild<QPushButton*>("mosaicZoomSeam"),Qt::LeftButton);
             check(dialog.property("seamZoomed").toBool()&&orbyx::mosaicProject(dialog.state())==beforeBlink,"Dedicated seam zoom failed or changed editable state");
+            const double controlScale=.98,controlAngle=2*CV_PI/180.,controlC=std::cos(controlAngle)*controlScale,controlS=std::sin(controlAngle)*controlScale;
+            std::vector<orbyx::ControlPointPair> points;for(const cv::Point2d point:std::vector<cv::Point2d>{{5,5},{70,8},{8,60},{80,65},{40,30}})points.push_back({point,{controlC*point.x-controlS*point.y+12,controlS*point.x+controlC*point.y+4}});points.push_back({{30,50},{900,-800}});
+            const auto movingBefore=dialog.state()[2];auto solved=orbyx::alignFromControlPoints(movingBefore,dialog.state()[1],points);
+            ControlPointsDialog pointDialog(it,movingBefore,dialog.state()[1]);pointDialog.setPairs(points);check(pointDialog.solve(),"Control-point dialog did not solve reviewed pairs");check(pointDialog.findChild<QLabel*>("controlPointSummary")->text().contains("5/6"),"Control-point dialog omitted inlier/residual evidence");
+            dialog.applyControlPoints(solved,2,1);waitFor(dialog);
+            check(dialog.property("mergeStrategy").toString()=="control-points"&&dialog.property("controlPointInliers").toInt()==5&&dialog.state()[2].x!=movingBefore.x,"Control-point solution was not applied to the selected layer");
+            dialog.undo();waitFor(dialog);check(dialog.state()[2].x==movingBefore.x&&dialog.state()[2].y==movingBefore.y,"Control-point alignment is not undoable");
+            dialog.redo();waitFor(dialog);check(dialog.state()[2].x==solved.layer.x,"Control-point alignment redo failed");
             dialog.reorder(-1);waitFor(dialog);check(list->currentRow()==1,"Layer reordering failed");
             QString project=temp.path()+(it?"/it.json":"/en.json");dialog.saveProject(project);
             auto expected=orbyx::renderMosaic(dialog.state()).image;
