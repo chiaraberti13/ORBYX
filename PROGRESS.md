@@ -551,3 +551,27 @@ già dichiarati. Cppcheck sui file modificati senza segnalazioni. Pubblicazione
 codice: `f554703c76a7e354a244358ef66ec2333dc12120`. Restano in M2-07 la scelta
 comparativa esplicita ROI/visuale e il coordinatore completo; M2-08 collegherà
 anche coda, importazione e ripresa in un’unica procedura guidata.
+
+### M2-08 — Primo incremento: procedura SatDump-to-finale
+
+Aggiunta alla finestra principale l’azione **Crea immagine finale…**. Un wizard
+EN/IT accompagna l’utente attraverso cinque pagine — Importa, Allinea canali,
+Unisci porzioni, Colore, Esporta — mantenendo le scelte tecniche essenziali ma
+spiegandone l’effetto. La pagina di unione rileva se il profilo contiene una
+coppia ROI completa e chiarisce se l’editor partirà dai ritagli storici o dalle
+porzioni intere. Il colore iniziale può essere Natural Color RGB321 o RGB123.
+
+La procedura rifiuta cartelle SatDump incomplete, symlink nelle posizioni
+critiche, profili non JSON o oltre1MiB, destinazioni esistenti, interne
+all’origine o prive di un genitore valido. Richiede una conferma finale e poi
+usa il normale motore ORBYX: non esiste un secondo percorso semplificato. Al
+termine apre automaticamente il compositore sulle porzioni generate, lasciando
+all’utente il controllo delle giunzioni e l’esportazione finale.
+
+Verifica locale: compilazione GUI pulita, Cppcheck senza segnalazioni e test
+widget end-to-end EN/IT passato. Il test percorre tutte le cinque pagine,
+controlla i rifiuti, esegue realmente l’allineamento dal pulsante unico, verifica
+il prodotto ROI storico e l’apertura automatica dei due livelli modificabili.
+Pubblicazione codice: `69bcefd75f5af004f0914f8bd572fdbf8cad3745`.
+Restano aperti in M2-08 coda/ripresa integrata, raggruppamento generico e stato
+durevole dei passaggi.

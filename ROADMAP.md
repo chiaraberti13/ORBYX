@@ -269,7 +269,13 @@ progettazione, non dipendenze da integrare automaticamente.
 ## M2-08 — Procedura guidata “Da SatDump all’immagine finale”
 
 - Priorità: P0
-- Stato: proposto, non implementato
+- Stato: in corso — primo incremento implementato e verificato: una sola azione
+  desktop guida **Importa**, **Allinea canali**, **Unisci porzioni**, **Colore**
+  ed **Esporta**, valida origine/profilo/destinazione, avvia il percorso reale e
+  apre automaticamente il compositore senza cercare file intermedi. Restano da
+  integrare la coda/ripresa durevole nello stesso wizard, il riconoscimento di
+  gruppi generici oltre ai due VIS RDAS e il salvataggio dello stato dei singoli
+  passaggi.
 - Dipendenze: M2-07, M3-04
 - Responsabile: Product Designer / Qt UX / SatDump Specialist / Accessibility / QA
 - Deliverable: procedura EN/IT accessibile dal desktop con percorso base in

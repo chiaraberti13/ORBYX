@@ -9,6 +9,15 @@ L’app esegue la registrazione dei canali e apre le due porzioni come livelli
 modificabili, con il ritaglio e il contrasto iniziali del campione. Questo esempio
 non limita il numero o la disposizione dei livelli delle altre acquisizioni.
 
+Per il percorso più semplice premi invece **Crea immagine finale…** nella
+finestra principale. La procedura mostra cinque passaggi: **Importa**, **Allinea
+canali**, **Unisci porzioni**, **Colore** ed **Esporta**. Controlla che la
+cartella SatDump sia completa, che il profilo sia un JSON valido e che la
+destinazione sia nuova ed esterna agli originali. Dopo la conferma avvia davvero
+l’allineamento e apre da sola il compositore con Natural Color o RGB123: non devi
+cercare né riaprire le cartelle intermedie. L’esportazione resta intenzionalmente
+nell’editor, così puoi controllare e correggere le giunzioni prima del PNG finale.
+
 ## Dai prodotti SatDump all’immagine unica
 
 ### Apertura diretta dopo l’elaborazione ORBYX
@@ -28,9 +37,10 @@ posizionarle manualmente. Il funzionamento non presume che siano una parte
 sinistra e una destra. Il comando CLI `generate` mantiene per impostazione
 predefinita gli stessi file e lo stesso comportamento precedenti.
 
-Questo collegamento diretto riguarda al momento l’elaborazione avviata dal
-pulsante principale. L’integrazione equivalente nella coda e la procedura
-guidata completa sono tracciate in M2-08.
+Questo collegamento diretto riguarda al momento l’elaborazione singola avviata
+dal pulsante principale o da **Crea immagine finale…**. L’integrazione
+equivalente nella coda e la ripresa dei singoli passaggi sono ancora tracciate
+in M2-08.
 
 1. Allinea prima i canali di ciascuna acquisizione con il normale flusso ORBYX.
    Il compositore non sostituisce la calibrazione dei canali.

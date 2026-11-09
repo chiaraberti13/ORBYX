@@ -80,6 +80,7 @@ Il comando qui sopra apre direttamente questa stessa demo; `bash demo.sh --no-op
 ### Nuove funzioni nell’app
 
 - **Componi porzioni e colore…**: aggiungi più porzioni come livelli, proponi automaticamente le sovrapposizioni, correggile manualmente, regola il colore, salva il progetto ed esporta un solo PNG. Dopo **Genera**, le porzioni allineate vengono aperte direttamente con le ROI del profilo come punto di partenza modificabile, senza alterare il risultato storico. Non è limitato a SX/DX. [Guida passo passo](docs/COMPOSITOR.md).
+- **Crea immagine finale…**: percorso guidato in cinque passaggi per principianti. Seleziona l’esportazione SatDump, controlla allineamento/unione/colore, avvia l’elaborazione e apre automaticamente l’editor sul risultato, senza cercare file intermedi.
 
 - **Calibrazione guidata…**: scegli dati e destinazione, controlla satellite e scala, poi avvia il calcolo. Il nuovo profilo viene selezionato per l’allineamento.
 - **Monitora acquisizioni…**: scegli la cartella di SatDump. Puoi importare un prodotto pronto o attivare l’accodamento automatico dei prodotti compatibili; l’elaborazione parte solo con **Avvia coda**.
