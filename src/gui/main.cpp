@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // ORBYX desktop workspace. Processing lives exclusively in the shared core.
 #include "orbyx/engine.hpp"
+#include "calibration_wizard.hpp"
 
 #include <QAbstractItemView>
 #include <QApplication>
@@ -121,7 +122,8 @@ class Window final : public QMainWindow {
     bool demoMode = false;
     QString lastOutput;
     QString demoResult;
-    QPushButton *demoButton{};
+    QPushButton *demoButton{}, *wizardButton{};
+    double guidedScale=1.0;
     QPixmap image;
     double zoom = 1.0;
     QLabel *subtitle{}, *eyebrow{}, *inputLabel{}, *configLabel{}, *outputLabel{}, *satLabel{}, *modeLabel{}, *engineLabel{}, *hint{}, *previewTitle{}, *empty{}, *status{}, *activityTitle{}, *languageLabel{}, *themeLabel{}, *previewNote{};
@@ -149,6 +151,8 @@ class Window final : public QMainWindow {
     }
     void applyText() {
         subtitle->setText(trText(demoMode?"Real JPEG demo — six channels, one image":"Satellite imaging workspace")); eyebrow->setText(trText("ALIGN / CALIBRATE / EXPLORE"));
+        wizardButton->setText(it?"Calibrazione guidata…":"Guided calibration…");
+        wizardButton->setAccessibleName(wizardButton->text());
         demoButton->setText(trText("Run image demo"));
         demoButton->setAccessibleName(trText("Run image demo"));
         demoButton->setToolTip(trText("Align the six bundled JPEGs and join the left and right halves."));
@@ -339,6 +343,7 @@ class Window final : public QMainWindow {
         }
         orbyx::RunOptions options;
         options.input = input->text().toStdString(); options.config = config->text().toStdString(); options.output = output->text().toStdString();
+        options.calibrationScale=mode->currentIndex()==1?guidedScale:1.0;
         options.language = it ? "it" : "en";
         options.satellite = satellite->currentText().toStdString(); options.cpu = engine->currentIndex() == 1; options.calibrate = mode->currentIndex() == 1;
         lastOutput = output->text(); setQueueBusy(true);
@@ -353,12 +358,19 @@ class Window final : public QMainWindow {
                 });
             } catch (const std::exception &e) { error = QString::fromUtf8(e.what()); }
             catch (...) { error = "Unknown processing exception"; }
-            QMetaObject::invokeMethod(this, [this,error] {
+            QMetaObject::invokeMethod(this, [this,error,options] {
                 setQueueBusy(false); progress->setRange(0,100); progress->setValue(error.isEmpty()?100:0); applyText();
                 status->setText(trText(error.isEmpty()?"Completed":"Processing failed"));
                 if (quitAfterRun) { QApplication::exit(error.isEmpty()?0:2); return; }
                 if (!error.isEmpty()) { log->append(error.toHtmlEscaped()); QMessageBox box(QMessageBox::Warning,trText("Processing failed"),diagnostic(error),QMessageBox::Ok,this); box.setTextFormat(Qt::PlainText); box.setDetailedText(error); box.exec(); }
-                else { source->setCurrentIndex(1); loadPreview(); }
+                else {
+                    if(options.calibrate) {
+                        config->setText(QDir(lastOutput).filePath("calibration.json"));mode->setCurrentIndex(0);
+                        output->setText(lastOutput+"-aligned");guidedScale=1.0;
+                        log->append(it?"Profilo calcolato selezionato. Controlla le regioni di fusione, poi avvia l’allineamento.":"Calculated profile selected. Review merge regions, then start alignment.");
+                    }
+                    source->setCurrentIndex(1); loadPreview();
+                }
             }, Qt::QueuedConnection);
         });
         connect(worker,&QThread::finished,worker,&QObject::deleteLater); worker->start();
@@ -389,6 +401,7 @@ class Window final : public QMainWindow {
         job["input"] = input->text(); job["config"] = config->text(); job["output"] = output->text();
         job["mode"] = mode->currentIndex() == 1 ? "calibrate" : "generate";
         job["cpu"] = engine->currentIndex() == 1;
+        if(mode->currentIndex()==1&&guidedScale!=1.0)job["calibration_scale"]=guidedScale;
         const int row = queue->rowCount();
         queue->insertRow(row);
         auto *id = new QTableWidgetItem(job["id"].toString());
@@ -407,7 +420,7 @@ class Window final : public QMainWindow {
     void setQueueBusy(bool running) {
         busy = running;
         setup->setEnabled(!running); start->setEnabled(!running);
-        naturalExport->setEnabled(!running); demoButton->setEnabled(!running);
+        naturalExport->setEnabled(!running); demoButton->setEnabled(!running); wizardButton->setEnabled(!running);
         queueAdd->setEnabled(!running); queueRemove->setEnabled(!running);
         queueRun->setEnabled(!running && queue->rowCount() > 0);
     }
@@ -426,6 +439,7 @@ class Window final : public QMainWindow {
             for (const QString &key : {"id", "satellite", "input", "output", "config", "mode"})
                 entry[key] = job[key].toString();
             entry["cpu"] = job["cpu"].toBool();
+            if(job.contains("calibration_scale"))entry["calibration_scale"]=job["calibration_scale"].toDouble();
             jobs.append(entry);
         }
         const QString dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
@@ -603,6 +617,13 @@ public:
         if (!QFileInfo::exists(defaultConfig)) defaultConfig=QDir::current().filePath("resources/calibration.json");
         if (!QFileInfo::exists(defaultConfig)) defaultConfig=QDir(QApplication::applicationDirPath()).filePath("../resources/calibration.json");
         config=new QLineEdit(settings.value("config",defaultConfig).toString()); configBrowse=new QPushButton; form->addWidget(configLabel); form->addLayout(pathRow(config,configBrowse));
+        wizardButton=new QPushButton;wizardButton->setObjectName("wizardButton");form->addWidget(wizardButton);
+        connect(wizardButton,&QPushButton::clicked,this,[this]{
+            CalibrationWizard wizard(it,input->text(),config->text(),output->text(),satellite->currentText(),this);
+            if(wizard.exec()!=QDialog::Accepted)return;
+            input->setText(wizard.inputPath());config->setText(wizard.profilePath());output->setText(wizard.outputPath());
+            satellite->setCurrentText(wizard.satelliteId());guidedScale=wizard.scale();mode->setCurrentIndex(1);engine->setCurrentIndex(1);loadPreview();
+        });
         profileDup=new QPushButton; profileDup->setObjectName("profileDup"); form->addWidget(profileDup);
         outputLabel=label(); output=new QLineEdit; outputBrowse=new QPushButton; form->addWidget(outputLabel); form->addLayout(pathRow(output,outputBrowse));
         satLabel=label(); satellite=new QComboBox; satellite->addItems({"L2","L3","L4","L5","M1","M2"}); satellite->setCurrentText(settings.value("satellite","L2").toString()); form->addWidget(satLabel); form->addWidget(satellite);

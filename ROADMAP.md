@@ -123,7 +123,7 @@ Installer Ubuntu: `install.sh` con dipendenze complete, attesa APT, stop alla pr
 - Deliverable: Flussi guidati e componenti rifiniti
 - Test: Test tastiera e utenti
 - Accettazione: Flussi completi EN/IT
-- Stato: verificato in parte — guida iniziale passo passo EN/IT, installer e launcher automatici, demo reale nel desktop con i sei JPEG forniti, registrazione ECC e immagine unica visualizzata; la simulazione scientifica resta un test distinto; base accessibile presente: i nuovi widget della coda e del profilo hanno nomi accessibili EN/IT e scorciatoie da tastiera coerenti col resto della GUI. Testati click e ripresa da tastiera EN/IT, dialoghi profili e demo anche con finestra 960×680 e controlli realmente nel viewport. Restano da completare wizard interattivo e prove con screen reader/utenti reali
+- Stato: verificato in parte — guida iniziale passo passo EN/IT, installer e launcher automatici, demo reale nel desktop con i sei JPEG forniti, registrazione ECC e immagine unica visualizzata; la simulazione scientifica resta un test distinto; base accessibile presente: i nuovi widget della coda e del profilo hanno nomi accessibili EN/IT e scorciatoie da tastiera coerenti col resto della GUI. Testati click e ripresa da tastiera EN/IT, dialoghi profili e demo anche con finestra 960×680 e controlli realmente nel viewport. Wizard interattivo EN/IT implementato a tre passi, con scala ECC, revisione e passaggio al nuovo profilo/allineamento; restano le prove con screen reader/utenti reali
 
 ## M4-02 — Aggiornamenti sicuri e manutenzione periodica
 

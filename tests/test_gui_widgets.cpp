@@ -111,6 +111,21 @@ int main(int argc, char **argv) {
             requireTest(w.findChild<QLineEdit*>("config")->text()==copied,"GUI did not select copied profile");
             w.close();
         }
+        for(const bool italian:{false,true}) {
+            CalibrationWizard wizard(italian,fixture+"/input",fixture+"/profile.json",temporary.path()+"/wizard-output", "L4");wizard.show();
+            QTest::qWait(20);
+            QTest::mouseClick(wizard.button(QWizard::NextButton),Qt::LeftButton);
+            requireTest(wizard.currentId()==1,"Wizard rejected complete acquisition");
+            requireTest(wizard.scale()==.125&&wizard.satelliteId()=="L4","Wizard lost calibration settings");
+            QTest::mouseClick(wizard.button(QWizard::NextButton),Qt::LeftButton);
+            requireTest(wizard.currentId()==2&&!wizard.button(QWizard::FinishButton)->isEnabled(),"Wizard omitted explicit review");
+            QTest::mouseClick(wizard.findChild<QCheckBox*>("wizardConfirm"),Qt::LeftButton);
+            QTest::mouseClick(wizard.button(QWizard::FinishButton),Qt::LeftButton);
+            requireTest(wizard.result()==QDialog::Accepted,"Wizard did not accept checked settings");
+            CalibrationWizard invalid(italian,fixture+"/input",fixture+"/profile.json",fixture+"/input", "L4");invalid.show();
+            QTest::mouseClick(invalid.button(QWizard::NextButton),Qt::LeftButton);
+            requireTest(invalid.currentId()==0&&!invalid.property("validationError").toString().isEmpty(),"Wizard allowed existing/input destination");invalid.reject();
+        }
         // Launch a genuine exec failure: the executable exists, its interpreter does not.
         const QString fakeDir=temporary.path()+"/fake"; QDir().mkpath(fakeDir);
         QFile fake(fakeDir+"/orbyx-batch"); requireTest(fake.open(QIODevice::WriteOnly),"Fake runner unavailable");

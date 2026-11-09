@@ -178,7 +178,7 @@ def load_manifest(path: Path) -> list[dict]:
     identifiers: set[str] = set()
     outputs: list[Path] = []
     normalized = []
-    allowed = {"id", "satellite", "input", "output", "config", "mode", "cpu"}
+    allowed = {"id", "satellite", "input", "output", "config", "mode", "cpu", "calibration_scale"}
     required = {"id", "satellite", "input", "output", "config"}
     for job in jobs:
         if not isinstance(job, dict) or not required <= set(job) or set(job) - allowed:
@@ -194,6 +194,10 @@ def load_manifest(path: Path) -> list[dict]:
             raise ValueError("Mode must be generate or calibrate")
         if type(job.get("cpu", False)) is not bool:
             raise ValueError("cpu must be boolean")
+        if "calibration_scale" in job:
+            scale = job["calibration_scale"]
+            if type(scale) not in (int, float) or not math.isfinite(scale) or not 0 < scale <= 1 or mode != "calibrate":
+                raise ValueError("calibration_scale requires calibrate mode and a finite number in (0,1]")
         item = dict(job, mode=mode, cpu=job.get("cpu", False))
         for key in ("input", "output", "config"):
             item[key] = str(resolve(path.parent, job[key]))
@@ -281,6 +285,8 @@ def run(manifest: Path, state_path: Path, executable: Path, resume: bool, langua
             command = [str(executable), job["mode"], "--sat", job["satellite"],
                        "--directory", job["input"], "--output", job["output"],
                        "--config", job["config"], "--lang", language]
+            if "calibration_scale" in job:
+                command.extend(["--calibration-scale", str(job["calibration_scale"])])
             if job["cpu"]:
                 command.append("--cpu")
             process = subprocess.Popen(command, shell=False)

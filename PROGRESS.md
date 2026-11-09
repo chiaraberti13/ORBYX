@@ -334,3 +334,15 @@ Verificate separatamente installazione guidata Ubuntu26 e pipeline RDAS/SatDump
 reale sul precedente8103ae6; non toccate dall’ultimo incremento. Riconoscimento
 strutturale provato anche sulla preview SatDump reale, con tutti i9file invariati.
 Limiti residui e funzionalità ancora aperte distinti in `docs/TEST_RESULTS.md`.
+
+## Sviluppo residuo — calibrazione guidata
+
+Aggiunta procedura desktop a tre passi EN/IT: acquisizione/profilo/destinazione,
+satellite e scala ECC, revisione esplicita. Nessuna elaborazione parte prima del
+comando dell’utente. Controlli su file mancanti, cartelle simboliche e destinazioni
+esistenti/interne all’origine. Al termine della calibrazione il profilo prodotto
+viene selezionato e l’app propone l’allineamento in una nuova destinazione.
+Scala ECC conservata anche nei lavori batch, opzionale e compatibile con manifest
+precedenti. Test dei passi e del rifiuto destinazione esistente EN/IT nel widget
+reale; regressioni del prodotto e dei widget superate. La geometria assoluta non
+è dedotta dal wizard e le ROI restano soggette alla verifica dell’operatore.
