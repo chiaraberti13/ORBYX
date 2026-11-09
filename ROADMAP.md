@@ -309,8 +309,10 @@ progettazione, non dipendenze da integrare automaticamente.
   sola area sovrapposta con il livello adiacente. È disponibile anche il
   confronto a scacchiera della stessa coppia e una tendina verticale regolabile.
   Un comando centra e ingrandisce l’intersezione reale della coppia selezionata.
-  Restano da implementare punti di controllo e proposta di esclusione dei bordi
-  uniformi.
+  I punti di controllo sono inseribili/modificabili in coppie, stimati con
+  RANSAC, accompagnati da residui e outlier e applicati solo dopo conferma, con
+  annulla/ripeti. Restano da implementare la proposta di esclusione dei bordi
+  uniformi e l’avviso sulla concentrazione spaziale dei punti.
 - Dipendenze: M2-07, M2-08
 - Responsabile: Computer Vision / Scientific Imaging UX / Qt / QA
 - Deliverable: strumenti mirati alla giunzione, senza trasformare ORBYX in un

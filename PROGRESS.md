@@ -675,3 +675,29 @@ del progetto identico prima/dopo. La prima compilazione ha evidenziato l’heade
 Qt incompleto di `QScrollBar`; è stato incluso esplicitamente e la successiva
 build più suite compositore sono passate. Pubblicazione codice:
 `3f9790fd3a32d07e6dc52e694d10fcdc90117192`.
+
+### M2-09 — Settimo incremento: solver robusto dei punti di controllo
+
+Il core espone coppie `mobile → riferimento` nelle coordinate dei rispettivi
+ritagli. Da almeno tre coppie finite e non degeneri stima una trasformazione di
+similarità con RANSAC, compone il risultato nel sistema di scena del livello di
+riferimento e restituisce indici inlier, residuo di ogni coppia, errore mediano e
+massimo degli inlier. Coordinate, numero di coppie e scala sono limitati.
+
+Il test usa otto corrispondenze esatte e un outlier grossolano: recupera
+traslazione, rotazione e scala note entro tolleranze numeriche, rifiuta l’outlier
+e verifica residui, input insufficiente e geometria degenerata. Suite core
+passata. Pubblicazione: `a491d8fadc44847d5e12c49925d44e190318e061`.
+
+### M2-09 — Ottavo incremento: editor dei punti di controllo
+
+La finestra EN/IT **Allinea con punti di controllo…** permette di aggiungere,
+rimuovere e modificare coppie X/Y. Il calcolo mostra il residuo per riga,
+evidenzia gli outlier e riporta inlier/totale, errore mediano e massimo prima di
+abilitare l’applicazione. Il livello selezionato viene trasformato rispetto
+all’adiacente; l’operazione è registrata come `control-points`, loggata e
+annullabile/ripetibile.
+
+Test widget con cinque punti coerenti e un outlier: evidenza `5/6`, applicazione,
+strategia, diagnostica, annulla e ripeti. Suite compositore e GUI globale EN/IT
+passate. Pubblicazione: `063f7dcf5139a65c10fc5b06a56989fb398763eb`.

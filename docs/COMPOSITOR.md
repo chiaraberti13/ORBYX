@@ -91,6 +91,13 @@ in M2-08.
    **Zoom sulla sovrapposizione selezionata** centra e ingrandisce l’area comune
    della coppia corrente. Se i poligoni trasformati non si intersecano, ORBYX lo
    segnala senza cambiare zoom o geometria.
+   Con **Allinea con punti di controllo…** il livello selezionato è quello mobile
+   e quello immediatamente sotto è il riferimento (se è il primo viene usato il
+   livello sopra). Inserisci almeno tre coppie dello stesso dettaglio nelle
+   coordinate dei rispettivi ritagli. Puoi aggiungere, modificare o eliminare
+   righe; **Calcola trasformazione** mostra residuo, inlier e outlier prima di
+   abilitare **Applica**. Distribuisci i punti su tutta la zona comune: punti
+   concentrati in una sola area descrivono peggio rotazione e scala.
 7. Regola **Scala**, **Rotazione**, **Ritaglio**, **Opacità** e **Sfumatura bordi**.
    I valori del ritaglio sono nelle coordinate della sorgente; larghezza e altezza
    entrambe 0 significano immagine intera. Per eliminare intestazioni usa il
@@ -169,6 +176,8 @@ modifiche, applicazione esplicita, annulla/ripeti e messaggio di revisione.
 Verifica inoltre l’apertura di due prodotti allineati con le ROI del profilo,
 ritagli e posizione iniziale esatti, il ripristino dopo una modifica manuale e
 la loro persistenza in un progetto.
+Verifica il solver dei punti di controllo su una trasformazione nota con un
+outlier, i residui per coppia, il riepilogo EN/IT e applicazione/annulla/ripeti.
 
 `engine-regression` verifica che l’attivazione delle porzioni modificabili non
 cambi neppure un pixel del prodotto ROI storico, che il comportamento
