@@ -204,3 +204,212 @@ Gli stati parziali rimasti riguardano prove esterne: hardware GPU, riferimento g
 - Deliverable: individuazione visuale delle aree comuni fra porzioni generiche e proposta modificabile di posizione, rotazione e scala
 - Accettazione: nessun vincolo SX/DX; riferimento scelto dall’utente; evidenze e conferma prima di applicare; porzioni non affidabili invariate; risultato annullabile e correggibile manualmente
 - Stato: verificato per l’ambito dichiarato su `338675d` — motore ORB con corrispondenze reciproche, stima robusta e soglie su inlier, sovrapposizione, errore e confidenza; concatenamento di più porzioni, conferma EN/IT, annullamento senza modifiche, annulla/ripeti e log. Suite locale applicabile24/24, Cppcheck pulito e tutte le pipeline finali verdi; desktop25gruppi (24eseguiti, GPU skipped), sanitizers19gruppi (18eseguiti, GPU skipped). Non è georeferenziazione, non risolve prospettiva o proiezioni diverse e non sostituisce il controllo delle giunzioni. [Prove](docs/TEST_RESULTS.md#estensione-m2-06-sovrapposizione-automatica-modificabile) e [guida](docs/COMPOSITOR.md).
+
+## Evoluzione proposta del compositore — analisi multidisciplinare
+
+Questa sezione contiene proposte, non funzioni dichiarate implementate. L’analisi
+considera il percorso reale dell’utente: immagini già esportate da SatDump,
+allineamento dei canali, unione delle porzioni, controllo della giunzione, colore
+e immagine finale senza ricorrere a un secondo editor.
+
+### Situazione attuale e vincoli da preservare
+
+- La logica storica non è stata rimossa: `generate` usa ancora le ROI
+  `SATVIS1`/`SATVIS2` del profilo, ritaglia i sei canali allineati e crea il
+  prodotto `MSUGS_VIS_Aligned`. Se una coppia completa di ROI non esiste, salva
+  correttamente i due VIS separati.
+- Il compositore aggiunto in M2-05/M2-06 è un percorso distinto: accetta porzioni
+  generiche, propone la geometria da dettagli visuali e permette correzioni
+  manuali. Oggi non importa automaticamente ROI, trasformazioni e risultati del
+  normale flusso SatDump.
+- L’unione ROI è deterministica e deve rimanere il comportamento compatibile per
+  profili già verificati. Il matching visuale è un fallback o una scelta
+  esplicita, non un sostituto silenzioso.
+- Il prodotto scientifico e l’immagine di presentazione devono restare distinti:
+  sui canali destinati a SatDump niente compensazione cromatica o blending che
+  alteri i valori senza consenso; sull’immagine finale visuale sono ammesse
+  correzioni non distruttive dichiarate.
+- Nessuna modalità visuale diventa georeferenziazione. Coordinate assolute o
+  GeoTIFF richiedono metadati/GCP e CRS realmente disponibili.
+
+Il confronto tecnico conferma una pipeline modulare: OpenCV separa matching,
+stima affine, warping, ricerca della seam, compensazione esposizione e blending;
+per immagini assimilabili a scansioni indica il modello affine. Hugin affianca
+punti di controllo manuali all’automatismo e usa maschere include/escludi;
+Enblend ottimizza la seam e supporta immagini 8/16/32 bit. Sono riferimenti di
+progettazione, non dipendenze da integrare automaticamente.
+
+## M2-07 — Coordinatore delle strategie di unione
+
+- Priorità: P0
+- Stato: proposto, non implementato
+- Dipendenze: M2-01, M2-05, M2-06
+- Responsabile: Technical Lead / Computer Vision / Maintainer compatibilità / QA
+- Deliverable: un solo servizio core che espone quattro strategie: **Profilo
+  ROI**, **Visuale automatica**, **Assistita** e **Manuale**
+- Comportamento automatico: valida prima satellite, profilo e ROI; se la coppia
+  ROI è completa propone la logica storica come scelta raccomandata; se manca o
+  viene rifiutata propone il matching visuale; se la confidenza è insufficiente
+  apre l’assistenza manuale senza inventare una posizione
+- Compatibilità: CLI `generate`, nomi dei prodotti, CBOR, profondità e pixel del
+  percorso ROI devono rimanere identici alla baseline verificata
+- Revisione: anteprima comparabile **ROI / Visuale** quando entrambe sono
+  disponibili; nessuna scelta applicata o esportata senza conferma
+- Test: golden test byte-per-byte del percorso ROI; ROI mancanti/parziali/non
+  valide; matching riuscito/fallito; più di due porzioni; input 8/16 bit;
+  originali e CBOR immutati
+- Accettazione: la nuova architettura non modifica alcun risultato storico e
+  rende esplicito nel progetto quale strategia e quali parametri sono stati usati
+
+## M2-08 — Procedura guidata “Da SatDump all’immagine finale”
+
+- Priorità: P0
+- Stato: proposto, non implementato
+- Dipendenze: M2-07, M3-04
+- Responsabile: Product Designer / Qt UX / SatDump Specialist / Accessibility / QA
+- Deliverable: procedura EN/IT accessibile dal desktop con percorso base in
+  cinque passaggi: **Importa**, **Allinea canali**, **Unisci porzioni**,
+  **Colore**, **Esporta**
+- Importazione: riconosce cartelle `MSUGS_VIS*`, gruppi di tre canali e prodotti
+  già allineati; mostra cosa è stato trovato e permette di correggere il
+  raggruppamento senza dipendere dai nomi SX/DX
+- Semplicità: un’azione principale **Crea immagine finale**; le opzioni tecniche
+  restano in **Impostazioni avanzate** e non bloccano il percorso consigliato
+- Continuità: trasferisce automaticamente canali allineati, ROI o proposta
+  visuale nel compositore; l’utente non deve cercare cartelle intermedie né
+  riaprire manualmente i file prodotti
+- Sicurezza: destinazione sempre nuova, originali intatti, riepilogo prima
+  dell’avvio, annullamento controllato e log apribile dall’interfaccia
+- Ripresa: salva un progetto modificabile e riprende dal passaggio completato
+  senza considerare affidabili risultati con digest cambiato
+- Accettazione: un principiante deve ottenere una singola immagine PNG 8/16 bit
+  partendo da sei immagini SatDump, senza terminale e senza software esterno
+
+## M2-09 — Controllo professionale dell’allineamento
+
+- Priorità: P0
+- Stato: proposto, non implementato
+- Dipendenze: M2-07, M2-08
+- Responsabile: Computer Vision / Scientific Imaging UX / Qt / QA
+- Deliverable: strumenti mirati alla giunzione, senza trasformare ORBYX in un
+  editor grafico generico
+- Ispezione: zoom dedicato sulla seam, sovrapposizione con opacità, lampeggio,
+  tendina prima/dopo, scacchiera e mappa della differenza; selezione rapida della
+  coppia di porzioni da confrontare
+- Assistenza manuale: coppie di punti di controllo aggiungibili/spostabili,
+  ricalcolo robusto della trasformazione, visualizzazione residui e rimozione
+  degli outlier; trascinamento e valori numerici esistenti restano disponibili
+- Preparazione: ritaglio automatico proposto per intestazioni, rampe e grandi
+  bordi uniformi, sempre reversibile; possibilità di escludere tali aree dal
+  matching senza cancellare pixel sorgente
+- Diagnostica: numero di corrispondenze/inlier, copertura spaziale, errore
+  mediano/massimo e avviso quando i punti sono concentrati in un’unica zona
+- Accettazione: l’utente può riconoscere e correggere una doppia costa o una
+  giunzione spostata senza uscire da ORBYX; il risultato resta annullabile
+
+## M2-10 — Seam, maschere e blending per l’immagine visuale
+
+- Priorità: P1
+- Stato: proposto, non implementato
+- Dipendenze: M2-09
+- Responsabile: Computer Vision / Imaging / Performance / AppSec / QA
+- Deliverable: tre modalità dichiarate: **Nessun blending** per dati scientifici,
+  **Sfumatura** compatibile con l’editor attuale e **Seam ottimizzata** per la
+  presentazione finale
+- Seam: valutare graph-cut su colore/gradiente e blending multibanda usando i
+  componenti OpenCV, con fallback deterministico alla sfumatura esistente
+- Maschere: poligoni include/escludi non distruttivi per artefatti, bordi o zone
+  da preferire; salvataggio nel progetto e anteprima della seam scelta
+- Aspetto: compensazione opzionale di luminosità/colore soltanto sull’output
+  visuale; mai sui canali SatDump o sul prodotto scientifico senza scelta
+  esplicita e tracciata
+- Prestazioni: preview a risoluzione ridotta, export a profondità nativa, tile e
+  budget memoria; annullamento cooperativo delle elaborazioni lunghe
+- Test: seam sintetiche note, bordi/maschere, scene 8/16 bit, differenze di
+  luminosità, input senza sovrapposizione, determinismo e consumo massimo
+- Accettazione: la modalità visuale riduce le discontinuità senza buchi o pixel
+  non inizializzati; la modalità scientifica conserva esattamente i valori
+
+## M2-11 — Colore integrato e controllato
+
+- Priorità: P1
+- Stato: proposto, non implementato
+- Dipendenze: M2-08, M2-10, M3-04
+- Responsabile: Remote Sensing / Color Science / UX / QA
+- Deliverable: composizione colore nello stesso progetto e nella stessa
+  anteprima dell’unione
+- Preset: **Natural Color MSU-GS RGB321**, **RGB123** e canale singolo, con nomi
+  chiari; nessun preset definito “colore vero scientifico” senza calibrazione
+  radiometrica
+- Ordine elaborazioni: formalizzare e testare allineamento canali → unione con
+  la medesima geometria per i tre canali → composizione colore → correzioni
+  visuali; evitare trasformazioni diverse fra R/G/B e bordi colorati
+- Controlli: istogramma, clipping alte luci/ombre e prima/dopo; livelli, gamma,
+  esposizione, saturazione e bilanciamento già esistenti diventano non distruttivi
+  e riproducibili nel progetto
+- Export: PNG 8/16 bit, profilo colore dichiarato e report dei passaggi; nessuna
+  conversione silenziosa da 16 a 8 bit
+- Accettazione: dalle sei immagini dell’acquisizione l’utente ottiene direttamente
+  una singola immagine a colori e può tornare a ogni fase senza ricominciare
+
+## M2-12 — Valutazione qualità e scelta consigliata
+
+- Priorità: P1
+- Stato: proposto, non implementato
+- Dipendenze: M2-07, M2-09, M2-10, M2-11
+- Responsabile: QA Lead / Computer Vision Validation / Remote Sensing / UX Research
+- Deliverable: report comprensibile che confronta ROI, visuale e intervento
+  manuale senza dichiarare automaticamente “perfetta” un’immagine
+- Indicatori: errore geometrico sui punti, copertura dell’overlap, continuità dei
+  bordi, differenza lungo la seam, aree vuote, clipping e trasformazioni estreme
+- Raccomandazione: propone la strategia con evidenze e segnala i casi ambigui;
+  l’utente può confrontare le alternative e scegliere, senza sostituzione
+  automatica del progetto
+- Dataset: fixture sintetiche con verità nota, demo reale dei sei JPEG, prodotto
+  Elektro-L4 autentico e ulteriori acquisizioni con licenza/provenienza; includere
+  porzioni verticali, irregolari, senza overlap e con nuvole mutate
+- Usabilità: prova guidata con utenti non esperti; tastiera completa, nomi
+  accessibili e successiva verifica con screen reader reale separata dalle prove
+  automatiche
+- Accettazione: criteri quantitativi superati sui dataset con verità nota e
+  revisione umana registrata sulle scene reali; nessuna generalizzazione a
+  satelliti, proiezioni o geometrie non provate
+
+## M2-13 — Progetto portabile e recupero del lavoro
+
+- Priorità: P2
+- Stato: proposto, non implementato
+- Dipendenze: M2-08
+- Responsabile: Desktop Architecture / UX / AppSec / QA
+- Deliverable: progetto con riferimenti relativi o pacchetto esplicito, autosave
+  e ripristino dopo arresto anomalo
+- Sicurezza: nessuna estrazione fuori destinazione, limiti a numero/dimensione
+  degli asset, rifiuto symlink e percorsi ambigui, verifica digest delle sorgenti
+- Accettazione: un progetto può essere spostato insieme alle immagini e riaperto
+  senza perdere livelli, maschere, punti, strategia, colore e cronologia essenziale
+
+### Ordine proposto e gate decisionali
+
+1. **Compatibilità e percorso unico:** M2-07, poi M2-08. È il minimo necessario
+   per rendere semplice il flusso senza perdere la logica originale.
+2. **Controllo dell’utente:** M2-09. Va completato prima di aggiungere algoritmi
+   che possano nascondere una giunzione geometricamente errata.
+3. **Qualità visuale:** M2-10 e M2-11, mantenendo separato l’output scientifico.
+4. **Validazione e robustezza:** M2-12; M2-13 può seguire senza bloccare il primo
+   rilascio del nuovo flusso.
+
+Nessuno dei task proposti è autorizzato allo sviluppo dalla sola presenza in
+roadmap. Prima dell’implementazione occorre scegliere l’ampiezza del primo
+incremento e conservare come gate obbligatorio la regressione byte-per-byte del
+percorso ROI storico.
+
+### Riferimenti tecnici valutati
+
+- OpenCV stitching: <https://docs.opencv.org/4.13.0/d1/d46/group__stitching.html>
+- OpenCV modalità affine/scans: <https://docs.opencv.org/4.13.0/d8/d19/tutorial_stitcher.html>
+- Hugin, punti di controllo: <https://hugin.sourceforge.io/docs/manual/Control_points.html>
+- Hugin, crop e maschere: <https://hugin.sourceforge.io/docs/manual/Hugin_Mask_tab.html>
+- Enblend e seam: <https://hugin.sourceforge.io/docs/manual/Enblend.html>
+- QGIS, distinzione dalla georeferenziazione con GCP/CRS: <https://docs.qgis.org/3.44/en/docs/user_manual/managing_data_source/georeferencer.html>
+- SatDump, compositi: <https://docs.satdump.org/md_docs_2pages_2ImageProductExpression.html>
+- SatDump, proiezioni: <https://docs.satdump.org/md_docs_2pages_2QuickStart.html>
