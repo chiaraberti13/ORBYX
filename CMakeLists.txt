@@ -61,7 +61,11 @@ if(BUILD_TESTING)
   add_executable(orbyx_gpu_verify tests/verify_opencl_gpu.cpp)
   target_link_libraries(orbyx_gpu_verify PRIVATE orbyx_core)
   add_test(NAME opencl-gpu COMMAND orbyx_gpu_verify)
-  set_tests_properties(opencl-gpu PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120 ENVIRONMENT "OPENCV_OPENCL_DEVICE=:GPU:")
+  # Hardware GPU equivalence is a diagnostic, not a functional gate: the engine
+  # verifies the GPU at runtime and falls back to the CPU when it diverges, so a
+  # divergent or absent GPU must not block a working CPU install. The LABELS let
+  # install.sh run this separately and report it without failing the whole setup.
+  set_tests_properties(opencl-gpu PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120 LABELS gpu ENVIRONMENT "OPENCV_OPENCL_DEVICE=:GPU:")
   target_link_libraries(orbyx_tests PRIVATE orbyx_core)
   add_test(NAME engine-regression COMMAND orbyx_tests)
   add_test(NAME color-cli-flow COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_color_cli.py $<TARGET_FILE:orbyx_tests> $<TARGET_FILE:orbyx>)

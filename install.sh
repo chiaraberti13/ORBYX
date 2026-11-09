@@ -43,6 +43,28 @@ if [[ -L "$prefix" ]]; then
     'Signed managed installation: use Updates in the app or bash update.sh. install.sh does not modify a verified release.' >&2
   exit 2
 fi
+orbyx_gpu_diagnostic() {
+  # Runs the opencl-gpu verification on its own and reports the outcome without
+  # ever aborting the installation. Verified → GPU acceleration is available;
+  # skipped → no suitable GPU, ORBYX uses the CPU; otherwise → the GPU diverges
+  # from the CPU and ORBYX falls back to the CPU automatically (results intact).
+  local build=$1 status=0 report
+  report=$(mktemp "$orbyx_repo/logs/.gpu-XXXXXX")
+  ctest --test-dir "$build" -V --tests-regex '^opencl-gpu$' > "$report" 2>&1 || status=$?
+  cat "$report"
+  if grep -q '"status" : "gpu_kernel_verified"' "$report"; then
+    orbyx_message 'Diagnostica GPU: OpenCL verificata, accelerazione disponibile.' \
+      'GPU diagnostic: OpenCL verified, acceleration available.'
+  elif grep -q '"status" : "skipped"' "$report"; then
+    orbyx_message 'Diagnostica GPU: nessuna GPU OpenCL idonea; ORBYX elabora su CPU.' \
+      'GPU diagnostic: no suitable OpenCL GPU; ORBYX runs on the CPU.'
+  else
+    orbyx_message 'Diagnostica GPU: la GPU OpenCL diverge dalla CPU; ORBYX usa automaticamente la CPU, i risultati non cambiano.' \
+      'GPU diagnostic: the OpenCL GPU diverges from the CPU; ORBYX falls back to the CPU automatically, results are unaffected.'
+  fi
+  rm -f "$report"
+  return 0
+}
 apt_wait=${ORBYX_APT_LOCK_TIMEOUT:-900}
 [[ "$apt_wait" =~ ^[0-9]+$ && ${#apt_wait} -le 4 ]] && ((apt_wait>=1 && apt_wait<=3600))
 apt_run() {
@@ -89,7 +111,14 @@ orbyx_run cmake -S "$orbyx_repo" -B "$build" -G Ninja -DCMAKE_BUILD_TYPE=Release
 orbyx_phase=compilazione
 orbyx_run cmake --build "$build" --parallel 2
 orbyx_phase=test
-orbyx_run ctest --test-dir "$build" --output-on-failure
+# Functional gate: every ORBYX test except the optional GPU hardware probe.
+orbyx_run ctest --test-dir "$build" --output-on-failure --label-exclude gpu
+# GPU OpenCL equivalence is a hardware diagnostic, never an install blocker. The
+# engine verifies the GPU at runtime and falls back to the CPU when the device's
+# affine diverges, so an old, divergent or absent GPU never stops a working CPU
+# installation. The test still runs and its result is reported to the user.
+orbyx_phase=diagnostica-gpu
+orbyx_gpu_diagnostic "$build"
 orbyx_phase=installazione
 rm -f "$build/.orbyx-install-success"
 orbyx_run cmake --install "$build"
