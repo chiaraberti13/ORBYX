@@ -477,3 +477,16 @@ Rendering limitato ai tile del rettangolo trasformato di ciascun livello,
 anziché attraversare l’intero canvas per ogni porzione; guadagni/esponente
 precalcolati e percorso neutro senza pow per pixel. Mosaic core e widget
 nuovamente passati con geometria/colore/export invariati negli oracoli previsti.
+
+### Chiusura verificata M2-05
+
+Codice conclusivo `fa06d806726349d805d570011916f2be9324a94a`: tutte le sette
+workflow concluse success. Build/regressioni42615323472 (Ubuntu22/24/26,
+Cppcheck, fuzz, ASan/UBSan/leak detection), Fedora/ARM6442615323543,
+VM42615323571, AppImage42615323468, OIDC42615323406, CodeQL42615323424 e
+RDAS/SatDump reale42615323626. Desktop25gruppi,24eseguiti e GPU skipped;
+sanitizers19gruppi,18eseguiti e GPU skipped. Compatibilità del nuovo test con
+Qt recente confermata su Ubuntu26 e Fedora senza escludere controlli.
+Guida e report aggiornati; task M2-05 chiuso nel suo ambito esplicito. Restano
+separate le prove esterne già dichiarate e l’eventuale futura integrazione dei
+grezzi richiesta soltanto come domanda conoscitiva.

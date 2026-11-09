@@ -1,9 +1,54 @@
 # Test verificati — 9 novembre 2026
 
-Codice dello sviluppo conclusivo: **4ea5019025d8707b1d2e629729caf020ac08712a**.
+Baseline dello sviluppo precedente: **4ea5019025d8707b1d2e629729caf020ac08712a**.
 Ogni incremento è stato pubblicato direttamente su `main`. I risultati della
 demo precedente rimangono riportati sotto; le nuove funzioni sono descritte
 nella sezione successiva.
+
+## Nuova esigenza M2-05: compositore multi-porzione
+
+Codice: **fa06d806726349d805d570011916f2be9324a94a**. Incrementi pubblicati
+su main: `ea30ebe` (motore), `4f307e8` (editor) e `fa06d80` (compatibilità Qt
+recente e rendering delle sole aree occupate). Questa funzionalità è stata
+richiesta dopo la chiusura dei task software precedenti.
+
+Il nuovo pulsante **Componi porzioni e colore…** apre l’editor non distruttivo:
+1–32porzioni in posizioni libere, senza vincolo SX/DX; composizione colore dai
+canali allineati, drag e trasformazioni numeriche, crop, ordine, opacità,
+sfumatura, livelli/gamma/esposizione/saturazione e guadagni RGB. Annulla/ripeti,
+progetto riapribile, avviso modifiche non salvate, preview/zoom/Adatta e export
+PNG unico8/16bit. I sei JPEG reali sono apribili come porzioni modificabili.
+[Guida, formati e limiti](COMPOSITOR.md).
+
+Tutte le sette esecuzioni seguenti sono concluse con esito **success**.
+
+| Prova sul codice conclusivo del compositore | Esecuzione |
+| --- | --- |
+| Ubuntu22.04/24.04/26.04, CTest, sanitizers, fuzz e Cppcheck | [42615323472](https://github.com/chiaraberti13/ORBYX/actions/runs/42615323472) |
+| Fedora44 e ARM64 nativo | [42615323543](https://github.com/chiaraberti13/ORBYX/actions/runs/42615323543) |
+| Fedora44 in VM completa | [42615323571](https://github.com/chiaraberti13/ORBYX/actions/runs/42615323571) |
+| AppImage in ambiente pulito | [42615323468](https://github.com/chiaraberti13/ORBYX/actions/runs/42615323468) |
+| Provenienza e aggiornamenti/rollback OIDC reali | [42615323406](https://github.com/chiaraberti13/ORBYX/actions/runs/42615323406) |
+| CodeQL | [42615323424](https://github.com/chiaraberti13/ORBYX/actions/runs/42615323424) |
+| Acquisizione autentica Elektro-L4 e SatDump | [42615323626](https://github.com/chiaraberti13/ORBYX/actions/runs/42615323626) |
+
+Nei build desktop:25gruppi CTest,24eseguiti e gate GPU saltato perché manca
+l’hardware; sanitizers19gruppi,18eseguiti e GPU saltata, leak detection attiva.
+`mosaic-regression` confronta porzioni su righe/colonne, origine negativa,
+trasformazioni, opacità/sfumatura e colore con oracoli specifici, bit bassi16bit,
+progetto round-trip e input invalidi. `mosaic-widget-flow` esercita l’editor
+reale EN/IT con tre porzioni, drag, annulla/ripeti, progetto riaperto e export
+confrontato pixel per pixel con il renderer nativo; compone anche Natural Color
+16bit da tre PNG e apre i sei JPEG reali come livelli modificabili.
+`gui-widget-flow` apre il compositore dal pulsante di produzione.
+
+Il primo passaggio dell’editor falliva la compilazione del nuovo test su Qt
+recente: `findChild` richiede Q_OBJECT nel tipo cercato. Corretto cercando il
+QLabel nominato e controllando il tipo concreto; nessun test escluso.
+Screenshot della demo modificabile ispezionato con intera scena nel viewport.
+Nessuna prova di geolocalizzazione assoluta o valutazione universale delle
+cuciture viene dedotta dai test di compositing. La decodifica dei grezzi rimane
+una funzionalità distinta, non aggiunta dall’editor.
 
 ## Funzioni completate
 

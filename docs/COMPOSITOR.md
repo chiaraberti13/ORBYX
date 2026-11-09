@@ -21,7 +21,7 @@ non limita il numero o la disposizione dei livelli delle altre acquisizioni.
    `MSUGS-VIS-1.png`, `MSUGS-VIS-2.png`, `MSUGS-VIS-3.png`. Ripeti per le altre
    porzioni. L’app crea una porzione a colori preservando 8/16 bit.
 4. Se hai già porzioni PNG a colori o in grigio, usa **Aggiungi porzioni PNG…**.
-   Sono accettati PNG in grigio/RGB a8/16bit, senza alpha; non JPEG/TIFF o
+   Sono accettati PNG in grigio/RGB a 8/16 bit, senza alpha; non JPEG/TIFF o
    qualunque immagine generica. Convertire un JPEG non recupera precisione persa.
 5. I livelli iniziano sovrapposti nell’origine della scena. Seleziona un livello
    nella lista: il suo contorno azzurro appare nell’anteprima. Trascina per
@@ -29,18 +29,21 @@ non limita il numero o la disposizione dei livelli delle altre acquisizioni.
    porzioni in orizzontale, verticale o su una griglia irregolare.
 6. Regola **Scala**, **Rotazione**, **Ritaglio**, **Opacità** e **Sfumatura bordi**.
    I valori del ritaglio sono nelle coordinate della sorgente; larghezza e altezza
-   entrambe0 significano immagine intera. Per eliminare intestazioni usa il
-   ritaglio: il compositore non indovina le zone da scartare.
+   entrambe 0 significano immagine intera. Per eliminare intestazioni usa il
+   ritaglio: il compositore non indovina le zone da scartare. X/Y individuano
+   l’origine del livello ritagliato; scala e rotazione si applicano attorno a
+   quell’origine. Sono ammesse coordinate negative e il canvas include
+   automaticamente l’estensione dei livelli visibili.
 7. **Alza/Abbassa** cambia l’ordine di sovrapposizione. La lista va dal fondo alla
    cima. La sfumatura attenua tutti i bordi del livello, non soltanto una giunzione:
    serve sovrapposizione reale per una transizione continua. Non ricostruisce
    parti mancanti e non elimina automaticamente le cuciture.
-8. Correggi i colori del livello selezionato: nero/bianco normalizzati0–1,
+8. Correggi i colori del livello selezionato: nero/bianco normalizzati 0–1,
    gamma, esposizione EV, saturazione e guadagni rosso/verde/blu. Per una
    regolazione comune usa **Applica colori selezionati a tutti**. **Ripristina
    colori selezionati** torna ai valori neutri. Valori troppo forti possono
    saturare o tagliare le alte luci: controlla il risultato.
-9. **Annulla/Ripeti** conserva fino a50stati modificabili. **Salva progetto
+9. **Annulla/Ripeti** conserva fino a 50 stati modificabili. **Salva progetto
    modificabile…** conserva livelli e parametri in JSON; **Apri progetto…** li
    ricarica. Il progetto usa riferimenti assoluti, non incorpora le immagini:
    conserva originali e porzioni generate nelle loro posizioni. Le porzioni
@@ -57,17 +60,17 @@ singolarmente Natural Color dal pulsante precedente.
 
 ## Risoluzione, precisione e limiti
 
-L’anteprima è limitata a1200pixel sul lato maggiore e visualizzata a8bit, con
-zoom25–400%. L’export usa lo stesso motore e parametri, a risoluzione di scena
-originale:16bit se almeno una porzione è16bit, altrimenti8bit. Un input8bit
-promosso a16bit non acquista precisione aggiuntiva. L’interpolazione geometrica
+L’anteprima è limitata a 1200 pixel sul lato maggiore e visualizzata a8 bit, con
+zoom 25–400% e pulsante **Adatta**. L’export usa lo stesso motore e parametri, a risoluzione di scena
+originale:16 bit se almeno una porzione è16 bit, altrimenti8 bit. Un input8 bit
+promosso a16 bit non acquista precisione aggiuntiva. L’interpolazione geometrica
 è bilineare; le regolazioni colore sono esplicite, non modifiche radiometriche
 certificate. Nessun ridimensionamento implicito dell’export per imitare la preview.
 
-Massimo32livelli; ogni PNG mantiene i limiti del reader core (150Mpx e1GiB
-compresso); canvas massimo200Mpx e100000pixel per lato. Un controllo del budget
+Massimo32 livelli; ogni PNG mantiene i limiti del reader core (150 Mpx e 1 GiB
+compresso); canvas massimo 200 Mpx e 100000 pixel per lato. Un controllo del budget
 di buffer (output, immagine decodificata più grande e scratch) rifiuta operazioni
-oltre2GiB. Questi limiti non garantiscono un tetto all’RSS del processo: decoder,
+oltre 2 GiB. Questi limiti non garantiscono un tetto all’RSS del processo: decoder,
 encoder e librerie possono richiedere memoria aggiuntiva. Per grandi acquisizioni
 servono RAM sufficiente e ritagli appropriati. Gli input sono letti in due passaggi
 limitati e il rendering usa tile; non vengono conservati tutti i livelli decodificati.
@@ -81,7 +84,7 @@ prospettiche o filtri generici. Non è inclusa una nuova decodifica dei file gre
 ## Verifica
 
 `mosaic-regression`: tre porzioni su righe/colonne diverse, origine negativa,
-ritaglio/scala/rotazione, ordine, opacità e sfumatura, oracoli colore, bit bassi16bit
+ritaglio/scala/rotazione, ordine, opacità e sfumatura, oracoli colore, bit bassi16 bit
 conservati a trasformazioni neutre, JSON round-trip, parametri invalidi, link e
 limiti, export atomico senza sovrascritture.
 
