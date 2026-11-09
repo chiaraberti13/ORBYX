@@ -747,3 +747,49 @@ selezione dei due modi, stato e abilitazione contestuale dei controlli. Suite
 specifiche passate localmente. Seam ottimizzata e maschere non sono ancora
 dichiarate presenti. Pubblicazione codice:
 `b16d825bd6084259434467c3d5a84b9fcd0e2d56`.
+
+## Correzione dai log utente — GPU OpenCL divergente e installazione bloccata — 2026-11-09
+
+Log reali ricevuti (Ubuntu con «Intel(R) Graphics», driver 26.05.037020): la
+build e 24/25 test passano, ma `opencl-gpu` fallisce con
+`affine_8bit_max_error 157.0` e «Requested OpenCL affine differs from CPU by
+more than one level». Con `set -Eeuo pipefail`, il fallimento di `ctest`
+interrompeva `install.sh` in fase test, quindi `.orbyx-install-success` non
+veniva scritto e `start.sh` rifiutava l’avvio con «Installazione incompleta».
+
+Diagnosi: due difetti collegati. (1) **Correttezza**: il percorso `generate`
+abilitava OpenCL (`setUseOpenCL(!cpu && !calibrate)`) e `align()` esegue
+`warpAffine` su `cv::UMat`, quindi su GPU. L’equivalenza GPU non era mai stata
+verificata; su questa GPU reale l’affine diverge di 157 livelli, perciò senza
+`--cpu` i prodotti allineati sarebbero stati **errati** senza avviso.
+(2) **Installazione**: una proprietà del driver GPU, in un percorso che
+l’utente può non usare, bloccava l’installazione di un’app che funziona su CPU.
+
+Correzioni:
+- **Motore** (`src/core/engine.cpp`): nuova sonda `openclAffineStatus()`
+  (una volta per processo) che enumera i dispositivi e confronta lo stesso
+  `warpAffine` INTER_LINEAR|WARP_INVERSE_MAP su CPU e GPU a 8 e 16 bit, con la
+  stessa tolleranza del verificatore. La GPU viene usata **solo** se riproduce
+  la CPU entro un livello; altrimenti `generate` resta su CPU con avviso EN/IT
+  «OpenCL GPU affine diverges from CPU; using CPU backend». Nessun dispositivo
+  GPU ⇒ «Backend: CPU» come prima, senza avviso. Selezione del backend per
+  correttezza; algoritmo e trasformazioni invariati.
+- **Test** (`CMakeLists.txt`): `opencl-gpu` etichettato `LABELS gpu`, invariato
+  nel resto (ancora `SKIP_RETURN_CODE 77`, ancora esegue e riporta i 157 livelli).
+- **Installer** (`install.sh`): il gate funzionale ora è
+  `ctest --label-exclude gpu` (tutti i test ORBYX, fallimenti ancora fatali);
+  la verifica GPU gira a parte in `orbyx_gpu_diagnostic`, che riporta
+  verificata / assente / divergente in EN/IT e **non** interrompe mai
+  l’installazione. Il test non è disabilitato né nascosto.
+
+Verifica effettiva (container pulito Ubuntu 24.04.5, OpenCV 4.6.0, **senza GPU**):
+build headless pulita; gate funzionale 18/18 passati con la label gpu esclusa;
+diagnostica GPU classificata «skipped → ORBYX usa la CPU», ritorno 0, nessun
+abort (trap ERR non scattata). `generate` sintetico stampa «Backend: CPU» senza
+avviso spurio. La classificazione «divergente» (status `failed`, uscita ctest 8)
+è stata verificata a livello di script: messaggio corretto e ritorno 0,
+l’installazione prosegue. La riproduzione su una GPU realmente divergente non è
+eseguibile in questo runtime senza hardware: il percorso di fallback del motore
+è coperto dalla logica e dalla sonda identica al verificatore, non da una GPU
+divergente simulata. La verifica remota completa (incluse GUI e CI) è da
+osservare dopo il push.

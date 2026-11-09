@@ -174,6 +174,52 @@ void setTransform(Json::Value& section,const char* channel,const cv::Mat& warp) 
   constexpr std::array<const char*,6> keys{"a","b","tx","c","d","ty"};
   for(int i=0;i<6;++i) section[channel][keys[i]]=warp.at<float>(i/3,i%3);
 }
+// Some OpenCL GPU drivers evaluate warpAffine differently from the CPU path:
+// certain integrated GPUs have been observed to diverge by ~157/255 levels on
+// the same INTER_LINEAR|WARP_INVERSE_MAP affine that align() performs. ORBYX's
+// alignment must reproduce the verified CPU estimator, so the GPU is trusted
+// only when it matches the CPU on this exact machine; otherwise alignment stays
+// on the CPU. This selects a backend for correctness; the algorithm is identical.
+// The probe mirrors tests/verify_opencl_gpu.cpp and is evaluated once per process.
+//   1  = a GPU reproduces the CPU affine within one level (safe to accelerate)
+//   0  = no usable OpenCL GPU is present (CPU backend, not an anomaly)
+//  -1  = a GPU is present but its affine diverges from the CPU (CPU fallback)
+int openclAffineStatus() {
+  static const int status=[]{
+    try {
+      if(!cv::ocl::haveOpenCL()) return 0;
+      std::vector<cv::ocl::PlatformInfo> platforms;
+      cv::ocl::getPlatfomsInfo(platforms);
+      bool gpuPresent=false;
+      for(const auto& platform:platforms)
+        for(int i=0;i<platform.deviceNumber();++i) {
+          cv::ocl::Device device;platform.getDevice(device,i);
+          if(device.type()&cv::ocl::Device::TYPE_GPU) gpuPresent=true;
+        }
+      if(!gpuPresent) return 0;
+      cv::ocl::setUseOpenCL(true);
+      if(!cv::ocl::useOpenCL()) return 0;
+      const cv::Mat transform=(cv::Mat_<float>(2,3)<<1.001,0.002,2.125,-0.001,0.999,1.5);
+      for(const int depth:{CV_8U,CV_16U}) {
+        cv::Mat probe(257,383,depth);cv::RNG random(981);
+        random.fill(probe,cv::RNG::UNIFORM,0,depth==CV_8U?255:65535);
+        cv::GaussianBlur(probe,probe,cv::Size(9,9),2);
+        cv::Mat cpu,gpu;
+        cv::ocl::setUseOpenCL(false);
+        cv::warpAffine(probe,cpu,transform,probe.size(),cv::INTER_LINEAR|cv::WARP_INVERSE_MAP);
+        cv::ocl::setUseOpenCL(true);
+        cv::UMat source,aligned;probe.copyTo(source);
+        cv::warpAffine(source,aligned,transform,probe.size(),cv::INTER_LINEAR|cv::WARP_INVERSE_MAP);
+        aligned.copyTo(gpu);
+        if(cv::norm(cpu,gpu,cv::NORM_INF)>1.0) return -1;
+      }
+      return 1;
+    } catch(const cv::Exception&) {
+      return 0; // A missing or raising OpenCL runtime is an absent GPU, not a fault.
+    }
+  }();
+  return status;
+}
 Channels align(const Channels& input,const Json::Value& section) {
   Channels result;
   result[0]=input[0];
@@ -290,6 +336,8 @@ std::string translate(const std::string& message,const std::string& language) {
     {"No complete merge ROIs; writing separate aligned VIS products","ROI di fusione incomplete; salvataggio dei prodotti VIS allineati separati"},
     {"CBOR copied unchanged; SatDump geometry interoperability requires dataset validation","CBOR copiato senza modifiche; l'interoperabilità geometrica con SatDump richiede la verifica con dataset"},
     {"Backend: OpenCL","Motore: OpenCL"},{"Backend: CPU","Motore: CPU"},
+    {"OpenCL GPU affine diverges from CPU; using CPU backend",
+     "L'affine OpenCL su GPU diverge dalla CPU; uso del motore CPU"},
     {"Loading ","Caricamento "},{"Calibrating ","Calibrazione "},{"Completed: ","Completato: "},
     {"Mode specified more than once","Modalità specificata più volte"},
     {"Duplicate option: ","Opzione duplicata: "},{"Unknown option: ","Opzione sconosciuta: "},
@@ -342,8 +390,15 @@ void run(const RunOptions& options,const Log& log) {
   auto config=readConfig(options.config);
   // OpenCV ECC here consumes Mat, not UMat: selecting an OpenCL device does
   // not accelerate this estimator. Never label CPU ECC as GPU execution.
-  cv::ocl::setUseOpenCL(!options.cpu && !options.calibrate);
-  message(options.calibrate?"Calibration backend: CPU (ECC)":cv::ocl::useOpenCL()?"Backend: OpenCL":"Backend: CPU");
+  const bool wantGpu=!options.cpu && !options.calibrate;
+  const int gpu=wantGpu?openclAffineStatus():0;
+  cv::ocl::setUseOpenCL(gpu==1);
+  if(options.calibrate) message("Calibration backend: CPU (ECC)");
+  else if(gpu==1) message("Backend: OpenCL");
+  else {
+    message("Backend: CPU");
+    if(gpu==-1) message("OpenCL GPU affine diverges from CPU; using CPU backend");
+  }
   const std::array<fs::path,2> dirs{input/"MSUGS_VIS1",input/"MSUGS_VIS2"};
   std::array<Channels,2> products;
   Staging stage(output);
