@@ -14,7 +14,7 @@ jobs:
     env:
       FEDORA_IMAGE: registry.fedoraproject.org/fedora@sha256:5aae8bdc5f40bf70f8f189a70770e6f1fabcb04976e841262431c3bbfdbe3538
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Build and test natively in Fedora 44 x86_64
@@ -45,7 +45,7 @@ jobs:
     env:
       UBUNTU_IMAGE: ubuntu@sha256:fe81560990fae86dc4743202b2cb4d3df98d0bcf949173cecef15ce1127ef852
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Verify native ARM64 host and install development dependencies

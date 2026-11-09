@@ -17,7 +17,7 @@ jobs:
         os: [ubuntu-22.04, ubuntu-24.04, ubuntu-26.04]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Install build dependencies
@@ -69,7 +69,7 @@ jobs:
   sanitizers:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
       - run: sudo apt-get update && sudo apt-get install -y cmake ninja-build libopencv-dev libjsoncpp-dev
@@ -82,7 +82,7 @@ jobs:
   static-analysis:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
       - run: sudo apt-get update && sudo apt-get install -y cppcheck
@@ -90,7 +90,7 @@ jobs:
   fuzz:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - run: sudo apt-get update && sudo apt-get install -y cmake ninja-build clang libclang-rt-18-dev libopencv-dev libjsoncpp-dev
