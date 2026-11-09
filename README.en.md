@@ -72,6 +72,8 @@ Press **Run image demo** in the app (Ctrl+Shift+D). Six bundled real JPEG previe
 
 ### New desktop workflows
 
+- **Compose portions and colour…**: multiple editable layers, positioning/crop/rotation, colour controls, undo/redo, saved projects and one native-depth PNG. No fixed left/right layout. [Guide](docs/COMPOSITOR.md).
+
 - **Guided calibration…** validates input/destination and prepares ECC scale/satellite settings. Successful calibration selects the new profile for alignment.
 - **Monitor acquisitions…** discovers stable native SatDump products. Manual import and opt-in matching-satellite queueing never start processing automatically.
 - Queue edits survive restarts. Completed jobs need digest verification before their completion is trusted again; double-click to review parameters.

@@ -57,6 +57,11 @@ int main(int argc, char **argv) {
         for (const QString lang : {"en","it"}) {
             std::cout<<"Queue widgets: "<<lang.toStdString()<<std::endl;
             Window w; w.previewSettings(lang,"dark",lang=="it"?QSize(960,680):QSize(1280,860)); w.show();
+            bool compositorOpened=false;
+            QTimer closeCompositor;closeCompositor.setInterval(20);
+            QObject::connect(&closeCompositor,&QTimer::timeout,[&]{if(auto* dialog=dynamic_cast<MosaicDialog*>(QApplication::activeModalWidget())){compositorOpened=true;dialog->reject();}});
+            closeCompositor.start();clickVisible(w.findChild<QPushButton*>("mosaicButton"));closeCompositor.stop();
+            requireTest(compositorOpened,"Main window compositor button did not open the production dialog");
             const QString result = temporary.path()+"/output-"+lang;
             w.loadArguments({"--input",fixture+"/input","--config",fixture+"/profile.json","--output",result,"--satellite","L2","--cpu"});
             auto *table=w.findChild<QTableWidget*>("queueTable");

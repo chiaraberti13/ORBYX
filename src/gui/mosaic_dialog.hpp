@@ -1,0 +1,253 @@
+// SPDX-License-Identifier: GPL-3.0-only
+#pragma once
+#include "orbyx/compositor.hpp"
+#include "orbyx/engine.hpp"
+#include <QApplication>
+#include <QCheckBox>
+#include <QCloseEvent>
+#include <QComboBox>
+#include <QDialog>
+#include <QDoubleSpinBox>
+#include <QFile>
+#include <QFileDialog>
+#include <QFileInfo>
+#include <QFormLayout>
+#include <QImage>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QDateTime>
+#include <QDesktopServices>
+#include <QUrl>
+#include <QLabel>
+#include <QListWidget>
+#include <QMessageBox>
+#include <QMouseEvent>
+#include <QPainter>
+#include <QPolygonF>
+#include <QPushButton>
+#include <QSaveFile>
+#include <QScrollArea>
+#include <QStandardPaths>
+#include <QThread>
+#include <QTimer>
+#include <QUuid>
+#include <QVBoxLayout>
+#include <QDir>
+#include <functional>
+#include <memory>
+
+class MosaicCanvas final:public QLabel {
+    QPointF pressed;
+public:
+    std::function<void(QPointF)> moved;
+    using QLabel::QLabel;
+protected:
+    void mousePressEvent(QMouseEvent* e)override {pressed=e->position();}
+    void mouseReleaseEvent(QMouseEvent* e)override {if(e->button()==Qt::LeftButton&&moved)moved(e->position()-pressed);}
+};
+
+class MosaicDialog final:public QDialog {
+    bool it=false,busy=false,updating=false,dirty=false;
+    QWidget* tools{};QListWidget* list{};MosaicCanvas* canvas{};QLabel* status{};
+    QScrollArea* previewView{};QComboBox* colourMode{};QDoubleSpinBox* zoom{};QCheckBox* visible{};
+    std::vector<QDoubleSpinBox*> controls;
+    std::vector<orbyx::MosaicLayer> layers;
+    std::vector<std::vector<orbyx::MosaicLayer>> undoStates,redoStates;
+    QTimer previewTimer;QImage previewImage;double previewRatio=1;
+    QString workingFolder;std::vector<QPolygonF> outlines;
+    QString t(const char* en,const char* italian)const{return QString::fromUtf8(it?italian:en);}
+    QPushButton* button(const char* id,const QString& text,QLayout* layout,std::function<void()> action) {
+        auto* b=new QPushButton(text);b->setObjectName(id);b->setAccessibleName(text);layout->addWidget(b);
+        connect(b,&QPushButton::clicked,this,std::move(action));return b;
+    }
+    void remember(){dirty=true;undoStates.push_back(layers);if(undoStates.size()>50)undoStates.erase(undoStates.begin());redoStates.clear();}
+    void schedule(){previewTimer.start();}
+    void refreshList(int selected=-1) {
+        updating=true;list->clear();
+        for(size_t i=0;i<layers.size();++i) {
+            auto label=QString::number(i+1)+" · "+QFileInfo(QString::fromStdString(layers[i].image.string())).fileName();
+            if(!layers[i].visible)label+=" ("+t("hidden","nascosto")+")";
+            list->addItem(label);
+        }
+        updating=false;list->setCurrentRow(selected<0?int(layers.size())-1:selected);readControls();schedule();
+    }
+    void readControls(){
+        int row=list->currentRow();if(row<0||row>=int(layers.size()))return;
+        updating=true;const auto& l=layers[size_t(row)];
+        double values[]={l.x,l.y,l.scale,l.angle,l.opacity,l.feather,double(l.crop.x),double(l.crop.y),double(l.crop.width),double(l.crop.height),l.black,l.white,l.gamma,l.exposure,l.saturation,l.red,l.green,l.blue};
+        for(size_t i=0;i<controls.size();++i)controls[i]->setValue(values[i]);
+        visible->setChecked(l.visible);updating=false;
+    }
+    void edit(){
+        if(updating||busy)return;int row=list->currentRow();if(row<0)return;
+        remember();auto& l=layers[size_t(row)];
+        double* values[]={&l.x,&l.y,&l.scale,&l.angle,&l.opacity,&l.feather};
+        for(int i=0;i<6;++i)*values[i]=controls[size_t(i)]->value();
+        l.crop={int(controls[6]->value()),int(controls[7]->value()),int(controls[8]->value()),int(controls[9]->value())};
+        double* colours[]={&l.black,&l.white,&l.gamma,&l.exposure,&l.saturation,&l.red,&l.green,&l.blue};
+        for(int i=0;i<8;++i)*colours[i]=controls[size_t(i+10)]->value();
+        l.visible=visible->isChecked();schedule();
+    }
+    void record(const QString& text){
+        QDir().mkpath(workingFolder);QFile file(workingFolder+"/compositor.log");
+        QFile::setPermissions(workingFolder,QFileDevice::ReadOwner|QFileDevice::WriteOwner|QFileDevice::ExeOwner);
+        if(file.open(QIODevice::WriteOnly|QIODevice::Append)){file.setPermissions(QFileDevice::ReadOwner|QFileDevice::WriteOwner);file.write((QDateTime::currentDateTimeUtc().toString(Qt::ISODate)+" "+text+"\n").toUtf8());}
+    }
+    void run(std::function<void()> operation,std::function<void()> success){
+        if(busy)return;busy=true;tools->setEnabled(false);canvas->setEnabled(false);previewTimer.stop();
+        status->setText(t("Processing…","Elaborazione…"));
+        auto error=std::make_shared<QString>();auto* thread=QThread::create([operation=std::move(operation),error]{
+            try{operation();}catch(const std::exception& e){*error=QString::fromUtf8(e.what());}
+        });
+        thread->setParent(this);
+        connect(thread,&QThread::finished,this,[this,error,success=std::move(success),thread]{
+            busy=false;tools->setEnabled(true);canvas->setEnabled(true);thread->deleteLater();
+            if(!error->isEmpty()){record("ERROR: "+*error);status->setText(t("Error: ","Errore: ")+*error);return;}
+            record("Operation completed");status->setText(t("Ready","Pronto"));success();
+        });thread->start();
+    }
+    void fitPreview(){if(previewImage.isNull()||!previewView)return;double factor=std::min({1.,double(previewView->viewport()->width()-12)/previewImage.width(),double(previewView->viewport()->height()-12)/previewImage.height()});zoom->setValue(std::clamp(factor*100.,25.,400.));display();}
+    void display(){
+        if(previewImage.isNull())return;auto p=QPixmap::fromImage(previewImage);
+        p=p.scaled(std::max(1,int(p.width()*zoom->value()/100.)),std::max(1,int(p.height()*zoom->value()/100.)),Qt::KeepAspectRatio,Qt::SmoothTransformation);
+        const int row=list->currentRow();
+        if(row>=0&&row<int(outlines.size())&&layers[size_t(row)].visible){QPainter painter(&p);painter.setPen(QPen(QColor("#00d4ff"),2,Qt::DashLine));QPolygonF polygon;for(const auto& point:outlines[size_t(row)])polygon<<point*(zoom->value()/100.);painter.drawPolygon(polygon);}
+        canvas->setPixmap(p);canvas->resize(p.size());
+    }
+    void preview(){
+        if(layers.empty()){canvas->clear();previewImage={};status->setText(t("Add portions or aligned channels to begin.","Aggiungi porzioni o canali allineati per iniziare."));return;}
+        auto state=layers;auto result=std::make_shared<orbyx::MosaicResult>();
+        run([state,result]{*result=orbyx::renderMosaic(state,1200);},[this,result]{
+            auto& m=result->image;QImage image(m.data,m.cols,m.rows,int(m.step),QImage::Format_BGR888);
+            const bool first=previewImage.isNull();previewImage=image.copy();previewRatio=result->pixelsPerSourcePixel;outlines.clear();for(const auto& points:result->outlines){QPolygonF polygon;for(const auto& point:points)polygon<<QPointF(point.x,point.y);outlines.push_back(polygon);}if(first)fitPreview();else display();
+            status->setText(t("Preview only: export uses original resolution and 8/16-bit depth. Drag to move the selected layer.","Solo anteprima: l’esportazione usa risoluzione originale e profondità 8/16 bit. Trascina per spostare il livello selezionato."));
+        });
+    }
+    void addFiles(){
+        auto files=QFileDialog::getOpenFileNames(this,t("Add PNG portions","Aggiungi porzioni PNG"),{},"PNG (*.png)");if(files.isEmpty())return;
+        appendFiles(files);
+    }
+    void colourFolder(){
+        auto folder=QFileDialog::getExistingDirectory(this,t("Select one aligned VIS product (three channels)","Seleziona un prodotto VIS allineato (tre canali)"));
+        if(!folder.isEmpty())appendChannels(folder,colourMode->currentIndex()==0);
+    }
+    void saveProjectDialog(){
+        if(layers.empty())return;auto name=QFileDialog::getSaveFileName(this,t("Save editable project","Salva progetto modificabile"),"mosaic.orbyx.json","ORBYX (*.json)");if(name.isEmpty())return;
+        if(!name.endsWith(".json"))name+=".json";
+        try{saveProject(name);status->setText(t("Project saved. Keep the source files at their original locations.","Progetto salvato. Conserva i file sorgenti nelle posizioni originali."));}
+        catch(const std::exception& e){status->setText(QString::fromUtf8(e.what()));}
+    }
+    void loadProjectDialog(){
+        if(dirty){auto answer=QMessageBox::question(this,t("Unsaved project","Progetto non salvato"),t("Save your changes before opening another project?","Salvare le modifiche prima di aprire un altro progetto?"),QMessageBox::Save|QMessageBox::Discard|QMessageBox::Cancel,QMessageBox::Cancel);if(answer==QMessageBox::Cancel)return;if(answer==QMessageBox::Save){saveProjectDialog();if(dirty)return;}}
+        auto name=QFileDialog::getOpenFileName(this,t("Open project","Apri progetto"),{},"ORBYX (*.json)");if(name.isEmpty())return;
+        try{loadProject(name);}catch(const std::exception& e){status->setText(QString::fromUtf8(e.what()));}
+    }
+    void exportDialog(){
+        if(layers.empty())return;auto name=QFileDialog::getSaveFileName(this,t("Export new mosaic PNG","Esporta nuovo PNG del mosaico"),"mosaic.png","PNG (*.png)");if(name.isEmpty())return;
+        if(!name.endsWith(".png"))name+=".png";exportTo(name);
+    }
+protected:
+    void done(int result)override{
+        if(busy)return;
+        if(dirty){auto answer=QMessageBox::question(this,t("Unsaved project","Progetto non salvato"),t("Save the editable project before closing? Exporting a PNG does not save the layers.","Salvare il progetto modificabile prima di chiudere? Esportare un PNG non salva i livelli."),QMessageBox::Save|QMessageBox::Discard|QMessageBox::Cancel,QMessageBox::Cancel);
+            if(answer==QMessageBox::Cancel)return;if(answer==QMessageBox::Save){saveProjectDialog();if(dirty)return;}}
+        QDialog::done(result);
+    }
+    void closeEvent(QCloseEvent* e)override{if(busy)e->ignore();else QDialog::closeEvent(e);}
+public:
+    explicit MosaicDialog(bool italian,QWidget* parent=nullptr):QDialog(parent),it(italian){
+        setObjectName("mosaicDialog");setWindowTitle(t("Portion and colour compositor","Compositore porzioni e colore"));resize(1180,820);
+        workingFolder=QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)+"/compositor/"+QUuid::createUuid().toString(QUuid::WithoutBraces);
+        auto* outer=new QVBoxLayout(this);auto* body=new QHBoxLayout;outer->addLayout(body,1);
+        tools=new QWidget;auto* panel=new QVBoxLayout(tools);auto* scroll=new QScrollArea;scroll->setWidgetResizable(true);scroll->setWidget(tools);scroll->setMinimumWidth(335);scroll->setMaximumWidth(400);body->addWidget(scroll);
+        auto* note=new QLabel(t("Multiple portions, any direction. First align each portion’s channels. Geometry is manual, not georeferencing.","Più porzioni, in ogni direzione. Prima allinea i canali di ciascuna porzione. La geometria è manuale, non una georeferenziazione."));note->setWordWrap(true);panel->addWidget(note);
+        button("mosaicDemo",t("Add editable demo portions","Aggiungi porzioni demo modificabili"),panel,[this]{appendDemo();});
+        button("mosaicAdd",t("Add PNG portions…","Aggiungi porzioni PNG…"),panel,[this]{addFiles();});
+        colourMode=new QComboBox;colourMode->addItems({"MSU-GS Natural Color (RGB321)","RGB123"});colourMode->setAccessibleName(t("Channel colour composition","Composizione colore dei canali"));panel->addWidget(colourMode);
+        button("mosaicChannels",t("Add 3 aligned channels…","Aggiungi 3 canali allineati…"),panel,[this]{colourFolder();});
+        list=new QListWidget;list->setObjectName("mosaicLayers");list->setAccessibleName(t("Layers, bottom to top","Livelli, dal basso verso l’alto"));list->setMaximumHeight(140);panel->addWidget(list);
+        connect(list,&QListWidget::currentRowChanged,this,[this]{if(!updating){readControls();display();}});
+        auto* ordering=new QHBoxLayout;panel->addLayout(ordering);
+        button("mosaicDown",t("Lower","Abbassa"),ordering,[this]{reorder(-1);});button("mosaicUp",t("Raise","Alza"),ordering,[this]{reorder(1);});
+        button("mosaicRemove",t("Remove","Rimuovi"),panel,[this]{int row=list->currentRow();if(row<0)return;remember();layers.erase(layers.begin()+row);refreshList();});
+        auto* history=new QHBoxLayout;panel->addLayout(history);
+        button("mosaicUndo",t("Undo","Annulla"),history,[this]{undo();});button("mosaicRedo",t("Redo","Ripeti"),history,[this]{redo();});
+        visible=new QCheckBox(t("Visible layer","Livello visibile"));visible->setObjectName("mosaicVisible");panel->addWidget(visible);connect(visible,&QCheckBox::toggled,this,[this]{edit();});
+        auto* form=new QFormLayout;panel->addLayout(form);
+        struct Field{const char* id;const char* en;const char* italian;double min,max,step;int decimals;};
+        const Field fields[]={
+            {"x","X (pixels)","X (pixel)",-1000000,1000000,1,2},{"y","Y (pixels)","Y (pixel)",-1000000,1000000,1,2},
+            {"scale","Scale","Scala",.01,100,.01,4},{"angle","Rotation (degrees)","Rotazione (gradi)",-360,360,.1,2},
+            {"opacity","Opacity","Opacità",0,1,.05,3},{"feather","Edge feather (pixels)","Sfumatura bordi (pixel)",0,10000,1,1},
+            {"cropX","Crop X","Ritaglio X",0,100000,1,0},{"cropY","Crop Y","Ritaglio Y",0,100000,1,0},
+            {"cropW","Crop width (0 = full)","Larghezza ritaglio (0 = intera)",0,100000,1,0},{"cropH","Crop height (0 = full)","Altezza ritaglio (0 = intera)",0,100000,1,0},
+            {"black","Black level (0–1)","Livello nero (0–1)",0,.999,.001,4},{"white","White level (0–1)","Livello bianco (0–1)",.001,1,.001,4},
+            {"gamma","Gamma","Gamma",.1,10,.05,3},{"exposure","Exposure (EV)","Esposizione (EV)",-10,10,.1,3},
+            {"saturation","Saturation","Saturazione",0,4,.05,3},{"red","Red gain","Guadagno rosso",0,4,.05,3},
+            {"green","Green gain","Guadagno verde",0,4,.05,3},{"blue","Blue gain","Guadagno blu",0,4,.05,3}};
+        for(const auto& field:fields){auto* spin=new QDoubleSpinBox;spin->setObjectName(QString("mosaic_")+field.id);spin->setRange(field.min,field.max);spin->setSingleStep(field.step);spin->setDecimals(field.decimals);spin->setKeyboardTracking(false);spin->setAccessibleName(t(field.en,field.italian));form->addRow(t(field.en,field.italian),spin);controls.push_back(spin);connect(spin,qOverload<double>(&QDoubleSpinBox::valueChanged),this,[this]{edit();});}
+        button("mosaicResetColour",t("Reset selected colours","Ripristina colori selezionati"),panel,[this]{resetColour();});
+        button("mosaicAllColour",t("Apply selected colours to all","Applica colori selezionati a tutti"),panel,[this]{applyColoursToAll();});
+        button("mosaicSave",t("Save editable project…","Salva progetto modificabile…"),panel,[this]{saveProjectDialog();});
+        button("mosaicOpen",t("Open project…","Apri progetto…"),panel,[this]{loadProjectDialog();});
+        button("mosaicExport",t("Export single image…","Esporta immagine unica…"),panel,[this]{exportDialog();});
+        auto* right=new QVBoxLayout;body->addLayout(right,1);
+        auto* zoomRow=new QHBoxLayout;right->addLayout(zoomRow);zoomRow->addWidget(new QLabel(t("Preview zoom (%)","Zoom anteprima (%)")));
+        zoom=new QDoubleSpinBox;zoom->setRange(25,400);zoom->setValue(100);zoom->setAccessibleName(t("Preview zoom","Zoom anteprima"));zoomRow->addWidget(zoom);connect(zoom,qOverload<double>(&QDoubleSpinBox::valueChanged),this,[this]{display();});button("mosaicFit",t("Fit","Adatta"),zoomRow,[this]{fitPreview();});zoomRow->addStretch();
+        auto* view=new QScrollArea;previewView=view;canvas=new MosaicCanvas;canvas->setObjectName("mosaicCanvas");canvas->setAlignment(Qt::AlignTop|Qt::AlignLeft);canvas->setAccessibleName(t("Composite preview; drag selected layer","Anteprima composizione; trascina il livello selezionato"));view->setWidget(canvas);right->addWidget(view,1);
+        canvas->moved=[this](QPointF delta){int row=list->currentRow();if(busy||row<0||previewImage.isNull())return;remember();auto& l=layers[size_t(row)];l.x+=delta.x()/(previewRatio*zoom->value()/100.);l.y+=delta.y()/(previewRatio*zoom->value()/100.);readControls();schedule();};
+        status=new QLabel;status->setTextFormat(Qt::PlainText);status->setObjectName("mosaicStatus");status->setWordWrap(true);outer->addWidget(status);
+        button("mosaicLog",t("Open compositor log","Apri log compositore"),outer,[this]{record("Log opened");QDesktopServices::openUrl(QUrl::fromLocalFile(workingFolder+"/compositor.log"));});
+        auto* close=new QPushButton(t("Close","Chiudi"));outer->addWidget(close);connect(close,&QPushButton::clicked,this,&QDialog::reject);
+        previewTimer.setSingleShot(true);previewTimer.setInterval(350);connect(&previewTimer,&QTimer::timeout,this,[this]{preview();});
+        status->setText(t("Add portions or aligned channels to begin.","Aggiungi porzioni o canali allineati per iniziare."));
+    }
+    bool isBusy()const{return busy||previewTimer.isActive();}
+    const std::vector<orbyx::MosaicLayer>& state()const{return layers;}
+    void setState(const std::vector<orbyx::MosaicLayer>& state){if(busy)return;orbyx::mosaicProject(state);remember();layers=state;refreshList();}
+    void appendDemo(QString sample={}){
+        if(busy||layers.size()>30)return;
+        if(sample.isEmpty()){const QDir app(QCoreApplication::applicationDirPath());for(const auto& candidate:{app.filePath("../share/orbyx/demo-jpeg"),app.filePath("share/orbyx/demo-jpeg"),app.filePath("../assets/demo-jpeg"),QDir::current().filePath("assets/demo-jpeg")})if(QFileInfo(QDir(candidate).filePath("sx_MSUGS-VIS-1.jpg")).isFile()){sample=candidate;break;}}
+        QDir().mkpath(workingFolder);const auto destination=workingFolder+"/demo-"+QUuid::createUuid().toString(QUuid::WithoutBraces);
+        auto added=std::make_shared<std::vector<orbyx::MosaicLayer>>();
+        run([sample,destination,added]{
+            if(sample.isEmpty())throw std::runtime_error("Bundled demo images not found");
+            orbyx::runImageDemo(sample.toStdString(),destination.toStdString());
+            QFile report(destination+"/demo-report.json");if(!report.open(QIODevice::ReadOnly))throw std::runtime_error("Demo report missing");
+            const auto data=QJsonDocument::fromJson(report.readAll()).object();const int down=data["seam"].toObject()["right_down_pixels"].toInt();
+            for(int i=0;i<2;++i){orbyx::MosaicLayer l;l.image=(destination+(i==0?"/sx-natural.png":"/dx-natural.png")).toStdString();l.x=i*714;l.crop={0,45-(i==0?0:down),714,1428};l.black=8./255;l.white=188./255;l.gamma=1.25;added->push_back(l);}
+        },[this,added]{remember();layers.insert(layers.end(),added->begin(),added->end());refreshList();});
+    }
+    void appendFiles(const QStringList& files){
+        if(busy||files.isEmpty())return;if(layers.size()+size_t(files.size())>32){status->setText(t("Maximum 32 layers.","Massimo 32 livelli."));return;}
+        auto added=std::make_shared<std::vector<orbyx::MosaicLayer>>();
+        run([files,added]{for(const auto& f:files){orbyx::readCompositePng(f.toStdString());orbyx::MosaicLayer l;l.image=std::filesystem::absolute(f.toStdString());added->push_back(l);}},[this,added]{remember();layers.insert(layers.end(),added->begin(),added->end());refreshList();});
+    }
+    void appendChannels(const QString& folder,bool natural){
+        if(busy||layers.size()>=32)return;QDir().mkpath(workingFolder);
+        const auto file=workingFolder+"/"+QUuid::createUuid().toString(QUuid::WithoutBraces)+".png";
+        run([folder,file,natural]{std::array<std::filesystem::path,3> channels;for(int i=0;i<3;++i)channels[size_t(i)]=std::filesystem::path(folder.toStdString())/("MSUGS-VIS-"+std::to_string(i+1)+".png");if(natural)orbyx::composeNaturalColor(channels,file.toStdString());else orbyx::composeRgb(channels,file.toStdString());},[this,file]{remember();orbyx::MosaicLayer l;l.image=file.toStdString();layers.push_back(l);refreshList();});
+    }
+    void reorder(int direction){int row=list->currentRow(),next=row+direction;if(busy||row<0||next<0||next>=int(layers.size()))return;remember();std::swap(layers[size_t(row)],layers[size_t(next)]);refreshList(next);}
+    void undo(){if(busy||undoStates.empty())return;dirty=true;redoStates.push_back(layers);layers=undoStates.back();undoStates.pop_back();refreshList();}
+    void redo(){if(busy||redoStates.empty())return;dirty=true;undoStates.push_back(layers);layers=redoStates.back();redoStates.pop_back();refreshList();}
+    void resetColour(){int row=list->currentRow();if(busy||row<0)return;remember();auto& l=layers[size_t(row)];l.black=0;l.white=1;l.gamma=1;l.exposure=0;l.saturation=1;l.red=l.green=l.blue=1;readControls();schedule();}
+    void applyColoursToAll(){int row=list->currentRow();if(busy||row<0)return;remember();const auto source=layers[size_t(row)];for(auto& l:layers){l.black=source.black;l.white=source.white;l.gamma=source.gamma;l.exposure=source.exposure;l.saturation=source.saturation;l.red=source.red;l.green=source.green;l.blue=source.blue;}schedule();}
+    void saveProject(const QString& name){
+        if(!name.endsWith(".json")||QFileInfo(name).isSymLink())throw std::runtime_error("Project must be a regular JSON file");
+        for(const auto& layer:layers)if(QFileInfo(name).absoluteFilePath()==QFileInfo(QString::fromStdString(layer.image.string())).absoluteFilePath())throw std::runtime_error("Project cannot replace a source image");
+        auto text=QByteArray::fromStdString(orbyx::mosaicProject(layers));QSaveFile file(name);file.setDirectWriteFallback(false);
+        if(!file.open(QIODevice::WriteOnly))throw std::runtime_error("Cannot create project file");file.setPermissions(QFileDevice::ReadOwner|QFileDevice::WriteOwner);
+        if(file.write(text)!=text.size()||!file.commit())throw std::runtime_error("Cannot save project atomically");
+        dirty=false;
+    }
+    void loadProject(const QString& name){
+        if(busy)return;QFileInfo info(name);if(!info.isFile()||info.isSymLink()||info.size()>1024*1024)throw std::runtime_error("Invalid project file");
+        QFile file(name);if(!file.open(QIODevice::ReadOnly))throw std::runtime_error("Cannot read project");auto text=file.read(1024*1024+1);
+        auto loaded=orbyx::parseMosaicProject(text.toStdString());remember();layers=std::move(loaded);dirty=false;refreshList();
+    }
+    void exportTo(const QString& file){
+        if(busy||layers.empty())return;auto state=layers;
+        run([state,file]{auto result=orbyx::renderMosaic(state);orbyx::writeCompositePng(result.image,file.toStdString());},[this,file]{status->setText(t("Single image exported: ","Immagine unica esportata: ")+file);});
+    }
+};

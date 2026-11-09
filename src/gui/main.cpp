@@ -5,6 +5,7 @@
 #include "import_dialog.hpp"
 #include "update_dialog.hpp"
 #include "queue_persistence.hpp"
+#include "mosaic_dialog.hpp"
 
 #include <QAbstractItemView>
 #include <QApplication>
@@ -147,7 +148,7 @@ class Window final : public QMainWindow {
     QTextEdit *log{};
     QGroupBox *queueBox{};
     QTableWidget *queue{};
-    QPushButton *queueAdd{}, *queueRemove{}, *queueRun{}, *profileDup{}, *naturalExport{};
+    QPushButton *queueAdd{}, *queueRemove{}, *queueRun{}, *profileDup{}, *naturalExport{}, *mosaicButton{};
     QProcess *queueProcess{};
     QueuePersistence queueStore{QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)+"/desktop-queue.json"};
     bool queueStoreHealthy=true;
@@ -194,6 +195,8 @@ class Window final : public QMainWindow {
         queueBox->setToolTip(trText("The queue runs jobs in order with durable, resumable state. Existing outputs are never overwritten."));
         queueAdd->setText(trText("Add to queue")); queueRemove->setText(trText("Remove")); queueRun->setText(trText("Run queue"));
         profileDup->setText(trText("Duplicate profile…"));
+        mosaicButton->setText(it?"Componi porzioni e colore…":"Compose portions and colour…");
+        mosaicButton->setAccessibleName(mosaicButton->text());
         naturalExport->setText(trText("Export Natural Color…"));
         naturalExport->setAccessibleName(trText("Export Natural Color…"));
         naturalExport->setToolTip(trText("RGB321 hue rendering preserves 8/16-bit depth. Select one aligned VIS product. This is not calibrated true colour."));
@@ -505,7 +508,7 @@ class Window final : public QMainWindow {
     void setQueueBusy(bool running) {
         busy = running;
         setup->setEnabled(!running); start->setEnabled(!running);
-        naturalExport->setEnabled(!running); demoButton->setEnabled(!running); wizardButton->setEnabled(!running);watchButton->setEnabled(!running);updatesButton->setEnabled(!running);
+        naturalExport->setEnabled(!running); mosaicButton->setEnabled(!running); demoButton->setEnabled(!running); wizardButton->setEnabled(!running);watchButton->setEnabled(!running);updatesButton->setEnabled(!running);
         queueAdd->setEnabled(!running&&queueStoreHealthy); queueRemove->setEnabled(!running&&queueStoreHealthy);
         queueRun->setEnabled(!running && queueStoreHealthy && queue->rowCount() > 0);
     }
@@ -749,6 +752,8 @@ public:
         engineLabel=label(); engine=new QComboBox; engine->addItems({"Automatic CPU / OpenCL","CPU only"}); form->addWidget(engineLabel); form->addWidget(engine);
         hint=label("muted"); hint->setWordWrap(true); hint->setMinimumHeight(48); hint->setSizePolicy(QSizePolicy::Preferred,QSizePolicy::Minimum); form->addWidget(hint); leftLayout->addWidget(setup);
         start=new QPushButton; start->setObjectName("start"); start->setShortcut(QKeySequence("Ctrl+Return")); leftLayout->addWidget(start);
+        mosaicButton=new QPushButton; mosaicButton->setObjectName("mosaicButton");leftLayout->addWidget(mosaicButton);
+        connect(mosaicButton,&QPushButton::clicked,this,[this]{MosaicDialog dialog(it,this);dialog.exec();});
         naturalExport=new QPushButton; naturalExport->setObjectName("naturalExport");
         naturalExport->setShortcut(QKeySequence("Ctrl+Shift+N"));leftLayout->addWidget(naturalExport);
         status=label("status"); leftLayout->addWidget(status); progress=new QProgressBar; progress->setTextVisible(false); progress->setValue(0); leftLayout->addWidget(progress);

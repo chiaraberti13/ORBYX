@@ -186,3 +186,12 @@ Installer Ubuntu: `install.sh` con dipendenze complete, attesa APT, stop alla pr
 Le funzioni precedentemente mancanti sono implementate sul commit `4ea5019`: wizard, importazione/monitoraggio nativo, correlazione OSV, aggiornamento/rollback autenticato e persistenza della coda. Tutte le sette pipeline applicabili sono verdi, inclusi installer Ubuntu26.04 e aggiornamenti OIDC reali su Ubuntu22/24/26. [Esiti conclusivi](docs/TEST_RESULTS.md#verifica-conclusiva-del-codice-4ea5019).
 
 Gli stati parziali rimasti riguardano prove esterne: hardware GPU, riferimento geografico certificato, screen reader/utenti reali e chiave GPG personale. Non sono sostituiti da simulazioni o dichiarati superati. La matrice Linux e i formati documentati delimitano il supporto; non vengono estesi a piattaforme o sensori non verificati.
+
+## M2-05 — Compositore manuale multi-porzione e colore
+
+- Priorità: P1, nuova esigenza utente successiva alla chiusura dello sviluppo precedente
+- Dipendenze: M2-01, M3-04
+- Responsabile: Computer Vision / Qt / UX / QA / AppSec
+- Deliverable: editor non distruttivo a livelli, numero/posizione liberi, colore integrato, progetto e immagine unica
+- Accettazione: niente vincolo SX/DX; nessun secondo programma necessario per comporre i prodotti supportati; originali intatti, PNG8/16bit e progetto riapribile
+- Stato: implementato e verificato localmente — massimo32porzioni PNG in grigio/RGB8/16bit, composizione da tre canali allineati, trasformazioni manuali, crop, ordine/opacità/sfumatura, livelli/gamma/EV/saturazione/bilanciamento, annulla/ripeti e progetto JSON. Motore condiviso preview/export, limiti risorse ed export atomico esclusivo. Test core e widget EN/IT passati, compresa demo reale modificabile e apertura dal pulsante principale; esiti remoti da registrare. Non include un decoder grezzo, riconoscimento automatico delle porzioni o funzioni GIMP complete. [Guida e limiti](docs/COMPOSITOR.md).

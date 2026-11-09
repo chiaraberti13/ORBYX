@@ -79,6 +79,8 @@ Il comando qui sopra apre direttamente questa stessa demo; `bash demo.sh --no-op
 
 ### Nuove funzioni nell’app
 
+- **Componi porzioni e colore…**: aggiungi più porzioni come livelli, spostale e ritagliale, regola il colore, salva il progetto ed esporta un solo PNG. Non è limitato a SX/DX. [Guida passo passo](docs/COMPOSITOR.md).
+
 - **Calibrazione guidata…**: scegli dati e destinazione, controlla satellite e scala, poi avvia il calcolo. Il nuovo profilo viene selezionato per l’allineamento.
 - **Monitora acquisizioni…**: scegli la cartella di SatDump. Puoi importare un prodotto pronto o attivare l’accodamento automatico dei prodotti compatibili; l’elaborazione parte solo con **Avvia coda**.
 - La coda viene conservata alla chiusura. Alla riapertura i risultati sono **Da verificare** finché la ripresa non riconferma i digest. Un doppio click su un lavoro ne mostra i parametri.
