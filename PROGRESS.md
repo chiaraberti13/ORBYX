@@ -346,3 +346,14 @@ Scala ECC conservata anche nei lavori batch, opzionale e compatibile con manifes
 precedenti. Test dei passi e del rifiuto destinazione esistente EN/IT nel widget
 reale; regressioni del prodotto e dei widget superate. La geometria assoluta non
 è dedotta dal wizard e le ROI restano soggette alla verifica dell’operatore.
+
+### Monitoraggio e importazione MSU-GS
+
+Aggiunto Monitora acquisizioni EN/IT, non modale: processo di ispezione separato,
+intervallo comune di stabilizzazione, metadati CBOR limitati e non ambigui,
+header PNG con CRC/IEND e geometria nativa, difesa da symlink e scritture della
+stessa dimensione. Le preview non sono spacciate per prodotti elaborabili.
+Importazione manuale senza avvio; opt-in di accodamento con satellite compatibile,
+deduplica e fingerprint riconfermato nel batch.10test Python, incluso il rifiuto batch dei dati cambiati dopo importazione, e integrazione Qt
+con processo reale di ispezione, scelta manuale e auto-accodamento passati;
+regressioni batch conservate. Nessun metadato geografico mancante è inventato.

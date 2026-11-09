@@ -126,6 +126,26 @@ int main(int argc, char **argv) {
             QTest::mouseClick(invalid.button(QWizard::NextButton),Qt::LeftButton);
             requireTest(invalid.currentId()==0&&!invalid.property("validationError").toString().isEmpty(),"Wizard allowed existing/input destination");invalid.reject();
         }
+        {
+            // The native-size synthetic fixture gets explicitly synthetic but
+            // structurally valid SatDump CBOR to exercise the real inspector process.
+            const auto parent=temporary.path()+"/incoming";const auto acquisition=parent+"/capture";
+            QDir().mkpath(acquisition);
+            for(int vis=1;vis<=2;++vis) {
+                auto dest=QDir(acquisition).filePath(QString("MSUGS_VIS%1").arg(vis));QDir().mkpath(dest);
+                for(int c=1;c<=3;++c)QFile::copy(fixture+QString("/input/MSUGS_VIS%1/MSUGS-VIS-%2.png").arg(vis).arg(c),dest+QString("/MSUGS-VIS-%1.png").arg(c));
+                QByteArray meta=QByteArray::fromHex("a466696d6167657383a3696269745f6465707468086466696c656f4d535547532d5649532d312e706e67646e616d656131a3696269745f6465707468086466696c656f4d535547532d5649532d322e706e67646e616d656132a3696269745f6465707468086466696c656f4d535547532d5649532d332e706e67646e616d6561336a696e737472756d656e74696d737567735f766973647479706565696d61676569736174656c6c697465624c32");
+                QFile file(dest+"/product.cbor");requireTest(file.open(QIODevice::WriteOnly),"Cannot create test CBOR");file.write(meta);
+            }
+            int manual=0,automatic=0;
+            ImportDialog importer(false,[&](const QJsonObject& product,bool autoQueue){requireTest(product["status"]=="ready","Importer sent invalid product");requireTest(product["fingerprint"].toString().size()==64,"Missing acquisition fingerprint");if(autoQueue)++automatic;else ++manual;return true;});
+            importer.show();importer.findChild<QLineEdit*>("watchFolder")->setText(parent);
+            clickVisible(importer.findChild<QPushButton*>("watchScan"));requireTest(until([&]{return !importer.scanning();}),"Import inspection stuck");
+            auto *table=importer.findChild<QTableWidget*>("importProducts");requireTest(table->rowCount()==1,"Native product not discovered");
+            table->setCurrentCell(0,0);clickVisible(importer.findChild<QPushButton*>("watchImport"));requireTest(manual==1&&automatic==0,"Manual import not explicit");
+            importer.findChild<QCheckBox*>("watchAutomatic")->setChecked(true);importer.scanOnce();requireTest(until([&]{return !importer.scanning();}),"Automatic scan stuck");requireTest(automatic==1,"Opt-in automatic import failed");
+            importer.scanOnce();requireTest(until([&]{return !importer.scanning();}),"Duplicate scan stuck");requireTest(automatic==1,"Duplicate acquisition queued twice");importer.reject();
+        }
         // Launch a genuine exec failure: the executable exists, its interpreter does not.
         const QString fakeDir=temporary.path()+"/fake"; QDir().mkpath(fakeDir);
         QFile fake(fakeDir+"/orbyx-batch"); requireTest(fake.open(QIODevice::WriteOnly),"Fake runner unavailable");

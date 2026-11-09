@@ -2,12 +2,15 @@
 // ORBYX desktop workspace. Processing lives exclusively in the shared core.
 #include "orbyx/engine.hpp"
 #include "calibration_wizard.hpp"
+#include "import_dialog.hpp"
 
 #include <QAbstractItemView>
 #include <QApplication>
 #include <QCloseEvent>
 #include <QFile>
 #include <QSaveFile>
+#include <QRegularExpression>
+#include <QPointer>
 #include <QUuid>
 #include <QDateTime>
 #include <QComboBox>
@@ -122,7 +125,9 @@ class Window final : public QMainWindow {
     bool demoMode = false;
     QString lastOutput;
     QString demoResult;
-    QPushButton *demoButton{}, *wizardButton{};
+    QPushButton *demoButton{}, *wizardButton{}, *watchButton{};
+    QString importedFingerprint;
+    QPointer<ImportDialog> importWindow;
     double guidedScale=1.0;
     QPixmap image;
     double zoom = 1.0;
@@ -151,6 +156,7 @@ class Window final : public QMainWindow {
     }
     void applyText() {
         subtitle->setText(trText(demoMode?"Real JPEG demo — six channels, one image":"Satellite imaging workspace")); eyebrow->setText(trText("ALIGN / CALIBRATE / EXPLORE"));
+        watchButton->setText(it?"Monitora acquisizioni…":"Monitor acquisitions…");watchButton->setAccessibleName(watchButton->text());
         wizardButton->setText(it?"Calibrazione guidata…":"Guided calibration…");
         wizardButton->setAccessibleName(wizardButton->text());
         demoButton->setText(trText("Run image demo"));
@@ -398,6 +404,7 @@ class Window final : public QMainWindow {
         QVariantMap job;
         job["id"] = QString("job-%1").arg(++queueCounter);
         job["satellite"] = satellite->currentText();
+        if(!importedFingerprint.isEmpty())job["acquisition_fingerprint"]=importedFingerprint;
         job["input"] = input->text(); job["config"] = config->text(); job["output"] = output->text();
         job["mode"] = mode->currentIndex() == 1 ? "calibrate" : "generate";
         job["cpu"] = engine->currentIndex() == 1;
@@ -420,7 +427,7 @@ class Window final : public QMainWindow {
     void setQueueBusy(bool running) {
         busy = running;
         setup->setEnabled(!running); start->setEnabled(!running);
-        naturalExport->setEnabled(!running); demoButton->setEnabled(!running); wizardButton->setEnabled(!running);
+        naturalExport->setEnabled(!running); demoButton->setEnabled(!running); wizardButton->setEnabled(!running);watchButton->setEnabled(!running);
         queueAdd->setEnabled(!running); queueRemove->setEnabled(!running);
         queueRun->setEnabled(!running && queue->rowCount() > 0);
     }
@@ -438,6 +445,7 @@ class Window final : public QMainWindow {
             QJsonObject entry;
             for (const QString &key : {"id", "satellite", "input", "output", "config", "mode"})
                 entry[key] = job[key].toString();
+            if(job.contains("acquisition_fingerprint"))entry["acquisition_fingerprint"]=job["acquisition_fingerprint"].toString();
             entry["cpu"] = job["cpu"].toBool();
             if(job.contains("calibration_scale"))entry["calibration_scale"]=job["calibration_scale"].toDouble();
             jobs.append(entry);
@@ -547,6 +555,7 @@ class Window final : public QMainWindow {
         return info.isDir() && !info.isSymLink() ? info.absoluteFilePath() : QString{};
     }
     void selectInput(const QString &folder) {
+        importedFingerprint.clear();
         input->setText(folder);
         if (output->text().isEmpty()) output->setText(folder+"-orbyx");
         source->setCurrentIndex(0); loadPreview();
@@ -624,6 +633,29 @@ public:
             input->setText(wizard.inputPath());config->setText(wizard.profilePath());output->setText(wizard.outputPath());
             satellite->setCurrentText(wizard.satelliteId());guidedScale=wizard.scale();mode->setCurrentIndex(1);engine->setCurrentIndex(1);loadPreview();
         });
+        watchButton=new QPushButton;watchButton->setObjectName("watchButton");form->addWidget(watchButton);
+        connect(watchButton,&QPushButton::clicked,this,[this]{
+            if(importWindow){importWindow->show();importWindow->raise();return;}
+            importWindow=new ImportDialog(it,[this](const QJsonObject& data,bool automatic) {
+                if(busy)return false;
+                QString identity=data["satellite"].toString().toUpper();identity.remove(QRegularExpression("[^A-Z0-9]"));
+                if(identity.startsWith("ELEKTRO"))identity.remove(0,7);
+                if(automatic&&(identity.isEmpty()||identity!=satellite->currentText())){log->append(it?"Satellite non corrispondente: importazione automatica sospesa.":"Satellite mismatch: automatic import withheld.");return false;}
+                if(automatic&&mode->currentIndex()==0) {
+                    QFile profile(config->text());
+                    if(!profile.open(QIODevice::ReadOnly)||profile.size()>1024*1024)return false;
+                    const auto document=QJsonDocument::fromJson(profile.readAll()).object();
+                    if(!document.contains(satellite->currentText()+"VIS1")||!document.contains(satellite->currentText()+"VIS2")) {
+                        log->append(it?"Profilo del satellite assente: esegui prima la calibrazione.":"Satellite profile missing: calculate calibration first.");return false;
+                    }
+                }
+                selectInput(data["path"].toString());importedFingerprint=data["fingerprint"].toString();
+                const auto base=QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)+"/imports";QDir().mkpath(base);
+                output->setText(base+"/"+QUuid::createUuid().toString(QUuid::WithoutBraces));
+                if(automatic)addToQueue();
+                return true;
+            },this);importWindow->setAttribute(Qt::WA_DeleteOnClose);importWindow->show();
+        });
         profileDup=new QPushButton; profileDup->setObjectName("profileDup"); form->addWidget(profileDup);
         outputLabel=label(); output=new QLineEdit; outputBrowse=new QPushButton; form->addWidget(outputLabel); form->addLayout(pathRow(output,outputBrowse));
         satLabel=label(); satellite=new QComboBox; satellite->addItems({"L2","L3","L4","L5","M1","M2"}); satellite->setCurrentText(settings.value("satellite","L2").toString()); form->addWidget(satLabel); form->addWidget(satellite);
@@ -658,6 +690,7 @@ public:
         connect(inputBrowse,&QPushButton::clicked,this,[this]{const auto p=QFileDialog::getExistingDirectory(this,trText("Choose RDAS folder"),input->text());if(!p.isEmpty()) selectInput(p);});
         connect(configBrowse,&QPushButton::clicked,this,[this]{const auto p=QFileDialog::getOpenFileName(this,trText("Choose calibration profile"),config->text(),"JSON (*.json)");if(!p.isEmpty())config->setText(p);});
         connect(outputBrowse,&QPushButton::clicked,this,[this]{const auto p=QFileDialog::getExistingDirectory(this,trText("Select output parent folder"),QFileInfo(output->text()).absolutePath());if(!p.isEmpty())output->setText(QDir(p).filePath("orbyx-output"));});
+        connect(input,&QLineEdit::textEdited,this,[this]{importedFingerprint.clear();});
         connect(input,&QLineEdit::editingFinished,this,[this]{loadPreview();}); connect(source,qOverload<int>(&QComboBox::currentIndexChanged),this,[this]{loadPreview();});
         connect(channel,qOverload<int>(&QComboBox::currentIndexChanged),this,[this](int i){settings.setValue("previewChannel",i);loadPreview();});
         connect(start,&QPushButton::clicked,this,[this]{execute();}); connect(clear,&QPushButton::clicked,log,&QTextEdit::clear);

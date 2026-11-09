@@ -3,6 +3,8 @@
 from __future__ import annotations
 import argparse
 import hashlib
+import importlib.util
+import re
 import fcntl
 import json
 import math
@@ -178,7 +180,7 @@ def load_manifest(path: Path) -> list[dict]:
     identifiers: set[str] = set()
     outputs: list[Path] = []
     normalized = []
-    allowed = {"id", "satellite", "input", "output", "config", "mode", "cpu", "calibration_scale"}
+    allowed = {"id", "satellite", "input", "output", "config", "mode", "cpu", "calibration_scale", "acquisition_fingerprint"}
     required = {"id", "satellite", "input", "output", "config"}
     for job in jobs:
         if not isinstance(job, dict) or not required <= set(job) or set(job) - allowed:
@@ -194,6 +196,8 @@ def load_manifest(path: Path) -> list[dict]:
             raise ValueError("Mode must be generate or calibrate")
         if type(job.get("cpu", False)) is not bool:
             raise ValueError("cpu must be boolean")
+        if "acquisition_fingerprint" in job and (not isinstance(job["acquisition_fingerprint"], str) or not re.fullmatch(r"[0-9a-f]{64}", job["acquisition_fingerprint"])):
+            raise ValueError("Invalid acquisition fingerprint")
         if "calibration_scale" in job:
             scale = job["calibration_scale"]
             if type(scale) not in (int, float) or not math.isfinite(scale) or not 0 < scale <= 1 or mode != "calibrate":
@@ -267,6 +271,16 @@ def run(manifest: Path, state_path: Path, executable: Path, resume: bool, langua
         process = None
         previous = state["jobs"].get(identifier, {})
         try:
+            if "acquisition_fingerprint" in job:
+                candidates = (Path(__file__).resolve().parent / "orbyx_import.py", Path(__file__).resolve().parent.parent / "share/orbyx/orbyx_import.py")
+                module_path = next((p for p in candidates if p.is_file()), None)
+                if module_path is None:
+                    raise RuntimeError("Import validator unavailable")
+                spec = importlib.util.spec_from_file_location("orbyx_product_import", module_path)
+                validator = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(validator)
+                if validator.inspect_product(Path(job["input"]))["fingerprint"] != job["acquisition_fingerprint"]:
+                    raise RuntimeError("Acquisition changed after import; inspect and import again")
             current = fingerprint(job, executable)
             if (resume and isinstance(previous, dict) and previous.get("status") == "completed"
                     and previous.get("fingerprint") == current and output.is_dir()
