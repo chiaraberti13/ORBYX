@@ -827,3 +827,30 @@ ROADMAP. Restano aperti, come già dichiarato, i punti che richiedono hardware o
 prove manuali reali (equivalenza GPU su dispositivo, geolocalizzazione assoluta
 e verità a terra, accessibilità con screen reader fisico, aggiornamento/rollback
 firmato con chiave reale). L'app è pienamente usabile senza dati né `.json`.
+
+### M2-10 — Secondo incremento: maschere rettangolari di esclusione
+
+Prossimo task di roadmap (M2-10, filone attivo del compositore). Aggiunta una
+**maschera di esclusione rettangolare per livello**, non distruttiva: il campo
+`MosaicLayer.exclude` indica una regione del livello (nel sistema del suo
+ritaglio) che **non contribuisce** alla composizione, rivelando i livelli
+sottostanti; i pixel sorgente non vengono mai modificati. Il renderer salta i
+soli pixel la cui coordinata sorgente cade nella maschera. Larghezza o altezza
+zero = «nessuna maschera», così le modifiche parziali dei quattro controlli
+(`excludeX/Y/W/H`) restano sempre valide; la maschera è salvata nel progetto
+come campo `exclude` opzionale e i progetti precedenti, che lo omettono, restano
+identici. Nessuna modifica al percorso ROI storico (il compositore è distinto da
+`generate`). Validazione: non negativi e ≤100000; a render, maschera entro la
+regione del livello.
+
+Verifica effettiva (Ubuntu 24.04.5, Qt 6.4.2, OpenCV 4.6, offscreen):
+`mosaic-regression` esteso con prova byte-per-byte — la maschera rivela
+esattamente il livello sottostante nella regione indicata, lascia invariato il
+resto del livello superiore, non altera il file sorgente, round-trip del
+progetto identico ai pixel, maschera inattiva (dimensione zero) non serializzata,
+e rifiuto di valori negativi/oltre i limiti e di maschera fuori regione.
+`mosaic-widget-flow` esteso EN/IT — i quattro controlli esistono, l'edit aggiorna
+il livello selezionato, l'anteprima resta valida, la maschera è registrata nel
+progetto e azzerabile. Suite completa 24/24 passata con label `gpu` esclusa;
+screenshot del compositore ispezionato. Restano aperti, per M2-10, seam
+ottimizzata, maschere poligonali e compensazione visuale.

@@ -338,12 +338,17 @@ progettazione, non dipendenze da integrare automaticamente.
 ## M2-10 — Seam, maschere e blending per l’immagine visuale
 
 - Priorità: P1
-- Stato: in corso — primo incremento implementato e verificato localmente:
-  modalità esplicite per livello **Nessun blending** e **Sfumatura**, persistite
-  nel progetto con compatibilità dei progetti precedenti. In assenza di blending
-  il livello superiore sostituisce quello inferiore senza usare opacità o
-  sfumatura; la modalità storica resta il valore predefinito. Seam ottimizzata,
-  maschere e compensazione visuale restano da implementare.
+- Stato: in corso — due incrementi verificati localmente. (1) Modalità esplicite
+  per livello **Nessun blending** e **Sfumatura**, persistite nel progetto con
+  compatibilità dei progetti precedenti; senza blending il livello superiore
+  sostituisce quello inferiore senza opacità/sfumatura e la modalità storica
+  resta predefinita. (2) **Maschere rettangolari di esclusione** non distruttive
+  per livello: la regione indicata del livello (eventualmente ritagliato) non
+  contribuisce e rivela i livelli sottostanti, senza toccare i pixel sorgente;
+  salvata nel progetto come campo opzionale (progetti precedenti invariati).
+  Larghezza/altezza zero significano «nessuna maschera», così le modifiche
+  parziali dei controlli restano valide. Restano da implementare la seam
+  ottimizzata, le maschere poligonali include/escludi e la compensazione visuale.
 - Dipendenze: M2-09
 - Responsabile: Computer Vision / Imaging / Performance / AppSec / QA
 - Deliverable: tre modalità dichiarate: **Nessun blending** per dati scientifici,

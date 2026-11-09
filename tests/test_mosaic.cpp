@@ -44,6 +44,24 @@ int main(){
         n.blend=orbyx::MosaicBlend::Replace;auto project=orbyx::mosaicProject({l,n});auto loaded=orbyx::parseMosaicProject(project);check(loaded[1].blend==orbyx::MosaicBlend::Replace,"Project lost blend mode");
         auto legacyProject=project;for(auto position=legacyProject.find("\"blend\"");position!=std::string::npos;position=legacyProject.find("\"blend\"")){const auto start=legacyProject.rfind('\n',position),end=legacyProject.find('\n',position);check(start!=std::string::npos&&end!=std::string::npos,"Cannot construct legacy project fixture");legacyProject.erase(start+1,end-start);}auto legacyLoaded=orbyx::parseMosaicProject(legacyProject);check(legacyLoaded[0].blend==orbyx::MosaicBlend::Feather&&legacyLoaded[1].blend==orbyx::MosaicBlend::Feather,"Legacy project did not retain feather semantics");
         check(cv::norm(orbyx::renderMosaic(loaded).image,orbyx::renderMosaic({l,n}).image,cv::NORM_INF)==0,"Project round trip changed pixels");
+        // Non-destructive exclude mask: the masked region of the upper layer does
+        // not contribute, revealing the layer below; outside it the upper layer is
+        // unchanged and the source file is never modified.
+        m=l;m.image=root/"b.png";m.blend=orbyx::MosaicBlend::Replace;m.exclude={2,1,4,3};
+        auto masked=orbyx::renderMosaic({l,m}).image;
+        check(cv::norm(masked(cv::Rect(2,1,4,3)),a(cv::Rect(2,1,4,3)),cv::NORM_INF)==0,"Exclude mask did not reveal the lower layer");
+        check(cv::norm(masked(cv::Rect(0,0,2,7)),b(cv::Rect(0,0,2,7)),cv::NORM_INF)==0,"Exclude mask leaked outside its region");
+        check(cv::norm(cv::imread((root/"b.png").string(),cv::IMREAD_UNCHANGED),b,cv::NORM_INF)==0,"Exclude mask altered the source image");
+        auto maskProject=orbyx::mosaicProject({l,m});check(maskProject.find("\"exclude\"")!=std::string::npos,"Exclude mask was not serialized");
+        auto maskLoaded=orbyx::parseMosaicProject(maskProject);check(maskLoaded[1].exclude==cv::Rect(2,1,4,3),"Project lost the exclude mask");
+        check(cv::norm(orbyx::renderMosaic(maskLoaded).image,masked,cv::NORM_INF)==0,"Exclude mask round trip changed pixels");
+        check(orbyx::mosaicProject({l}).find("\"exclude\"")==std::string::npos,"Empty exclude mask must not be serialized");
+        m=l;m.image=root/"b.png";m.exclude={8,0,5,2};rejects([&]{orbyx::renderMosaic({l,m});});
+        m=l;m.exclude={0,0,-4,5};rejects([&]{orbyx::renderMosaic({m});});
+        m=l;m.exclude={0,0,200000,5};rejects([&]{orbyx::renderMosaic({m});});
+        // A zero width or height is "no mask", not an error, and never serialized.
+        m=l;m.exclude={10,10,4,0};check(cv::norm(orbyx::renderMosaic({m}).image,a,cv::NORM_INF)==0,"Zero-height exclude unexpectedly masked");
+        check(orbyx::mosaicProject({m}).find("\"exclude\"")==std::string::npos,"Inactive exclude mask must not be serialized");
         rejects([&]{orbyx::parseMosaicProject(project+"{}");});
         rejects([&]{orbyx::parseMosaicProject("{\"schema\":\"orbyx-mosaic/1\",\"schema\":\"bad\",\"layers\":[]}");});
         auto invalidBlend=project;auto blendValue=invalidBlend.find("replace");check(blendValue!=std::string::npos,"Blend field missing");invalidBlend.replace(blendValue,7,"invalid");rejects([&]{orbyx::parseMosaicProject(invalidBlend);});

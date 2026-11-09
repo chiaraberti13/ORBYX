@@ -48,6 +48,17 @@ int main(int argc,char** argv){
             gamma->setValue(1.25);waitFor(dialog);dialog.applyColoursToAll();waitFor(dialog);
             for(const auto& layer:dialog.state())check(layer.gamma==1.25,"Colour application not applied to all portions");
             auto* canvas=dynamic_cast<MosaicCanvas*>(dialog.findChild<QLabel*>("mosaicCanvas"));check(canvas&&!canvas->pixmap().isNull(),"Composite preview missing");
+            // Non-destructive exclude mask control: editing the spin boxes updates
+            // the selected layer, keeps the preview valid and is stored in the project.
+            auto* excludeX=dialog.findChild<QDoubleSpinBox*>("mosaic_excludeX");auto* excludeY=dialog.findChild<QDoubleSpinBox*>("mosaic_excludeY");
+            auto* excludeW=dialog.findChild<QDoubleSpinBox*>("mosaic_excludeW");auto* excludeH=dialog.findChild<QDoubleSpinBox*>("mosaic_excludeH");
+            check(excludeX&&excludeY&&excludeW&&excludeH,"Exclude mask controls missing");
+            excludeX->setValue(10);excludeY->setValue(10);excludeW->setValue(20);excludeH->setValue(15);waitFor(dialog);
+            check(dialog.state()[2].exclude==cv::Rect(10,10,20,15),"Exclude mask control not applied to the selected layer");
+            check(!canvas->pixmap().isNull(),"Preview missing after exclude mask");
+            check(orbyx::mosaicProject(dialog.state()).find("exclude")!=std::string::npos,"Exclude mask not stored in the project");
+            excludeW->setValue(0);excludeH->setValue(0);waitFor(dialog);
+            check(dialog.state()[2].exclude.width==0&&dialog.state()[2].exclude.height==0,"Exclude mask was not cleared");
             const auto oldX=dialog.state()[2].x;
             QTest::mousePress(canvas,Qt::LeftButton,{},QPoint(10,10));QTest::mouseRelease(canvas,Qt::LeftButton,{},QPoint(20,15));waitFor(dialog);
             check(dialog.state()[2].x==oldX+10,"Drag editing did not move selected layer");
