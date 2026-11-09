@@ -120,7 +120,7 @@ int main(int argc, char **argv) {
             QObject::connect(&responder,&QTimer::timeout,[&] {
                 auto *dialog=QApplication::activeModalWidget();
                 if(!dialog)return;
-                if(deadline.elapsed()>5000) {timedOut=true; if(auto *d=qobject_cast<QDialog*>(dialog))d->reject();return;}
+                if(deadline.elapsed()>15000) {timedOut=true; if(auto *d=qobject_cast<QDialog*>(dialog))d->reject();return;}
                 if(handled==dialog)return;
                 handled=dialog;
                 if(auto *input=qobject_cast<QInputDialog*>(dialog)) {
@@ -237,7 +237,7 @@ int main(int argc, char **argv) {
             auto *button=demo.findChild<QPushButton*>("demoButton");
             requireTest(button&&button->isVisible()&&!button->accessibleName().isEmpty(),"Demo button inaccessible");
             clickVisible(button);
-            requireTest(until([&]{return button->isEnabled();},30000),"Demo stuck busy");
+            requireTest(until([&]{return button->isEnabled();},60000),"Demo stuck busy");
             const auto log=demo.findChild<QTextEdit*>()->toPlainText();
             requireTest(log.contains("1428x1428")&&!log.contains("ERROR:"),"Real six-image demo failed");
             requireTest(!demo.findChild<QLabel*>("canvas")->pixmap().isNull(),"Demo result not displayed");

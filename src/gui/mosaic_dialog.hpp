@@ -22,6 +22,7 @@
 #include <QListWidget>
 #include <QMessageBox>
 #include <QMouseEvent>
+#include <QKeyEvent>
 #include <QPainter>
 #include <QPixmap>
 #include <QPolygonF>
@@ -43,10 +44,19 @@ class MosaicCanvas final:public QLabel {
     QPointF pressed;
 public:
     std::function<void(QPointF)> moved;
+    std::function<void(QPointF)> nudged;
     using QLabel::QLabel;
 protected:
-    void mousePressEvent(QMouseEvent* e)override {pressed=e->position();}
+    void mousePressEvent(QMouseEvent* e)override {setFocus(Qt::MouseFocusReason);pressed=e->position();}
     void mouseReleaseEvent(QMouseEvent* e)override {if(e->button()==Qt::LeftButton&&moved)moved(e->position()-pressed);}
+    void keyPressEvent(QKeyEvent* e)override {
+        QPointF delta;
+        const double step=e->modifiers().testFlag(Qt::ShiftModifier)?10.:1.;
+        if(e->key()==Qt::Key_Left)delta.setX(-step);else if(e->key()==Qt::Key_Right)delta.setX(step);
+        else if(e->key()==Qt::Key_Up)delta.setY(-step);else if(e->key()==Qt::Key_Down)delta.setY(step);
+        else {QLabel::keyPressEvent(e);return;}
+        if(nudged)nudged(delta);e->accept();
+    }
 };
 
 class MosaicDialog final:public QDialog {
@@ -210,8 +220,9 @@ public:
         auto* right=new QVBoxLayout;body->addLayout(right,1);
         auto* zoomRow=new QHBoxLayout;right->addLayout(zoomRow);zoomRow->addWidget(new QLabel(t("Preview zoom (%)","Zoom anteprima (%)")));
         zoom=new QDoubleSpinBox;zoom->setRange(25,400);zoom->setValue(100);zoom->setAccessibleName(t("Preview zoom","Zoom anteprima"));zoomRow->addWidget(zoom);connect(zoom,qOverload<double>(&QDoubleSpinBox::valueChanged),this,[this]{display();});button("mosaicFit",t("Fit","Adatta"),zoomRow,[this]{fitPreview();});zoomRow->addStretch();
-        auto* view=new QScrollArea;previewView=view;canvas=new MosaicCanvas;canvas->setObjectName("mosaicCanvas");canvas->setAlignment(Qt::AlignTop|Qt::AlignLeft);canvas->setAccessibleName(t("Composite preview; drag selected layer","Anteprima composizione; trascina il livello selezionato"));view->setWidget(canvas);right->addWidget(view,1);
+        auto* view=new QScrollArea;previewView=view;canvas=new MosaicCanvas;canvas->setObjectName("mosaicCanvas");canvas->setAlignment(Qt::AlignTop|Qt::AlignLeft);canvas->setFocusPolicy(Qt::StrongFocus);canvas->setAccessibleName(t("Composite preview; drag or use arrow keys to move the selected layer","Anteprima composizione; trascina o usa le frecce per spostare il livello selezionato"));view->setWidget(canvas);right->addWidget(view,1);
         canvas->moved=[this](QPointF delta){int row=list->currentRow();if(busy||row<0||previewImage.isNull())return;remember();auto& l=layers[size_t(row)];l.x+=delta.x()/(previewRatio*zoom->value()/100.);l.y+=delta.y()/(previewRatio*zoom->value()/100.);readControls();schedule();};
+        canvas->nudged=[this](QPointF delta){int row=list->currentRow();if(busy||row<0)return;remember();auto& l=layers[size_t(row)];l.x+=delta.x();l.y+=delta.y();setProperty("mergeStrategy","manual");readControls();schedule();};
         status=new QLabel;status->setTextFormat(Qt::PlainText);status->setObjectName("mosaicStatus");status->setWordWrap(true);outer->addWidget(status);
         button("mosaicLog",t("Open compositor log","Apri log compositore"),outer,[this]{record("Log opened");QDesktopServices::openUrl(QUrl::fromLocalFile(workingFolder+"/compositor.log"));});
         auto* close=new QPushButton(t("Close","Chiudi"));outer->addWidget(close);connect(close,&QPushButton::clicked,this,&QDialog::reject);

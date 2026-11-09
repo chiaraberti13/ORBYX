@@ -45,6 +45,11 @@ int main(int argc,char** argv){
             const auto oldX=dialog.state()[2].x;
             QTest::mousePress(canvas,Qt::LeftButton,{},QPoint(10,10));QTest::mouseRelease(canvas,Qt::LeftButton,{},QPoint(20,15));waitFor(dialog);
             check(dialog.state()[2].x==oldX+10,"Drag editing did not move selected layer");
+            canvas->setFocus();const auto nudgeX=dialog.state()[2].x,nudgeY=dialog.state()[2].y;
+            QTest::keyClick(canvas,Qt::Key_Right);QTest::keyClick(canvas,Qt::Key_Down,Qt::ShiftModifier);waitFor(dialog);
+            check(dialog.state()[2].x==nudgeX+1&&dialog.state()[2].y==nudgeY+10&&dialog.property("mergeStrategy").toString()=="manual","Keyboard fine/coarse alignment failed");
+            dialog.undo();waitFor(dialog);check(dialog.state()[2].y==nudgeY,"Keyboard alignment is not undoable");
+            dialog.redo();waitFor(dialog);check(dialog.state()[2].y==nudgeY+10,"Keyboard alignment redo failed");
             dialog.reorder(-1);waitFor(dialog);check(list->currentRow()==1,"Layer reordering failed");
             QString project=temp.path()+(it?"/it.json":"/en.json");dialog.saveProject(project);
             auto expected=orbyx::renderMosaic(dialog.state()).image;
