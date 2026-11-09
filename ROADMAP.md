@@ -245,9 +245,11 @@ progettazione, non dipendenze da integrare automaticamente.
 - Stato: in corso — primo incremento implementato e verificato: la GUI conserva
   il risultato ROI storico e rende disponibili le due porzioni allineate come
   livelli modificabili, inizializzati con gli stessi ritagli e la stessa
-  posizione. Il percorso CLI predefinito e i pixel storici restano invariati.
-  Restano da unificare nel coordinatore la scelta esplicita tra ROI/visuale,
-  l'anteprima comparativa e i casi assistiti con più di due porzioni.
+  posizione. L’editor registra la strategia corrente e può ripristinare in ogni
+  momento la ROI storica dopo modifiche manuali o proposta visuale. Il percorso
+  CLI predefinito e i pixel storici restano invariati. Restano da completare
+  l’anteprima comparativa affiancata ROI/visuale e i casi assistiti con più di
+  due porzioni provenienti direttamente dal flusso principale.
 - Dipendenze: M2-01, M2-05, M2-06
 - Responsabile: Technical Lead / Computer Vision / Maintainer compatibilità / QA
 - Deliverable: un solo servizio core che espone quattro strategie: **Profilo

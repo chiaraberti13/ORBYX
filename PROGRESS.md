@@ -575,3 +575,18 @@ il prodotto ROI storico e l’apertura automatica dei due livelli modificabili.
 Pubblicazione codice: `69bcefd75f5af004f0914f8bd572fdbf8cad3745`.
 Restano aperti in M2-08 coda/ripresa integrata, raggruppamento generico e stato
 durevole dei passaggi.
+
+### M2-07 — Secondo incremento: ritorno esplicito alla ROI
+
+Il compositore conserva internamente la geometria ROI iniziale quando viene
+aperto dal flusso ORBYX. Il nuovo comando **Ripristina ROI del profilo** permette
+di recuperarla dopo spostamenti, ritagli o una proposta di sovrapposizione
+visuale, senza ricalcolare i canali e senza sostituire il prodotto storico.
+L’operazione entra nella cronologia annulla/ripeti. Una proprietà esplicita
+indica la strategia corrente: `profile-roi`, `visual-auto` o `manual`.
+
+Test widget EN/IT: caricamento delle ROI esatte, modifica della seconda
+porzione, ripristino della posizione e dei ritagli originari, strategia riportata
+a `profile-roi`, salvataggio del progetto. Mosaic e GUI end-to-end passati;
+Cppcheck pulito. Pubblicazione codice:
+`83f75d7f07a5d6f2a59cb5fbfa21cb907741d74d`.

@@ -61,6 +61,10 @@ in M2-08.
    percentuale di sovrapposizione, errore e confidenza. **Annulla** non modifica
    nulla; **Applica** crea uno stato completamente modificabile e annullabile.
    Le porzioni prive di una corrispondenza affidabile restano invariate.
+   Se il progetto è stato aperto dal normale flusso con ROI, puoi usare
+   **Ripristina ROI del profilo** per tornare in qualunque momento alla geometria
+   storica esatta. Puoi quindi provare la proposta visuale e recuperare il punto
+   di partenza senza rielaborare i canali.
 6. Controlla sempre ogni giunzione. Seleziona un livello: il suo contorno azzurro
    appare nell’anteprima. Trascina per spostarlo oppure imposta **X/Y**. Se
    l’automatismo non trova abbastanza dettagli, ritaglia intestazioni e grandi
@@ -142,7 +146,8 @@ da tre canali e PNG GUI confrontato esattamente col renderer nativo.
 Verifica anche proposta automatica EN/IT, evidenze mostrate, annullamento senza
 modifiche, applicazione esplicita, annulla/ripeti e messaggio di revisione.
 Verifica inoltre l’apertura di due prodotti allineati con le ROI del profilo,
-ritagli e posizione iniziale esatti, e la loro persistenza in un progetto.
+ritagli e posizione iniziale esatti, il ripristino dopo una modifica manuale e
+la loro persistenza in un progetto.
 
 `engine-regression` verifica che l’attivazione delle porzioni modificabili non
 cambi neppure un pixel del prodotto ROI storico, che il comportamento
