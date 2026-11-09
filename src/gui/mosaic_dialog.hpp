@@ -67,7 +67,7 @@ protected:
 class MosaicDialog final:public QDialog {
     bool it=false,busy=false,updating=false,dirty=false;
     QWidget* tools{};QListWidget* list{};MosaicCanvas* canvas{};QLabel* status{};
-    QScrollArea* previewView{};QComboBox* colourMode{};QComboBox* inspectionMode{};QSlider* swipePosition{};QDoubleSpinBox* zoom{};QCheckBox* visible{};QCheckBox* blink{};
+    QScrollArea* previewView{};QComboBox* colourMode{};QComboBox* inspectionMode{};QComboBox* blendMode{};QSlider* swipePosition{};QDoubleSpinBox* zoom{};QCheckBox* visible{};QCheckBox* blink{};
     std::vector<QDoubleSpinBox*> controls;
     std::vector<orbyx::MosaicLayer> layers;
     std::vector<orbyx::MosaicLayer> profileRoiBaseline;
@@ -95,7 +95,7 @@ class MosaicDialog final:public QDialog {
         updating=true;const auto& l=layers[size_t(row)];
         double values[]={l.x,l.y,l.scale,l.angle,l.opacity,l.feather,double(l.crop.x),double(l.crop.y),double(l.crop.width),double(l.crop.height),l.black,l.white,l.gamma,l.exposure,l.saturation,l.red,l.green,l.blue};
         for(size_t i=0;i<controls.size();++i)controls[i]->setValue(values[i]);
-        visible->setChecked(l.visible);updating=false;
+        visible->setChecked(l.visible);blendMode->setCurrentIndex(l.blend==orbyx::MosaicBlend::Replace?0:1);controls[4]->setEnabled(l.blend==orbyx::MosaicBlend::Feather);controls[5]->setEnabled(l.blend==orbyx::MosaicBlend::Feather);updating=false;
     }
     void edit(){
         if(updating||busy)return;int row=list->currentRow();if(row<0)return;
@@ -105,7 +105,7 @@ class MosaicDialog final:public QDialog {
         l.crop={int(controls[6]->value()),int(controls[7]->value()),int(controls[8]->value()),int(controls[9]->value())};
         double* colours[]={&l.black,&l.white,&l.gamma,&l.exposure,&l.saturation,&l.red,&l.green,&l.blue};
         for(int i=0;i<8;++i)*colours[i]=controls[size_t(i+10)]->value();
-        l.visible=visible->isChecked();schedule();
+        l.visible=visible->isChecked();l.blend=blendMode->currentIndex()==0?orbyx::MosaicBlend::Replace:orbyx::MosaicBlend::Feather;controls[4]->setEnabled(l.blend==orbyx::MosaicBlend::Feather);controls[5]->setEnabled(l.blend==orbyx::MosaicBlend::Feather);schedule();
     }
     void record(const QString& text){
         QDir().mkpath(workingFolder);QFile file(workingFolder+"/compositor.log");
@@ -266,6 +266,7 @@ public:
         auto* history=new QHBoxLayout;panel->addLayout(history);
         button("mosaicUndo",t("Undo","Annulla"),history,[this]{undo();});button("mosaicRedo",t("Redo","Ripeti"),history,[this]{redo();});
         visible=new QCheckBox(t("Visible layer","Livello visibile"));visible->setObjectName("mosaicVisible");panel->addWidget(visible);connect(visible,&QCheckBox::toggled,this,[this]{edit();});
+        blendMode=new QComboBox;blendMode->setObjectName("mosaicBlendMode");blendMode->addItems({t("No blending (upper layer replaces)","Nessun blending (il livello superiore sostituisce)"),t("Feather (visual transition)","Sfumatura (transizione visuale)")});blendMode->setAccessibleName(t("Selected layer blending mode","Modalità blending del livello selezionato"));panel->addWidget(blendMode);connect(blendMode,qOverload<int>(&QComboBox::currentIndexChanged),this,[this]{edit();});
         auto* form=new QFormLayout;panel->addLayout(form);
         struct Field{const char* id;const char* en;const char* italian;double min,max,step;int decimals;};
         const Field fields[]={

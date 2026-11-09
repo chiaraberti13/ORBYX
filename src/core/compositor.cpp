@@ -22,6 +22,7 @@ void validate(const MosaicLayer& l) {
           l.red>=0&&l.red<=4&&l.green>=0&&l.green<=4&&l.blue>=0&&l.blue<=4,"Invalid mosaic colour or blend parameter");
     check(l.crop.x>=0&&l.crop.y>=0&&l.crop.width>=0&&l.crop.height>=0&&
           ((l.crop.width>0&&l.crop.height>0)||(l.crop.width==0&&l.crop.height==0&&l.crop.x==0&&l.crop.y==0)),"Invalid mosaic crop");
+    check(l.blend==MosaicBlend::Replace||l.blend==MosaicBlend::Feather,"Invalid mosaic blend mode");
     check(!l.image.empty()&&l.image.string().size()<=4096,"Invalid mosaic input path");
 }
 cv::Rect region(const MosaicLayer& l,const cv::Mat& image) {
@@ -152,7 +153,7 @@ MosaicResult renderMosaic(const std::vector<MosaicLayer>& layers,int previewEdge
     }
     result.image=cv::Mat::zeros(rows,cols,CV_MAKETYPE(outputDepth,3));
     for(size_t i=0;i<layers.size();++i) {
-        const auto& l=layers[i];if(!l.visible||l.opacity==0)continue;
+        const auto& l=layers[i];if(!l.visible||(l.blend==MosaicBlend::Feather&&l.opacity==0))continue;
         auto source=readCompositePng(l.image);
         check(source.size()==sources[i].size&&source.type()==sources[i].type,"Mosaic source changed dimensions or depth");
         auto image=source(sources[i].crop);
@@ -182,8 +183,8 @@ MosaicResult renderMosaic(const std::vector<MosaicLayer>& layers,int previewEdge
                     double sx=inverse(0,0)*(x+xx)+inverse(0,1)*(y+yy)+inverse(0,2);
                     double sy=inverse(1,0)*(x+xx)+inverse(1,1)*(y+yy)+inverse(1,2);
                     if(sx<0||sy<0||sx>=image.cols||sy>=image.rows)continue;
-                    double alpha=l.opacity;
-                    if(l.feather>0)alpha*=std::clamp(std::min({sx+.5,sy+.5,image.cols-.5-sx,image.rows-.5-sy})*l.scale/l.feather,0.,1.);
+                    double alpha=l.blend==MosaicBlend::Replace?1.:l.opacity;
+                    if(l.blend==MosaicBlend::Feather&&l.feather>0)alpha*=std::clamp(std::min({sx+.5,sy+.5,image.cols-.5-sx,image.rows-.5-sy})*l.scale/l.feather,0.,1.);
                     auto v=values[xx];
                     if(neutral){for(int c=0;c<3;++c)dest[xx][c]=float(v[c]*alpha+dest[xx][c]*(1-alpha));continue;}
                     for(int c=0;c<3;++c) {
@@ -276,7 +277,7 @@ std::string mosaicProject(const std::vector<MosaicLayer>& layers) {
     Json::Value root;root["schema"]="orbyx-mosaic/1";root["geometry"]="manual scene pixels; no geographic certification";
     for(const auto& l:layers) {
         validate(l);Json::Value v;v["image"]=std::filesystem::absolute(l.image).lexically_normal().string();
-        v["visible"]=l.visible;
+        v["visible"]=l.visible;v["blend"]=l.blend==MosaicBlend::Replace?"replace":"feather";
         const double values[]={l.x,l.y,l.scale,l.angle,l.opacity,l.feather,l.black,l.white,l.gamma,l.exposure,l.saturation,l.red,l.green,l.blue};
         const char* keys[]={"x","y","scale","angle","opacity","feather","black","white","gamma","exposure","saturation","red","green","blue"};
         for(int i=0;i<14;++i)v[keys[i]]=values[i];
@@ -296,6 +297,7 @@ std::vector<MosaicLayer> parseMosaicProject(const std::string& text) {
         check(v.isObject()&&v["image"].isString()&&v["visible"].isBool()&&v["crop"].isArray()&&v["crop"].size()==4,"Invalid mosaic layer");
         const auto path=v["image"].asString();check(path.find('\0')==std::string::npos&&std::filesystem::path(path).is_absolute(),"Mosaic paths must be absolute");
         MosaicLayer l;l.image=path;l.visible=v["visible"].asBool();
+        if(v.isMember("blend")){check(v["blend"].isString(),"Invalid mosaic blend mode");const auto blend=v["blend"].asString();check(blend=="replace"||blend=="feather","Invalid mosaic blend mode");l.blend=blend=="replace"?MosaicBlend::Replace:MosaicBlend::Feather;}
         double* values[]={&l.x,&l.y,&l.scale,&l.angle,&l.opacity,&l.feather,&l.black,&l.white,&l.gamma,&l.exposure,&l.saturation,&l.red,&l.green,&l.blue};
         const char* keys[]={"x","y","scale","angle","opacity","feather","black","white","gamma","exposure","saturation","red","green","blue"};
         for(int i=0;i<14;++i){check(v[keys[i]].isNumeric(),"Missing mosaic numeric parameter");*values[i]=v[keys[i]].asDouble();}

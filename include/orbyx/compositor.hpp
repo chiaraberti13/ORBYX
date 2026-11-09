@@ -6,6 +6,7 @@
 #include <string>
 #include <array>
 namespace orbyx {
+enum class MosaicBlend {Replace,Feather};
 // Scene coordinates are source-resolution pixels. Order is bottom to top.
 struct MosaicLayer {
     std::filesystem::path image;
@@ -13,6 +14,7 @@ struct MosaicLayer {
     cv::Rect crop; // empty means the full source
     double black=0, white=1, gamma=1, exposure=0, saturation=1;
     double red=1, green=1, blue=1;
+    MosaicBlend blend=MosaicBlend::Feather;
     bool visible=true;
 };
 struct MosaicResult {

@@ -28,6 +28,8 @@ int main(){
         check(cv::countNonZero(result.image(cv::Rect(9,7,9,7)).reshape(1))==0,"Empty canvas invented");
         m.x=0;m.opacity=.5;auto blend=orbyx::renderMosaic({l,m}).image.at<cv::Vec3w>(3,3);
         for(int k=0;k<3;++k)check(std::abs(int(blend[k])-int(std::nearbyint((a.at<cv::Vec3w>(3,3)[k]+b.at<cv::Vec3w>(3,3)[k])*.5)))<=1,"Opacity oracle failed");
+        m.blend=orbyx::MosaicBlend::Replace;m.opacity=.2;m.feather=4;check(cv::norm(orbyx::renderMosaic({l,m}).image,b,cv::NORM_INF)==0,"No-blending mode changed upper-layer values");
+        m.blend=orbyx::MosaicBlend::Feather;
         m.opacity=1;m.feather=4;
         auto feather=orbyx::renderMosaic({l,m}).image;
         check(feather.at<cv::Vec3w>(0,0)[0]<feather.at<cv::Vec3w>(3,3)[0],"Feather not applied at boundary");
@@ -39,10 +41,12 @@ int main(){
         m=l;m.saturation=0;auto grey=orbyx::renderMosaic({m}).image.at<cv::Vec3w>(3,3);check(grey[0]==grey[1]&&grey[1]==grey[2],"Saturation failed");
         m=l;m.exposure=1;auto exposure=orbyx::renderMosaic({m}).image.at<cv::Vec3w>(3,3);check(exposure[0]==2050,"Exposure oracle failed");
         m=l;m.visible=false;check(cv::norm(orbyx::renderMosaic({l,m}).image,a,cv::NORM_INF)==0,"Hidden layer rendered");
-        auto project=orbyx::mosaicProject({l,n});auto loaded=orbyx::parseMosaicProject(project);
+        n.blend=orbyx::MosaicBlend::Replace;auto project=orbyx::mosaicProject({l,n});auto loaded=orbyx::parseMosaicProject(project);check(loaded[1].blend==orbyx::MosaicBlend::Replace,"Project lost blend mode");
+        auto legacyProject=project;for(auto position=legacyProject.find("\"blend\"");position!=std::string::npos;position=legacyProject.find("\"blend\"")){const auto start=legacyProject.rfind('\n',position),end=legacyProject.find('\n',position);check(start!=std::string::npos&&end!=std::string::npos,"Cannot construct legacy project fixture");legacyProject.erase(start+1,end-start);}auto legacyLoaded=orbyx::parseMosaicProject(legacyProject);check(legacyLoaded[0].blend==orbyx::MosaicBlend::Feather&&legacyLoaded[1].blend==orbyx::MosaicBlend::Feather,"Legacy project did not retain feather semantics");
         check(cv::norm(orbyx::renderMosaic(loaded).image,orbyx::renderMosaic({l,n}).image,cv::NORM_INF)==0,"Project round trip changed pixels");
         rejects([&]{orbyx::parseMosaicProject(project+"{}");});
         rejects([&]{orbyx::parseMosaicProject("{\"schema\":\"orbyx-mosaic/1\",\"schema\":\"bad\",\"layers\":[]}");});
+        auto invalidBlend=project;auto blendValue=invalidBlend.find("replace");check(blendValue!=std::string::npos,"Blend field missing");invalidBlend.replace(blendValue,7,"invalid");rejects([&]{orbyx::parseMosaicProject(invalidBlend);});
         m=l;m.x=std::numeric_limits<double>::infinity();rejects([&]{orbyx::renderMosaic({m});});
         m=l;m.crop={99,0,1,1};rejects([&]{orbyx::renderMosaic({m});});
         m=l;m.white=m.black;rejects([&]{orbyx::renderMosaic({m});});

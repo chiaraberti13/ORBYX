@@ -41,6 +41,10 @@ int main(int argc,char** argv){
             check(dialog.state()[2].x==-15,"Manual geometry not applied");
             dialog.undo();waitFor(dialog);check(dialog.state()[2].x==0,"Undo geometry failed");
             dialog.redo();waitFor(dialog);check(dialog.state()[2].x==-15,"Redo geometry failed");
+            auto* blendMode=dialog.findChild<QComboBox*>("mosaicBlendMode");auto* opacity=dialog.findChild<QDoubleSpinBox*>("mosaic_opacity");auto* featherControl=dialog.findChild<QDoubleSpinBox*>("mosaic_feather");
+            check(blendMode&&blendMode->count()==2&&opacity&&featherControl,"Explicit blending modes missing");blendMode->setCurrentIndex(0);waitFor(dialog);
+            check(dialog.state()[2].blend==orbyx::MosaicBlend::Replace&&!opacity->isEnabled()&&!featherControl->isEnabled(),"No-blending mode was not applied explicitly");
+            blendMode->setCurrentIndex(1);waitFor(dialog);check(dialog.state()[2].blend==orbyx::MosaicBlend::Feather&&opacity->isEnabled()&&featherControl->isEnabled(),"Feather mode did not restore visual controls");
             gamma->setValue(1.25);waitFor(dialog);dialog.applyColoursToAll();waitFor(dialog);
             for(const auto& layer:dialog.state())check(layer.gamma==1.25,"Colour application not applied to all portions");
             auto* canvas=dynamic_cast<MosaicCanvas*>(dialog.findChild<QLabel*>("mosaicCanvas"));check(canvas&&!canvas->pixmap().isNull(),"Composite preview missing");
