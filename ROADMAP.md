@@ -242,7 +242,12 @@ progettazione, non dipendenze da integrare automaticamente.
 ## M2-07 — Coordinatore delle strategie di unione
 
 - Priorità: P0
-- Stato: proposto, non implementato
+- Stato: in corso — primo incremento implementato e verificato: la GUI conserva
+  il risultato ROI storico e rende disponibili le due porzioni allineate come
+  livelli modificabili, inizializzati con gli stessi ritagli e la stessa
+  posizione. Il percorso CLI predefinito e i pixel storici restano invariati.
+  Restano da unificare nel coordinatore la scelta esplicita tra ROI/visuale,
+  l'anteprima comparativa e i casi assistiti con più di due porzioni.
 - Dipendenze: M2-01, M2-05, M2-06
 - Responsabile: Technical Lead / Computer Vision / Maintainer compatibilità / QA
 - Deliverable: un solo servizio core che espone quattro strategie: **Profilo

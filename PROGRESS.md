@@ -525,3 +525,29 @@ superato anche RDAS/SatDump autentico42620271984. Desktop25gruppi,24eseguiti e
 GPU skipped; sanitizers19gruppi,18eseguiti e GPU skipped. M2-06 chiuso nel suo
 ambito esplicito; restano esterne georeferenziazione certificata, giudizio visivo
 universale e GPU fisica.
+
+### M2-07 — Primo incremento: ROI storica modificabile
+
+Il percorso grafico **Genera** conserva ora i due prodotti VIS allineati anche
+quando il profilo contiene entrambe le ROI e il motore crea regolarmente il
+prodotto storico unito. Il pulsante **Componi porzioni e colore…** riconosce
+questi prodotti, genera le due composizioni colore e le apre come livelli con i
+ritagli e la disposizione ricavati dallo stesso profilo. L’utente parte quindi
+dal risultato ROI già noto ma può modificare giunzione, geometria e colore senza
+uscire da ORBYX. Se le ROI non sono presenti, sono disponibili le porzioni
+intere per l’allineamento visuale o manuale.
+
+La compatibilità è esplicita: l’opzione che conserva i livelli è attivata dalla
+GUI, mentre la CLI e il motore predefinito mantengono lo stesso insieme di file.
+Il test core confronta pixel per pixel il prodotto ROI con e senza livelli
+modificabili; il risultato è identico. Verifica anche ROI esatte, fallback a
+immagine intera e rifiuto delle ROI non valide. I test del compositore e della
+finestra principale coprono caricamento asincrono, geometria iniziale e flusso
+completo EN/IT.
+
+Verifica locale del primo incremento: suite applicabile24/24 passata, zero
+errori; GPU OpenCL fisica skipped e firma GPG esclusa localmente per i limiti
+già dichiarati. Cppcheck sui file modificati senza segnalazioni. Pubblicazione
+codice: `f554703c76a7e354a244358ef66ec2333dc12120`. Restano in M2-07 la scelta
+comparativa esplicita ROI/visuale e il coordinatore completo; M2-08 collegherà
+anche coda, importazione e ripresa in un’unica procedura guidata.

@@ -11,6 +11,27 @@ non limita il numero o la disposizione dei livelli delle altre acquisizioni.
 
 ## Dai prodotti SatDump all’immagine unica
 
+### Apertura diretta dopo l’elaborazione ORBYX
+
+Quando avvii **Genera** dall’interfaccia principale, ORBYX continua a creare il
+prodotto storico `MSUGS_VIS_Aligned` se il profilo contiene entrambe le ROI.
+In più conserva, solo per il flusso grafico, le due acquisizioni allineate
+separate. Premendo poi **Componi porzioni e colore…** queste vengono aperte come
+due livelli modificabili con gli stessi ritagli e la stessa disposizione usati
+dalla fusione storica. L’immagine storica non viene alterata: trascinamenti,
+rotazione, scala, ritaglio, colore e sfumatura riguardano il nuovo progetto del
+compositore.
+
+Se il profilo non contiene una coppia completa di ROI, il compositore carica le
+porzioni allineate intere e permette di proporne la sovrapposizione visuale o di
+posizionarle manualmente. Il funzionamento non presume che siano una parte
+sinistra e una destra. Il comando CLI `generate` mantiene per impostazione
+predefinita gli stessi file e lo stesso comportamento precedenti.
+
+Questo collegamento diretto riguarda al momento l’elaborazione avviata dal
+pulsante principale. L’integrazione equivalente nella coda e la procedura
+guidata completa sono tracciate in M2-08.
+
 1. Allinea prima i canali di ciascuna acquisizione con il normale flusso ORBYX.
    Il compositore non sostituisce la calibrazione dei canali.
 2. Nel compositore scegli **MSU-GS Natural Color (RGB321)** per il relativo
@@ -110,6 +131,16 @@ annulla/ripeti, colore comune, progetto riaperto, composizione Natural Color
 da tre canali e PNG GUI confrontato esattamente col renderer nativo.
 Verifica anche proposta automatica EN/IT, evidenze mostrate, annullamento senza
 modifiche, applicazione esplicita, annulla/ripeti e messaggio di revisione.
+Verifica inoltre l’apertura di due prodotti allineati con le ROI del profilo,
+ritagli e posizione iniziale esatti, e la loro persistenza in un progetto.
+
+`engine-regression` verifica che l’attivazione delle porzioni modificabili non
+cambi neppure un pixel del prodotto ROI storico, che il comportamento
+predefinito non aggiunga file e che ROI non valide continuino a essere rifiutate.
+
+`gui-widget-flow` esegue il percorso completo dal pulsante **Genera**: controlla
+il prodotto storico, le due porzioni conservate e la loro apertura automatica
+nel compositore EN/IT con la geometria del profilo.
 
 Queste prove non certificano automaticamente la qualità di una cucitura su ogni
 scena reale; la valutazione dell’operatore rimane parte del flusso.
