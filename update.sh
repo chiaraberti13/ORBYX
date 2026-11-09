@@ -8,5 +8,8 @@ if [[ $# -eq 0 ]]; then
   prefix=$(orbyx_prefix)
   orbyx_run "$prefix/bin/orbyx-gui" --updates --lang "$orbyx_lang"
 else
-  orbyx_run python3 "$orbyx_repo/scripts/orbyx_update.py" "$@"
+  prefix=$(orbyx_prefix)
+  helper="$prefix/share/orbyx/orbyx_update.py"
+  [[ -f "$helper" ]] || helper="$orbyx_repo/scripts/orbyx_update.py"
+  orbyx_run python3 "$helper" "$@"
 fi

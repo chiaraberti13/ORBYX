@@ -409,3 +409,25 @@ Test reali di riapertura e conflitto fra due finestre aggiunti ai widget EN/IT.
 Corretto il nome del pulsante Chiudi del nuovo dialogo che nascondeva QWidget::close.
 La stabilità CBOR ora comprende il digest dei metadati, anche se il filesystem
 non aggiorna i timestamp per una riscrittura nella stessa frazione di secondo.
+
+### Rifinitura e protezione delle installazioni gestite
+
+Rifiutate directory update scrivibili da altri utenti; aggiunta regressione
+specifica (10test updater). Il launcher preferisce il motore installato, e
+l’installer riconosce una release gestita prima di installare dipendenze.
+Test widget aggiunti per migrazione del vecchio manifest senza scritture
+implicite e rifiuto di uno stato corrotto senza sovrascriverlo. README aggiornati
+con i nuovi pulsanti e comandi per principianti.
+
+### Ultimi controlli dei flussi per principianti
+
+Il monitor mostra anche le acquisizioni incomplete, trattenendole dalla coda.
+Il wizard controlla struttura PNG nativa, dimensioni coerenti e oggetto JSON
+prima del passaggio successivo: le anteprime ridotte non sono accettate come RDAS.
+La verifica completa del decoder e dei trasformati resta nel core prima degli
+output. L’interfaccia continua a richiedere revisione del satellite e delle ROI.
+
+Installazione sorgente e updater condividono inoltre lo stesso lock di modifica:
+una migrazione firmata concorrente non può trasformare il prefisso in un symlink
+fra il controllo iniziale di install.sh e la copia dei file. Nessuna release
+gestita viene modificata in-place dall’installer sorgente.

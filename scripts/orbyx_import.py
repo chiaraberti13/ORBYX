@@ -182,13 +182,15 @@ def discover(folder: Path, settle: float = 1.0, sleep=time.sleep) -> list[dict]:
     if len(candidates) > 10000:
         raise ValueError("Too many acquisition directories")
     initial = {}
+    incomplete = []
     for path in candidates:
         try:
             initial[path] = snapshot(path)
-        except (OSError, ValueError):
-            pass
+        except (OSError, ValueError) as error:
+            if any((path/vis).exists() or (path/vis).is_symlink() for vis in ("MSUGS_VIS1","MSUGS_VIS2")):
+                incomplete.append({'path':str(path.absolute()),'status':'incomplete','reason':str(error)})
     sleep(settle)  # one shared settling interval, not N serial waits
-    reports = []
+    reports = incomplete
     for path in initial:
         try:
             if initial[path] != snapshot(path):

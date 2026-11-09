@@ -26,6 +26,23 @@ if ! flock -n 9; then
   orbyx_message 'Chiudi ORBYX o attendi che termini l’altra installazione.' 'Close ORBYX or wait for the other installation to finish.' >&2
   exit 2
 fi
+prefix=$(orbyx_prefix)
+managed_root=$(dirname "$prefix")
+if [[ -L "$managed_root" || -L "$managed_root/updates" || -L "$managed_root/updates/lock" ]]; then
+  orbyx_message 'La cartella di installazione o il lock non possono essere collegamenti simbolici.' 'Installation directories and lock must not be symlinks.' >&2
+  exit 2
+fi
+mkdir -p "$managed_root/updates"
+exec 8>> "$managed_root/updates/lock"
+if ! flock -n 8; then
+  orbyx_message 'Un’altra installazione o un aggiornamento verificato è in corso.' 'Another installation or verified update is in progress.' >&2
+  exit 2
+fi
+if [[ -L "$prefix" ]]; then
+  orbyx_message 'Installazione gestita da aggiornamenti firmati: usa Aggiornamenti nell’app oppure bash update.sh. La release verificata non viene modificata da install.sh.' \
+    'Signed managed installation: use Updates in the app or bash update.sh. install.sh does not modify a verified release.' >&2
+  exit 2
+fi
 apt_wait=${ORBYX_APT_LOCK_TIMEOUT:-900}
 [[ "$apt_wait" =~ ^[0-9]+$ && ${#apt_wait} -le 4 ]] && ((apt_wait>=1 && apt_wait<=3600))
 apt_run() {
@@ -66,12 +83,6 @@ for tool in cmake ctest ninja c++ python3; do
   fi
 done
 build="$orbyx_repo/build-desktop"
-prefix=$(orbyx_prefix)
-if [[ -L "$prefix" ]]; then
-  orbyx_message 'Installazione gestita da aggiornamenti firmati: usa Aggiornamenti nell’app oppure bash update.sh. La release verificata non viene modificata da install.sh.' \
-    'Signed managed installation: use Updates in the app or bash update.sh. install.sh does not modify a verified release.' >&2
-  exit 2
-fi
 orbyx_phase=configurazione
 orbyx_run cmake -S "$orbyx_repo" -B "$build" -G Ninja -DCMAKE_BUILD_TYPE=Release \
   -DORBYX_BUILD_GUI=ON -DBUILD_TESTING=ON -DCMAKE_INSTALL_PREFIX="$prefix"

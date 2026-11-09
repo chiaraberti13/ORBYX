@@ -51,7 +51,7 @@ public:
             products->setRowCount(0);
             for(const auto &entry:doc.object()["products"].toArray()) {
                 auto data=entry.toObject();int row=products->rowCount();products->insertRow(row);auto *name=new QTableWidgetItem(QFileInfo(data["path"].toString()).fileName());name->setData(Qt::UserRole,data);products->setItem(row,0,name);
-                const QString state=data["status"].toString();QString translated=state=="ready"?text("Ready","Pronta"):state=="unstable"?text("Still writing","Scrittura in corso"):text("Rejected","Rifiutata");
+                const QString state=data["status"].toString();QString translated=state=="ready"?text("Ready","Pronta"):state=="unstable"?text("Still writing","Scrittura in corso"):state=="incomplete"?text("Incomplete","Incompleta"):text("Rejected","Rifiutata");
                 products->setItem(row,1,new QTableWidgetItem(translated+" · "+data["satellite"].toString()+" "+data["reason"].toString()));
                 QString identity=data["path"].toString()+":"+data["fingerprint"].toString();
                 if(automatic->isChecked()&&state=="ready"&&!data["satellite"].isNull()&&!imported.contains(identity)) {if(import(data,true))imported.insert(identity);}

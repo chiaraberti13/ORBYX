@@ -70,6 +70,14 @@ bash demo.sh --lang en
 
 Press **Run image demo** in the app (Ctrl+Shift+D). Six bundled real JPEG previews, three SX and three DX, are registered and composed into one image. No manual paths are needed. The command opens the same built-in demo; `bash demo.sh --no-open` runs it offscreen into demo-output, with logs. These are 8-bit previews, not absolute geometry or radiometrically calibrated true colour. [Source details](assets/demo-jpeg/SOURCE.md).
 
+### New desktop workflows
+
+- **Guided calibration…** validates input/destination and prepares ECC scale/satellite settings. Successful calibration selects the new profile for alignment.
+- **Monitor acquisitions…** discovers stable native SatDump products. Manual import and opt-in matching-satellite queueing never start processing automatically.
+- Queue edits survive restarts. Completed jobs need digest verification before their completion is trusted again; double-click to review parameters.
+- **Verified updates…** authenticates native packages and supports verified rollback. [Guide](docs/UPDATES.md).
+- `bash security.sh` scans the installed Ubuntu runtime against OSV and saves findings, coverage gaps and replayable evidence under logs.
+
 ### 5. Process your data
 
 You need RDAS products already decoded by SatDump, including both VIS sensors and their channels. ORBYX does not receive satellite signals. You can install/open it without data.

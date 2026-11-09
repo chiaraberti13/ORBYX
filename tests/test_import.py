@@ -62,7 +62,11 @@ class ImportTests(unittest.TestCase):
             with self.assertRaises(ValueError):imp.decode_cbor(bad)
     def test_missing_and_symlink_not_imported(self):
         p=self.product/'MSUGS_VIS1/MSUGS-VIS-1.png';p.unlink();p.symlink_to(self.product/'MSUGS_VIS2/MSUGS-VIS-1.png')
-        self.assertEqual(imp.discover(self.parent,0),[])
+        self.assertTrue(all(p['status']!='ready' for p in imp.discover(self.parent,0)))
+    def test_incomplete_product_is_visible_but_withheld(self):
+        (self.product/'MSUGS_VIS1/product.cbor').unlink()
+        report=imp.discover(self.parent,0)
+        self.assertEqual(len(report),1);self.assertEqual(report[0]['status'],'incomplete')
     def test_truncated_png_is_rejected(self):
         p=self.product/'MSUGS_VIS1/MSUGS-VIS-1.png';p.write_bytes(p.read_bytes()[:-12])
         self.assertEqual(imp.discover(self.parent,0)[0]['status'],'rejected')

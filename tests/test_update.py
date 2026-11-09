@@ -65,6 +65,10 @@ class UpdateTests(unittest.TestCase):
         before=(self.managed/'application').resolve()
         with self.assertRaises(ValueError):u.rollback(self.managed,verifier=reject)
         self.assertEqual((self.managed/'application').resolve(),before)
+    def test_shared_writable_root_is_refused(self):
+        self.managed.mkdir();self.managed.chmod(0o777)
+        with self.assertRaises(ValueError):self.install()
+        self.assertEqual(self.verified,0)
     def test_concurrent_update_is_refused(self):
         with u.locked(self.managed):
             with self.assertRaises(BlockingIOError):self.install()

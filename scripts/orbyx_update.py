@@ -138,10 +138,14 @@ def locked(root: Path):
     root=Path(os.path.abspath(root))
     if root.is_symlink():raise ValueError('Update root must not be a symlink')
     root.mkdir(parents=True,exist_ok=True,mode=0o700)
+    info=root.stat()
+    if info.st_uid!=os.geteuid() or info.st_mode&0o022:raise ValueError('Update root must be owned by this user and not writable by other users')
     store=root/'updates'
     for path in (store,store/'releases'):
         if path.is_symlink():raise ValueError('Update store must not contain directory symlinks')
         path.mkdir(exist_ok=True,mode=0o700)
+        info=path.stat()
+        if info.st_uid!=os.geteuid() or info.st_mode&0o022:raise ValueError('Update store is not protected from other users')
     fd=os.open(store/'lock',os.O_CREAT|os.O_RDWR|os.O_NOFOLLOW|os.O_NONBLOCK,0o600)
     try:
         info=os.fstat(fd)

@@ -12,6 +12,9 @@
 #include <QFileInfo>
 #include <QCheckBox>
 #include <QDir>
+#include <QFile>
+#include <QJsonDocument>
+#include <QtEndian>
 #include <QGroupBox>
 class CalibrationReviewPage final : public QWizardPage {
 public: void requireConfirmation(QCheckBox *box) {registerField("confirmed*",box);} };
@@ -64,6 +67,23 @@ public:
                 if(!file.isFile()||file.isSymLink()||file.size()==0)error=text("The acquisition is incomplete.","L’acquisizione è incompleta.");
             }
             if(!profile.isFile()||profile.isSymLink())error=text("Choose an existing JSON profile.","Scegli un profilo JSON esistente.");
+            else {
+                QFile json(profile.absoluteFilePath());
+                if(!json.open(QIODevice::ReadOnly)||json.size()>1024*1024||!QJsonDocument::fromJson(json.read(1024*1024+1)).isObject())error=text("Choose a valid JSON object profile (maximum 1 MiB).","Scegli un profilo JSON valido (massimo 1 MiB).");
+            }
+            for(const auto& vis:{"MSUGS_VIS1","MSUGS_VIS2"}) {
+                QByteArray reference;
+                for(const auto& name:{"MSUGS-VIS-1.png","MSUGS-VIS-2.png","MSUGS-VIS-3.png"}) {
+                    QFileInfo info(QDir(inputEdit->text()).filePath(QString(vis)+"/"+name));
+                    if(!info.isFile()||info.isSymLink())continue;
+                    QFile file(info.absoluteFilePath());if(!file.open(QIODevice::ReadOnly)){error=text("Cannot read PNG header.","Impossibile leggere l’intestazione PNG.");continue;}
+                    const auto header=file.read(33);
+                    if(header.size()!=33||header.left(8)!=QByteArray::fromHex("89504e470d0a1a0a")||header.mid(8,8)!=QByteArray::fromHex("0000000d49484452")){error=text("Invalid PNG header.","Intestazione PNG non valida.");continue;}
+                    const quint32 w=qFromBigEndian<quint32>(reinterpret_cast<const uchar*>(header.constData()+16)),h=qFromBigEndian<quint32>(reinterpret_cast<const uchar*>(header.constData()+20));
+                    if(!w||h<=3606||quint64(w)*h>150000000||(header[24]!=8&&header[24]!=16)||header[25]!=0)error=text("Use native grayscale RDAS products, not reduced previews.","Usa prodotti RDAS nativi in scala di grigi, non anteprime ridotte.");
+                    if(reference.isEmpty())reference=header.mid(16,10);else if(reference!=header.mid(16,10))error=text("Sensor channel geometry differs.","I canali del sensore hanno geometria differente.");
+                }
+            }
             for(const auto& vis:{"MSUGS_VIS1","MSUGS_VIS2"})
                 if(QFileInfo(QDir(inputEdit->text()).filePath(vis)).isSymLink())error=text("Sensor directories must not be symlinks.","Le cartelle dei sensori non possono essere collegamenti simbolici.");
             const auto destination=QDir::cleanPath(out.absoluteFilePath());const auto origin=QDir::cleanPath(in.canonicalFilePath());

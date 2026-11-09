@@ -202,6 +202,22 @@ int main(int argc, char **argv) {
             requireTest(!second.findChild<QPushButton*>("queueAdd")->isEnabled(),"Stale queue remained writable");
             Window check;requireTest(check.findChild<QTableWidget*>("queueTable")->rowCount()==before+1,"Saved queue was lost after revision conflict");check.close();second.close();first.close();
         }
+        {
+            const auto base=QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+            const auto stored=base+"/desktop-queue.json",backup=base+"/desktop-queue.backup";
+            requireTest(QFile::rename(stored,backup),"Cannot isolate legacy migration test");
+            Window legacy;auto *table=legacy.findChild<QTableWidget*>("queueTable");
+            requireTest(table->rowCount()==1,"Previous queue manifest was not migrated");
+            requireTest(!QFileInfo::exists(stored),"Startup wrote queue storage implicitly");legacy.close();
+            requireTest(QFile::rename(backup,stored),"Cannot restore queue after migration test");
+            const auto original=hashFile(stored);
+            requireTest(QFile::rename(stored,backup),"Cannot isolate corrupt queue test");
+            QFile corrupt(stored);requireTest(corrupt.open(QIODevice::WriteOnly),"Cannot write malformed queue fixture");corrupt.write("{broken");corrupt.close();
+            Window rejected;requireTest(!rejected.findChild<QPushButton*>("queueAdd")->isEnabled(),"Corrupt queue became writable");
+            requireTest(rejected.findChild<QTableWidget*>("queueTable")->rowCount()==0,"Corrupt queue produced jobs");rejected.close();
+            QFile retained(stored);requireTest(retained.open(QIODevice::ReadOnly)&&retained.readAll()=="{broken","Corrupt source was overwritten");retained.close();
+            QFile::remove(stored);requireTest(QFile::rename(backup,stored)&&hashFile(stored)==original,"Queue backup changed");
+        }
         const QDir sample(QDir(QCoreApplication::applicationDirPath()).filePath("share/orbyx/demo-jpeg"));
         QFile sums(sample.filePath("SHA256SUMS"));requireTest(sums.open(QIODevice::ReadOnly),"Demo source hashes unavailable");
         int sources=0;
