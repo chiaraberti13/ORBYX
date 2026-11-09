@@ -104,7 +104,7 @@ Nella finestra:
 4. Scegli **Allinea canali**, poi **Avvia elaborazione**.
 5. Attendi **Completato**; usa l'anteprima e il riquadro Attività per controllare il risultato.
 
-**Se usi L4:** prima seleziona **Calcola calibrazione** e avvia l'elaborazione in una nuova destinazione. Poi scegli come profilo il nuovo file `calibration.json` usando il selettore, passa ad **Allinea canali** e usa un'altra nuova destinazione. La scelta delle regioni di fusione rimane manuale: [dettagli sulla calibrazione reale](docs/REAL_RDAS.md).
+**Se usi L4:** premi **Calibrazione guidata…**, segui i tre passaggi e avvia il calcolo. Dopo il successo l’app seleziona il nuovo profilo e prepara la modalità **Allinea canali** con una nuova destinazione; controlla i parametri e premi **Avvia elaborazione**. La scelta delle regioni di fusione rimane manuale: [dettagli sulla calibrazione reale](docs/REAL_RDAS.md).
 
 ### 6. Esporta Natural Color
 

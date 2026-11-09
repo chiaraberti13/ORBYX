@@ -431,3 +431,9 @@ Installazione sorgente e updater condividono inoltre lo stesso lock di modifica:
 una migrazione firmata concorrente non può trasformare il prefisso in un symlink
 fra il controllo iniziale di install.sh e la copia dei file. Nessuna release
 gestita viene modificata in-place dall’installer sorgente.
+
+### Chiusura verificata dello sviluppo software — 9 novembre 2026
+
+Codice `4ea5019025d8707b1d2e629729caf020ac08712a`: tutte le sette workflow applicabili concluse success (Build/regression42589266485, installer42589266383, OIDC42589266318, piattaforme42589266400, VM42589266441, AppImage42589266435, CodeQL42589266430). Build GUI23gruppi:22pass e GPU skipped; sanitizers18gruppi:17pass e GPU skipped, leak detection attiva. Scansione OSV e replay reali verdi su e922cde (42584973253); i findings restano visibili.
+
+Completati i task software sopra descritti; la precedente frase che li indicava ancora da implementare in TEST_RESULTS è stata sostituita con risultati e ambito effettivi. Prove esterne residue: GPU fisica, geografia assoluta certificata, tecnologie assistive reali e chiave GPG personale. README L4 semplificato usando il wizard. Dettagli e collegamenti in docs/TEST_RESULTS.md.

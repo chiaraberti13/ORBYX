@@ -1,7 +1,62 @@
 # Test verificati — 9 novembre 2026
 
-Codice verificato: **b86103f**. Le modifiche sono state pubblicate direttamente
-su `main` in tre incrementi: `52bebf6`, `8103ae6`, `b86103f`.
+Codice dello sviluppo conclusivo: **4ea5019025d8707b1d2e629729caf020ac08712a**.
+Ogni incremento è stato pubblicato direttamente su `main`. I risultati della
+demo precedente rimangono riportati sotto; le nuove funzioni sono descritte
+nella sezione successiva.
+
+## Funzioni completate
+
+- **Calibrazione guidata EN/IT**: tre passaggi, controllo degli input nativi,
+  scala ECC esplicita, revisione e selezione del nuovo profilo dopo il successo.
+- **Importazione SatDump e monitor cartelle**: verifica PNG/CBOR, acquisizioni
+  incomplete visibili ma trattenute, selezione manuale e accodamento automatico
+  facoltativo solo con metadati e profilo compatibili. Il batch ricontrolla il
+  fingerprint prima di elaborare; nessun job parte automaticamente.
+- **Coda desktop persistente**: salvataggio immediato, ripristino, migrazione,
+  protezione fra finestre concorrenti. Le vecchie conclusioni diventano
+  **Da verificare**, finché il batch non riconferma i digest.
+- **Scansione vulnerabilità runtime Ubuntu**: SBOM binaria, pacchetti sorgente e
+  versioni esatte, interrogazione OSV paginata, report e replay con digest.
+  [Scansione reale e replay riusciti](https://github.com/chiaraberti13/ORBYX/actions/runs/42584973253).
+  Un controllo riuscito non significa zero vulnerabilità: i findings rimangono
+  nel report. Una copertura incompleta è un errore esplicito.
+- **Aggiornamenti e rollback autenticati**: verifica Sigstore/GitHub OIDC prima
+  dell'estrazione, vincoli repository/workflow/commit/piattaforma, attivazione
+  atomica e rollback da archivio riverificato. Installer e updater condividono
+  un lock; la release gestita non viene modificata in-place.
+
+Prova crittografica autentica di installazione, rollback e rifiuto di un
+archivio manomesso già superata su Ubuntu22.04/24.04/26.04 sul commit065adb1:
+[run42587526146](https://github.com/chiaraberti13/ORBYX/actions/runs/42587526146).
+Il rollback remoto riattiva una copia riverificata dello stesso build firmato;
+le transizioni fra contenuti diversi sono provate dai test transazionali.
+Questi ultimi usano un verificatore iniettato e non vengono presentati come
+prove di autenticità crittografica.
+
+Regressione locale conclusiva: 22gruppi CTest, 21eseguiti con successo e GPU
+saltata per assenza di dispositivo; GPG escluso localmente perché l'ambiente
+non consente il socket dell'agente. I test remoti includono la meccanica GPG
+con chiave effimera. Test specifici: 11importazione, 10updater e 5correlazione
+avvisi; widget EN/IT con wizard, importazione, aggiornamenti e persistenza.
+La regressione locale non sostituisce le prove remote di piattaforma.
+
+## Verifica conclusiva del codice 4ea5019
+
+Tutte le esecuzioni seguenti sono concluse con esito **success**.
+
+| Prova | Esecuzione |
+| --- | --- |
+| Build Ubuntu22.04/24.04/26.04, CTest, sanitizers, fuzz e Cppcheck | [42589266485](https://github.com/chiaraberti13/ORBYX/actions/runs/42589266485) |
+| Installer completo Ubuntu26.04 come utente normale | [42589266383](https://github.com/chiaraberti13/ORBYX/actions/runs/42589266383) |
+| Aggiornamento, rollback e manomissione con OIDC autentico sulle tre Ubuntu | [42589266318](https://github.com/chiaraberti13/ORBYX/actions/runs/42589266318) |
+| Fedora44 e ARM64 nativo, installazione ed esecuzione | [42589266400](https://github.com/chiaraberti13/ORBYX/actions/runs/42589266400) |
+| Fedora44 in VM completa | [42589266441](https://github.com/chiaraberti13/ORBYX/actions/runs/42589266441) |
+| AppImage in ambiente pulito | [42589266435](https://github.com/chiaraberti13/ORBYX/actions/runs/42589266435) |
+| CodeQL | [42589266430](https://github.com/chiaraberti13/ORBYX/actions/runs/42589266430) |
+
+Nei build GUI remoti:23gruppi,22eseguiti con successo e GPU saltata.
+Sanitizers:18gruppi,17eseguiti con successo e GPU saltata, leak detection attiva.
 
 ## Esiti reali
 
@@ -45,10 +100,12 @@ su `main` in tre incrementi: `52bebf6`, `8103ae6`, `b86103f`.
 PNG RGB a8bit di dimensioni corrette, sei canali intermedi, report delle
 registrazioni e versione con contrasto distinta da quella con livelli originali.
 
-Il riconoscitore di cartelle è stato inoltre eseguito sul campione reale
+Il precedente riconoscitore strutturale di cartelle era stato eseguito sul campione reale
 `assets/sample-elektro-l4`: classificazione strutturale/stabilità `complete`,
 tutti i9 file invariati prima/dopo la scansione. Questo verifica la struttura,
 non la correttezza dei metadati o l’idoneità della preview all’elaborazione nativa.
+Il nuovo importatore nativo è più restrittivo e trattiene questa preview:
+non la considera un'acquisizione RDAS utilizzabile dal motore.
 
 ## Prova la demo nell’app
 
@@ -80,7 +137,8 @@ Non sono dichiarati superati: GPU fisica OpenCL; precisione geografica assoluta
 con verità a terra; screen reader e prove con utenti/tecnologie assistive reali;
 firma con una chiave GPG personale di release. OIDC attesta il workflow.
 
-La roadmap contiene inoltre funzionalità ancora da implementare: correlazione
-SBOM con feed di vulnerabilità, import automatico/disambiguazione metadati,
-wizard di calibrazione e aggiornamento/rollback firmato. Questo report chiude
-le verifiche descritte, non dichiara il repository interamente terminato.
+Correlazione SBOM, importazione controllata, wizard e aggiornamento/rollback
+autenticato sono ora implementati. Le verifiche esterne sopra non sono sviluppo
+software mancante e non vengono segnate come superate senza le risorse reali.
+L'updater copre i pacchetti nativi utente Ubuntu dichiarati; non aggiorna APT,
+RPM o AppImage e non inventa una firma personale GPG.
