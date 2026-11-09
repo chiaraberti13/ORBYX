@@ -301,7 +301,7 @@ progettazione, non dipendenze da integrare automaticamente.
 ## M2-09 — Controllo professionale dell’allineamento
 
 - Priorità: P0
-- Stato: in corso — primo incremento implementato e verificato: oltre a
+- Stato: implementato, verifica remota in corso — oltre a
   trascinamento e valori numerici, il canvas accetta frecce da tastiera per
   spostamenti di1pixel e `Shift`+freccia per10pixel, con annulla/ripeti e
   strategia manuale esplicita. È disponibile anche il lampeggio non distruttivo
@@ -314,8 +314,9 @@ progettazione, non dipendenze da integrare automaticamente.
   annulla/ripeti. È disponibile anche una proposta reversibile per escludere
   grandi bordi uniformi: viene calcolata in background, mostra rettangolo e area
   conservata, richiede conferma e mantiene fermo il contenuto nella scena.
-  Immagini uniformi o ambigue vengono rifiutate. Resta da implementare l’avviso
-  sulla concentrazione spaziale dei punti.
+  Immagini uniformi o ambigue vengono rifiutate. Il riepilogo dei punti mostra
+  inoltre la copertura spaziale mobile/riferimento e avvisa, senza bloccare
+  l’utente, quando gli inlier sono concentrati in una zona troppo piccola.
 - Dipendenze: M2-07, M2-08
 - Responsabile: Computer Vision / Scientific Imaging UX / Qt / QA
 - Deliverable: strumenti mirati alla giunzione, senza trasformare ORBYX in un

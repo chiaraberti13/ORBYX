@@ -718,3 +718,16 @@ posizione tenendo conto di scala e rotazione, così il contenuto rimasto non si
 sposta nella scena. L’operazione è loggata e annullabile/ripetibile. Test widget
 EN/IT su annullamento, evidenze, applicazione, compensazione e annulla passato.
 Pubblicazione editor: `29023a398fd5752d89d7b7152dbc475a70883ee1`.
+
+### M2-09 — Decimo incremento: copertura spaziale dei punti
+
+Il solver calcola sugli inlier l’estensione normalizzata nelle immagini mobile
+e di riferimento. Il riepilogo mostra le due percentuali e segnala quando il
+riquadro coperto è sotto5% o uno degli assi sotto15%. È un avviso, non un
+rifiuto: residui e trasformazione restano disponibili, ma l’utente sa che una
+rotazione/scala ricavata da un solo angolo è fragile.
+
+Test core con punti ampiamente distribuiti e gruppo concentrato; test widget
+EN/IT sul testo e sulla proprietà diagnostica. Entrambe le suite specifiche
+sono passate localmente. Pubblicazione codice:
+`75c47d9f0e0df9c5066294f88caac560b60a9e6c`.

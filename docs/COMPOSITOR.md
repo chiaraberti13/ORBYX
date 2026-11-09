@@ -96,8 +96,10 @@ in M2-08.
    livello sopra). Inserisci almeno tre coppie dello stesso dettaglio nelle
    coordinate dei rispettivi ritagli. Puoi aggiungere, modificare o eliminare
    righe; **Calcola trasformazione** mostra residuo, inlier e outlier prima di
-   abilitare **Applica**. Distribuisci i punti su tutta la zona comune: punti
-   concentrati in una sola area descrivono peggio rotazione e scala.
+   abilitare **Applica**. Il riepilogo indica anche la copertura spaziale sul
+   ritaglio mobile e su quello di riferimento. Se gli inlier sono concentrati,
+   compare un avviso: puoi ancora applicare la soluzione, ma è meglio aggiungere
+   punti distribuiti su tutta la zona comune prima di fidarti di rotazione e scala.
    Se la sorgente contiene grandi fasce esterne uniformi, seleziona il livello e
    premi **Proponi ritaglio bordi uniformi…**. ORBYX mostra il rettangolo attuale,
    quello proposto e la percentuale di area conservata. **Annulla** non cambia
@@ -184,7 +186,8 @@ Verifica inoltre l’apertura di due prodotti allineati con le ROI del profilo,
 ritagli e posizione iniziale esatti, il ripristino dopo una modifica manuale e
 la loro persistenza in un progetto.
 Verifica il solver dei punti di controllo su una trasformazione nota con un
-outlier, i residui per coppia, il riepilogo EN/IT e applicazione/annulla/ripeti.
+outlier, i residui per coppia, la copertura spaziale, l’avviso EN/IT per punti
+concentrati e applicazione/annulla/ripeti.
 Verifica inoltre la proposta di ritaglio su un bordo sintetico noto, il rifiuto
 di un’immagine uniforme, il rispetto di un ritaglio esistente, conferma e
 annullamento EN/IT, compensazione di posizione con scala/rotazione e annulla.

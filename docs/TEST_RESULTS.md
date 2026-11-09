@@ -102,6 +102,12 @@ annulla. Le suite `mosaic-regression` e `mosaic-widget-flow` sono passate.
 Commit core `739d4a8`; editor `29023a3`. La CI remota di questi due incrementi
 deve concludersi prima di riportare qui un’esecuzione come verde.
 
+L’incremento `75c47d9` aggiunge copertura spaziale mobile/riferimento e avviso
+non bloccante per inlier concentrati. Il test core distingue correttamente un
+insieme ampio da uno ristretto; il test widget verifica messaggio e diagnostica
+in entrambe le lingue. Le due suite specifiche sono passate localmente; la CI
+remota è in corso.
+
 ## Funzioni completate
 
 - **Calibrazione guidata EN/IT**: tre passaggi, controllo degli input nativi,
