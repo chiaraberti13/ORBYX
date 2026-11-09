@@ -308,6 +308,7 @@ progettazione, non dipendenze da integrare automaticamente.
   del livello selezionato e una mappa in falsi colori delle differenze nella
   sola area sovrapposta con il livello adiacente. È disponibile anche il
   confronto a scacchiera della stessa coppia e una tendina verticale regolabile.
+  Un comando centra e ingrandisce l’intersezione reale della coppia selezionata.
   Restano da implementare punti di controllo e proposta di esclusione dei bordi
   uniformi.
 - Dipendenze: M2-07, M2-08

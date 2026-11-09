@@ -88,6 +88,9 @@ in M2-08.
    **Tendina: selezionato e adiacente** divide la stessa coppia lungo una linea
    verticale. Sposta il cursore da0 a100% per scegliere dove termina una
    porzione e inizia l’altra; la linea colorata indica il confine della vista.
+   **Zoom sulla sovrapposizione selezionata** centra e ingrandisce l’area comune
+   della coppia corrente. Se i poligoni trasformati non si intersecano, ORBYX lo
+   segnala senza cambiare zoom o geometria.
 7. Regola **Scala**, **Rotazione**, **Ritaglio**, **Opacità** e **Sfumatura bordi**.
    I valori del ritaglio sono nelle coordinate della sorgente; larghezza e altezza
    entrambe 0 significano immagine intera. Per eliminare intestazioni usa il

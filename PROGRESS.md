@@ -662,3 +662,16 @@ Test widget EN/IT: quarta modalità presente, abilitazione contestuale del
 cursore, valore35% realmente renderizzato, coppia corretta e stato invariato al
 ritorno alla composizione. Compilazione e suite compositore passate.
 Pubblicazione codice: `03a93cef65c3a8aeb84a58574ee58c72ab81ce23`.
+
+### M2-09 — Sesto incremento: zoom dedicato alla seam
+
+Il comando **Zoom sulla sovrapposizione selezionata** calcola l’intersezione dei
+contorni trasformati del livello selezionato e di quello adiacente, adatta lo
+zoom entro25–400% e centra l’area nel riquadro scorrevole. Se l’intersezione è
+vuota mostra un messaggio e non inventa una seam.
+
+Test widget EN/IT su coppia realmente sovrapposta, centratura attivata e stato
+del progetto identico prima/dopo. La prima compilazione ha evidenziato l’header
+Qt incompleto di `QScrollBar`; è stato incluso esplicitamente e la successiva
+build più suite compositore sono passate. Pubblicazione codice:
+`3f9790fd3a32d07e6dc52e694d10fcdc90117192`.
