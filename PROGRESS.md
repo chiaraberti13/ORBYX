@@ -370,3 +370,12 @@ con report sotto logs; workflow periodica per il runtime Ubuntu reale.
 Fonte/schema: https://documentation.ubuntu.com/security/security-updates/osv/
 e https://google.github.io/osv.dev/post-v1-querybatch/ . Nessun percorso locale
 viene inviato: solo nomi/versioni dei pacchetti sorgente.
+
+### Risoluzione delle diversion dpkg
+
+La prima scansione reale ha risolto106pacchetti sorgente e trovato305segnalazioni,
+ma ha correttamente segnalato copertura incompleta: gli avvisi dpkg-divert per
+loader e libtirpc venivano letti come nomi di pacchetto. Ispezionato l’artifact
+reale, corretto il parser perché selezioni soltanto una riga di proprietà valida
+(non deduca proprietà dalle diversion), aggiunte due regressioni con l’output
+osservato. Le segnalazioni di vulnerabilità restano nel report, non ignorate.

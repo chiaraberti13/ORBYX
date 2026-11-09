@@ -58,6 +58,20 @@ Dynamic section at offset 0x2d58 contains 27 entries:
                 self.assertEqual(run.call_args.kwargs['env']['LANG'],'C')
 
 
+class DiversionOwnershipTests(unittest.TestCase):
+    def test_diversion_diagnostic_is_not_a_package(self):
+        sbom.real_package_of.cache_clear()
+        output="diversion by libc6 from: /lib64/ld-linux-x86-64.so.2\ndiversion by libc6 to: /lib64/ld-linux-x86-64.so.2.usr-is-merged\nlibc6:amd64: /lib64/ld-linux-x86-64.so.2\n"
+        with patch.object(sbom.shutil,'which',return_value='/usr/bin/dpkg-query'),patch.object(sbom,'_run',return_value=output):
+            self.assertEqual(sbom.real_package_of('/lib64/ld-linux-x86-64.so.2'),'libc6')
+        sbom.real_package_of.cache_clear()
+    def test_diversion_only_does_not_invent_an_owner(self):
+        sbom.real_package_of.cache_clear()
+        with patch.object(sbom.shutil,'which',return_value='/usr/bin/dpkg-query'),patch.object(sbom,'_run',return_value='diversion by libtirpc3t64 from: /lib/libtirpc.so.3\n'):
+            self.assertIsNone(sbom.real_package_of('/lib/libtirpc.so.3'))
+        sbom.real_package_of.cache_clear()
+
+
 class ParseLddTests(unittest.TestCase):
     def test_resolved_unresolved_vdso_and_loader(self):
         output = """\

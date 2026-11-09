@@ -175,7 +175,12 @@ def real_package_of(path: str) -> Optional[str]:
     for candidate in candidates:
         try:
             out = _run(["dpkg-query", "-S", candidate])
-            return out.splitlines()[0].split(":", 1)[0] or None
+            # dpkg -S may put diversion diagnostics before the actual owner.
+            # A diversion is not itself a package ownership record.
+            for line in out.splitlines():
+                owner, separator, _ = line.partition(": ")
+                if separator and re.fullmatch(r"[a-z0-9][a-z0-9+.-]*(?::[a-z0-9-]+)?", owner):
+                    return owner.split(":", 1)[0]
         except (subprocess.CalledProcessError, OSError):
             continue
     return None
