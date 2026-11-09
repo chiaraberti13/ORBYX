@@ -793,3 +793,37 @@ eseguibile in questo runtime senza hardware: il percorso di fallback del motore
 è coperto dalla logica e dalla sonda identica al verificatore, non da una GPU
 divergente simulata. La verifica remota completa (incluse GUI e CI) è da
 osservare dopo il push.
+
+## Usabilità GUI: profilo incluso e simulazione immagini manuale — 2026-11-09
+
+Dai riscontri utente: «non ho profili .json da caricare» e «vorrei fare
+simulazioni manuali anche con le immagini della cartella demo». Modifiche di
+sola interfaccia, senza toccare il motore né gli algoritmi.
+
+- **Profilo mai bloccante**: il campo «Profilo di calibrazione» era già
+  precompilato col profilo incluso (`resources/calibration.json`, installato in
+  `share/orbyx/calibration.json`); ora l'etichetta dice «(incluso)», la
+  risoluzione del percorso è in un helper `bundledProfile()` e `execute()`
+  ripristina il profilo incluso se l'utente svuota il campo. Così servono solo
+  origine e destinazione; nessun `.json` da procurarsi.
+- **Simulazione immagini manuale**: nuovo pulsante «Simulazione immagini…»
+  (`simulateButton`, Ctrl+Maiusc+S) che esegue la stessa pipeline reale della
+  demo su una cartella **scelta dall'utente**, con default la cartella demo
+  inclusa; accetta sei JPEG `sx_/dx_ MSUGS-VIS-1/2/3`. `executeImageDemo` ora
+  prende una cartella opzionale; nessuna rete né shell implicita (riusa
+  `orbyx::runImageDemo`). Rifiuto esplicito di cartelle senza i sei file.
+
+Verifica effettiva (Ubuntu 24.04.5, Qt 6.4.2, OpenCV 4.6, offscreen): build GUI
+pulita; `gui-widget-flow` esteso con un caso che verifica presenza/accessibilità
+del nuovo pulsante e l'esecuzione su cartella scelta (composito 1428×1428
+mostrato, progress 100, nessun ERROR). Suite completa 24/24 passata con la label
+`gpu` esclusa (la verifica GPU resta diagnostica separata). Screenshot IT/scuro
+1280×1000 ispezionato: nuovo pulsante nell'intestazione, etichetta «(incluso)»
+col percorso precompilato, layout integro. Verifica remota/CI da osservare dopo
+il push.
+
+Chiarimento onesto sullo stato complessivo: non è stato «finito tutto» il
+ROADMAP. Restano aperti, come già dichiarato, i punti che richiedono hardware o
+prove manuali reali (equivalenza GPU su dispositivo, geolocalizzazione assoluta
+e verità a terra, accessibilità con screen reader fisico, aggiornamento/rollback
+firmato con chiave reale). L'app è pienamente usabile senza dati né `.json`.
