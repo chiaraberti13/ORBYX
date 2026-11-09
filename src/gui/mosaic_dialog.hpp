@@ -35,6 +35,7 @@
 #include <QUuid>
 #include <QVBoxLayout>
 #include <QDir>
+#include <opencv2/imgproc.hpp>
 #include <functional>
 #include <memory>
 #include <algorithm>
@@ -62,7 +63,7 @@ protected:
 class MosaicDialog final:public QDialog {
     bool it=false,busy=false,updating=false,dirty=false;
     QWidget* tools{};QListWidget* list{};MosaicCanvas* canvas{};QLabel* status{};
-    QScrollArea* previewView{};QComboBox* colourMode{};QDoubleSpinBox* zoom{};QCheckBox* visible{};QCheckBox* blink{};
+    QScrollArea* previewView{};QComboBox* colourMode{};QComboBox* inspectionMode{};QDoubleSpinBox* zoom{};QCheckBox* visible{};QCheckBox* blink{};
     std::vector<QDoubleSpinBox*> controls;
     std::vector<orbyx::MosaicLayer> layers;
     std::vector<orbyx::MosaicLayer> profileRoiBaseline;
@@ -132,10 +133,32 @@ class MosaicDialog final:public QDialog {
         if(layers.empty()){canvas->clear();previewImage={};status->setText(t("Add portions or aligned channels to begin.","Aggiungi porzioni o canali allineati per iniziare."));return;}
         auto state=layers;const int selected=list->currentRow();
         if(blink&&blink->isChecked()&&selected>=0&&selected<int(state.size()))state[size_t(selected)].visible=!blinkHidden;
-        auto result=std::make_shared<orbyx::MosaicResult>();
-        run([state,result]{*result=orbyx::renderMosaic(state,1200);},[this,result]{
-            auto& m=result->image;QImage image(m.data,m.cols,m.rows,int(m.step),QImage::Format_BGR888);
-            const bool first=previewImage.isNull();previewImage=image.copy();previewRatio=result->pixelsPerSourcePixel;outlines.clear();for(const auto& points:result->outlines){QPolygonF polygon;for(const auto& point:points)polygon<<QPointF(point.x,point.y);outlines.push_back(polygon);}if(first)fitPreview();else display();
+        const bool difference=inspectionMode&&inspectionMode->currentIndex()==1&&state.size()>1&&selected>=0;
+        struct PreviewResult{orbyx::MosaicResult mosaic;int comparison=-1;int differencePixels=0;};auto result=std::make_shared<PreviewResult>();
+        run([state,result,selected,difference]{
+            if(!difference){result->mosaic=orbyx::renderMosaic(state,1200);return;}
+            const int comparison=selected>0?selected-1:selected+1;result->comparison=comparison;
+            auto pair=state;for(auto& layer:pair)layer.visible=false;
+            pair[size_t(selected)].visible=true;pair[size_t(comparison)].visible=true;
+            auto selectedOnly=pair,comparisonOnly=pair;
+            selectedOnly[size_t(comparison)].opacity=0;comparisonOnly[size_t(selected)].opacity=0;
+            auto a=orbyx::renderMosaic(selectedOnly,1200),b=orbyx::renderMosaic(comparisonOnly,1200);
+            if(a.image.size()!=b.image.size())throw std::runtime_error("Difference preview geometry mismatch");
+            cv::Mat delta,gray,scaled,heat,maskA=cv::Mat::zeros(a.image.size(),CV_8U),maskB=maskA.clone();
+            cv::absdiff(a.image,b.image,delta);cv::cvtColor(delta,gray,cv::COLOR_BGR2GRAY);
+            auto polygon=[](const std::array<cv::Point2d,4>& points){std::vector<cv::Point> out;for(const auto& point:points)out.emplace_back(cvRound(point.x),cvRound(point.y));return out;};
+            cv::fillConvexPoly(maskA,polygon(a.outlines[size_t(selected)]),cv::Scalar(255));
+            cv::fillConvexPoly(maskB,polygon(a.outlines[size_t(comparison)]),cv::Scalar(255));
+            cv::bitwise_and(maskA,maskB,maskA);scaled=cv::Mat::zeros(gray.size(),CV_8U);
+            if(cv::countNonZero(maskA)>0){double low=0,high=0;cv::minMaxLoc(gray,&low,&high,nullptr,nullptr,maskA);if(high>low)cv::normalize(gray,scaled,0,255,cv::NORM_MINMAX,CV_8U,maskA);else gray.copyTo(scaled,maskA);}
+            result->differencePixels=cv::countNonZero(scaled);
+            cv::applyColorMap(scaled,heat,cv::COLORMAP_TURBO);heat.setTo(cv::Scalar::all(0),maskA==0);
+            a.image=heat;result->mosaic=std::move(a);
+        },[this,result]{
+            auto& rendered=result->mosaic;auto& m=rendered.image;QImage image(m.data,m.cols,m.rows,int(m.step),QImage::Format_BGR888);
+            const bool first=previewImage.isNull();previewImage=image.copy();previewRatio=rendered.pixelsPerSourcePixel;outlines.clear();for(const auto& points:rendered.outlines){QPolygonF polygon;for(const auto& point:points)polygon<<QPointF(point.x,point.y);outlines.push_back(polygon);}if(first)fitPreview();else display();
+            setProperty("differenceComparison",result->comparison);
+            setProperty("differencePixels",result->differencePixels);
             status->setText(persistentNotice.isEmpty()?t("Preview only: export uses original resolution and 8/16-bit depth. Drag to move the selected layer.","Solo anteprima: l’esportazione usa risoluzione originale e profondità 8/16 bit. Trascina per spostare il livello selezionato."):persistentNotice);
         });
     }
@@ -197,6 +220,8 @@ public:
         button("mosaicRestoreRoi",t("Restore profile ROI","Ripristina ROI del profilo"),panel,[this]{restoreProfileRoi();});
         blink=new QCheckBox(t("Blink selected layer (preview only)","Lampeggia livello selezionato (solo anteprima)"));blink->setObjectName("mosaicBlink");blink->setAccessibleName(blink->text());panel->addWidget(blink);
         connect(blink,&QCheckBox::toggled,this,[this](bool enabled){blinkHidden=false;setProperty("blinkHidden",false);if(enabled)blinkTimer.start();else blinkTimer.stop();schedule();});
+        inspectionMode=new QComboBox;inspectionMode->setObjectName("mosaicInspection");inspectionMode->addItems({t("Composite preview","Anteprima composita"),t("Difference: selected vs adjacent","Differenza: selezionato e adiacente")});inspectionMode->setAccessibleName(t("Seam inspection mode","Modalità ispezione giunzione"));panel->addWidget(inspectionMode);
+        connect(inspectionMode,qOverload<int>(&QComboBox::currentIndexChanged),this,[this]{schedule();});
         auto* ordering=new QHBoxLayout;panel->addLayout(ordering);
         button("mosaicDown",t("Lower","Abbassa"),ordering,[this]{reorder(-1);});button("mosaicUp",t("Raise","Alza"),ordering,[this]{reorder(1);});
         button("mosaicRemove",t("Remove","Rimuovi"),panel,[this]{int row=list->currentRow();if(row<0)return;remember();layers.erase(layers.begin()+row);refreshList();});
