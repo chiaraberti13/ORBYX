@@ -1,5 +1,6 @@
 // GPL-3.0. Affine/ECC workflow derived from RDAS Layer Aligner by Digitelektro.
 #include "orbyx/engine.hpp"
+#include "orbyx/compositor.hpp"
 #include <opencv2/core/ocl.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
@@ -96,7 +97,7 @@ cv::Rect roi(const Json::Value& section, const cv::Size& size) {
           w <= size.width - x && h <= size.height - y, "ROI outside aligned image");
   return {x,y,w,h};
 }
-cv::Mat readImage(const fs::path& file, bool rdas=true) {
+cv::Mat readImage(const fs::path& file, bool rdas=true, bool allowRgb=false) {
   // Bound allocations from the same immutable PNG bytes passed to the decoder.
   // rdas=false relaxes the raw-channel height rule for already-cropped aligned
   // products (composition inputs), keeping every other bound and format check.
@@ -114,11 +115,11 @@ cv::Mat readImage(const fs::path& file, bool rdas=true) {
   const auto width=integer(16),height=integer(20);
   require(width>0&&height>(rdas?std::uint32_t(ch2offset):0u)&&width<=100000&&height<=100000&&
           std::uint64_t(width)*height<=150000000, "PNG dimensions exceed RDAS safety limits");
-  require((header[24]==8||header[24]==16)&&header[25]==0 && header[26]==0&&header[27]==0&&header[28]<=1,
+  require((header[24]==8||header[24]==16)&&(header[25]==0||(allowRgb&&header[25]==2)) && header[26]==0&&header[27]==0&&header[28]<=1,
           "Expected an unsigned 8-bit or 16-bit grayscale PNG");
   cv::Mat image = cv::imdecode(bytes, cv::IMREAD_UNCHANGED);
   require(!image.empty(), "Cannot decode image: " + file.string());
-  require(image.channels() == 1 && (image.depth()==CV_8U || image.depth()==CV_16U),
+  require((image.channels()==1||(allowRgb&&image.channels()==3)) && (image.depth()==CV_8U || image.depth()==CV_16U),
           "Expected an unsigned 8-bit or 16-bit grayscale channel");
   require(image.cols==static_cast<int>(width) && image.rows==static_cast<int>(height),
           "Decoded PNG dimensions differ from IHDR");
@@ -470,6 +471,14 @@ void composeProduct(const std::array<fs::path,3>& channels,const fs::path& reque
       blended.convertTo(rgb(region),rgb.type(),maximum);
     }
   }
+  writeCompositePng(rgb,destination);
+}
+}
+cv::Mat readCompositePng(const fs::path& path) { return readImage(path,false,true); }
+void writeCompositePng(const cv::Mat& rgb,const fs::path& requested) {
+  const auto destination=fs::absolute(requested).lexically_normal();
+  require(destination.extension()==".png","Composite output must have a .png extension");
+  require(!rgb.empty()&&rgb.channels()==3&&(rgb.depth()==CV_8U||rgb.depth()==CV_16U),"Invalid RGB composite");
   // A private directory protects the encoder target from symlink substitution;
   // RAII also removes temporary output if imwrite throws or publication loses a race.
   Staging stage(destination);
@@ -490,7 +499,7 @@ void composeProduct(const std::array<fs::path,3>& channels,const fs::path& reque
 #endif
   }
 }
-}
+
 void composeRgb(const std::array<fs::path,3>& channels,const fs::path& destination) {
   composeProduct(channels,destination,false);
 }
