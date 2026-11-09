@@ -202,6 +202,34 @@ MosaicResult renderMosaic(const std::vector<MosaicLayer>& layers,int previewEdge
     }
     return result;
 }
+ControlPointSolution alignFromControlPoints(const MosaicLayer& moving,const MosaicLayer& reference,
+                                            const std::vector<ControlPointPair>& pairs) {
+    validate(moving);validate(reference);
+    check(pairs.size()>=3&&pairs.size()<=10000,"Control-point alignment requires 3 to 10000 pairs");
+    std::vector<cv::Point2d> from,to;from.reserve(pairs.size());to.reserve(pairs.size());
+    double minX=std::numeric_limits<double>::infinity(),minY=minX,maxX=-minX,maxY=maxX;
+    for(const auto& pair:pairs){
+        for(double value:{pair.moving.x,pair.moving.y,pair.reference.x,pair.reference.y})check(std::isfinite(value)&&std::abs(value)<=1000000,"Invalid control-point coordinate");
+        from.push_back(pair.moving);to.push_back(pair.reference);minX=std::min(minX,pair.moving.x);minY=std::min(minY,pair.moving.y);maxX=std::max(maxX,pair.moving.x);maxY=std::max(maxY,pair.moving.y);
+    }
+    check(std::hypot(maxX-minX,maxY-minY)>=1,"Degenerate control-point geometry");
+    cv::Mat mask;auto affine=cv::estimateAffinePartial2D(from,to,mask,cv::RANSAC,3.0,5000,.995,20);
+    check(!affine.empty()&&mask.total()==pairs.size(),"Control-point transform could not be estimated");affine.convertTo(affine,CV_64F);
+    ControlPointSolution result;std::vector<double> accepted;
+    for(size_t i=0;i<pairs.size();++i){
+        const auto& p=pairs[i].moving;const auto& q=pairs[i].reference;
+        const double x=affine.at<double>(0,0)*p.x+affine.at<double>(0,1)*p.y+affine.at<double>(0,2);
+        const double y=affine.at<double>(1,0)*p.x+affine.at<double>(1,1)*p.y+affine.at<double>(1,2);
+        const double error=std::hypot(x-q.x,y-q.y);result.residuals.push_back(error);
+        if(mask.at<unsigned char>(int(i))){result.inliers.push_back(i);accepted.push_back(error);}
+    }
+    check(result.inliers.size()>=2,"Too few consistent control points");
+    const double a=affine.at<double>(0,0),b=affine.at<double>(1,0),scale=std::hypot(a,b);
+    check(std::isfinite(scale)&&scale>=.01&&scale<=100,"Control-point scale exceeds limits");
+    result.medianError=median(accepted);result.maxError=*std::max_element(accepted.begin(),accepted.end());
+    cv::Matx23d local{affine.at<double>(0,0),affine.at<double>(0,1),affine.at<double>(0,2),affine.at<double>(1,0),affine.at<double>(1,1),affine.at<double>(1,2)};
+    result.layer=placed(moving,reference,local);return result;
+}
 AutoOverlapResult autoAlignOverlaps(const std::vector<MosaicLayer>& layers,std::size_t anchor) {
     check(layers.size()>=2&&layers.size()<=32,"Automatic overlap requires 2 to 32 layers");
     check(anchor<layers.size()&&layers[anchor].visible,"Automatic overlap anchor must be visible");

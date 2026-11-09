@@ -30,6 +30,16 @@ struct AutoOverlapResult {
     std::vector<OverlapMatch> accepted;
     std::vector<std::size_t> unaligned;
 };
+struct ControlPointPair {
+    cv::Point2d moving;    // Coordinates inside the moving cropped portion.
+    cv::Point2d reference; // Coordinates inside the reference cropped portion.
+};
+struct ControlPointSolution {
+    MosaicLayer layer;
+    std::vector<double> residuals;       // One value per supplied pair.
+    std::vector<std::size_t> inliers;    // Robustly accepted pair indices.
+    double medianError=0, maxError=0;    // Inlier residuals, in reference pixels.
+};
 // Strict, bounded PNG reader shared with the core. Grayscale or RGB 8/16-bit.
 cv::Mat readCompositePng(const std::filesystem::path&);
 void writeCompositePng(const cv::Mat&,const std::filesystem::path&);
@@ -40,6 +50,12 @@ MosaicResult renderMosaic(const std::vector<MosaicLayer>&,int previewEdge=0);
 // match remain untouched and are listed in unaligned. No geographic meaning is
 // inferred, no pixels are written and the caller decides whether to apply.
 AutoOverlapResult autoAlignOverlaps(const std::vector<MosaicLayer>&,std::size_t anchor=0);
+// Fit a similarity transform from user-reviewed point pairs. The returned
+// moving layer is placed in the reference layer's scene coordinate system.
+// At least three finite, non-degenerate pairs are required; RANSAC rejects
+// outliers and residuals are reported for every supplied pair.
+ControlPointSolution alignFromControlPoints(const MosaicLayer& moving,const MosaicLayer& reference,
+                                            const std::vector<ControlPointPair>& pairs);
 std::string mosaicProject(const std::vector<MosaicLayer>&);
 std::vector<MosaicLayer> parseMosaicProject(const std::string&);
 }

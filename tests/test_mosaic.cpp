@@ -80,6 +80,22 @@ int main(){
         check(std::abs(recovered.layers[1].x-inverse.at<double>(0,2))<6&&std::abs(recovered.layers[1].y-inverse.at<double>(1,2))<6,"Automatic rotated translation outside tolerance");
         auto noMatch=orbyx::autoAlignOverlaps({automatic[0],blank});
         check(noMatch.accepted.empty()&&noMatch.unaligned==std::vector<std::size_t>{1},"Featureless portion was not retained for manual editing");
+        // User-reviewed control points recover a known similarity transform,
+        // reject one gross outlier and expose residuals for every pair.
+        reference.x=100;reference.y=50;reference.scale=1.2;reference.angle=10;moving.x=-400;moving.y=700;
+        const double relativeScale=.92,relativeAngle=-4*CV_PI/180.,rc=std::cos(relativeAngle)*relativeScale,rs=std::sin(relativeAngle)*relativeScale;
+        std::vector<orbyx::ControlPointPair> controlPoints;
+        for(const cv::Point2d point:std::vector<cv::Point2d>{{10,20},{160,25},{25,140},{190,155},{90,70},{220,90},{55,190},{175,205}})
+            controlPoints.push_back({point,{rc*point.x-rs*point.y+25,rs*point.x+rc*point.y-12}});
+        controlPoints.push_back({{120,120},{900,-600}});
+        auto controlled=orbyx::alignFromControlPoints(moving,reference,controlPoints);
+        const double referenceAngle=10*CV_PI/180.,expectedX=100+1.2*(std::cos(referenceAngle)*25-std::sin(referenceAngle)*-12),expectedY=50+1.2*(std::sin(referenceAngle)*25+std::cos(referenceAngle)*-12);
+        check(std::abs(controlled.layer.scale-1.2*relativeScale)<1e-5&&std::abs(controlled.layer.angle-6)<1e-5,"Control points recovered wrong scale or rotation");
+        check(std::abs(controlled.layer.x-expectedX)<1e-4&&std::abs(controlled.layer.y-expectedY)<1e-4,"Control points recovered wrong translation");
+        check(controlled.residuals.size()==controlPoints.size()&&controlled.inliers.size()==8&&controlled.inliers.back()==7,"Control-point outlier was not rejected");
+        check(controlled.medianError<1e-4&&controlled.maxError<1e-4&&controlled.residuals.back()>500,"Control-point residual diagnostics incorrect");
+        rejects([&]{orbyx::alignFromControlPoints(moving,reference,{{{0,0},{0,0}},{{1,1},{1,1}}});});
+        rejects([&]{orbyx::alignFromControlPoints(moving,reference,{{{1,1},{0,0}},{{1,1},{2,2}},{{1,1},{3,3}}});});
         fs::remove_all(root);std::cout<<"Mosaic geometry, colour, precision, persistence and rejection tests passed\n";return 0;
     }catch(const std::exception& e){std::cerr<<e.what()<<'\n';fs::remove_all(root);return 1;}
 }
