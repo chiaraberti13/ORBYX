@@ -606,3 +606,16 @@ del test headless per dialoghi e demo sono state ampliate perché due esecuzioni
 sotto carico avevano raggiunto punti diversi senza un difetto funzionale;
 nessuna verifica è stata rimossa. Cppcheck pulito. Pubblicazione codice:
 `955dde7b5848849aa0925d9babe4a14fe6d5299e`.
+
+### M2-09 — Secondo incremento: lampeggio della giunzione
+
+Aggiunta l’ispezione **Lampeggia livello selezionato (solo anteprima)**. A
+intervalli regolari il renderer di anteprima mostra e nasconde la porzione
+selezionata, inclusa la sua cornice, per rendere evidenti dettagli sdoppiati o
+una posizione errata. La funzione usa una copia temporanea dello stato: non
+cambia visibilità, geometria, progetto o PNG esportato.
+
+Test widget EN/IT: alternanza effettiva, arresto e ripristino dell’anteprima,
+confronto serializzato esatto dello stato prima/dopo. Suite compositore passata
+e Cppcheck pulito. Pubblicazione codice:
+`b81580ced6c9d79836faf575ba0130217ca177c6`.

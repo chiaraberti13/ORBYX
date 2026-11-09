@@ -72,7 +72,10 @@ in M2-08.
    orizzontale, verticale o su una griglia irregolare.
    Per una correzione precisa fai clic sull’anteprima e usa le frecce: ogni
    pressione sposta il livello selezionato di1pixel; con `Shift` lo spostamento
-   è di10pixel. Anche questi movimenti sono annullabili e ripetibili.
+   è di10pixel. Anche questi movimenti sono annullabili e ripetibili. Attiva
+   **Lampeggia livello selezionato (solo anteprima)** per alternare la porzione
+   corrente e vedere più facilmente coste, nuvole o dettagli sdoppiati. Il
+   lampeggio non modifica i livelli e non compare nel PNG esportato.
 7. Regola **Scala**, **Rotazione**, **Ritaglio**, **Opacità** e **Sfumatura bordi**.
    I valori del ritaglio sono nelle coordinate della sorgente; larghezza e altezza
    entrambe 0 significano immagine intera. Per eliminare intestazioni usa il

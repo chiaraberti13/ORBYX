@@ -304,8 +304,10 @@ progettazione, non dipendenze da integrare automaticamente.
 - Stato: in corso — primo incremento implementato e verificato: oltre a
   trascinamento e valori numerici, il canvas accetta frecce da tastiera per
   spostamenti di1pixel e `Shift`+freccia per10pixel, con annulla/ripeti e
-  strategia manuale esplicita. Restano da implementare le modalità di ispezione
-  seam, i punti di controllo e la proposta di esclusione dei bordi uniformi.
+  strategia manuale esplicita. È disponibile anche il lampeggio non distruttivo
+  del livello selezionato per riconoscere sdoppiamenti nella giunzione. Restano
+  da implementare tendina/scacchiera/mappa differenza, punti di controllo e
+  proposta di esclusione dei bordi uniformi.
 - Dipendenze: M2-07, M2-08
 - Responsabile: Computer Vision / Scientific Imaging UX / Qt / QA
 - Deliverable: strumenti mirati alla giunzione, senza trasformare ORBYX in un
