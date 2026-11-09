@@ -62,12 +62,12 @@ protected:
 class MosaicDialog final:public QDialog {
     bool it=false,busy=false,updating=false,dirty=false;
     QWidget* tools{};QListWidget* list{};MosaicCanvas* canvas{};QLabel* status{};
-    QScrollArea* previewView{};QComboBox* colourMode{};QDoubleSpinBox* zoom{};QCheckBox* visible{};
+    QScrollArea* previewView{};QComboBox* colourMode{};QDoubleSpinBox* zoom{};QCheckBox* visible{};QCheckBox* blink{};
     std::vector<QDoubleSpinBox*> controls;
     std::vector<orbyx::MosaicLayer> layers;
     std::vector<orbyx::MosaicLayer> profileRoiBaseline;
     std::vector<std::vector<orbyx::MosaicLayer>> undoStates,redoStates;
-    QTimer previewTimer;QImage previewImage;double previewRatio=1;
+    QTimer previewTimer,blinkTimer;QImage previewImage;double previewRatio=1;bool blinkHidden=false;
     QString workingFolder,persistentNotice;std::vector<QPolygonF> outlines;
     QString t(const char* en,const char* italian)const{return QString::fromUtf8(it?italian:en);}
     QPushButton* button(const char* id,const QString& text,QLayout* layout,std::function<void()> action) {
@@ -125,12 +125,14 @@ class MosaicDialog final:public QDialog {
         if(previewImage.isNull())return;auto p=QPixmap::fromImage(previewImage);
         p=p.scaled(std::max(1,int(p.width()*zoom->value()/100.)),std::max(1,int(p.height()*zoom->value()/100.)),Qt::KeepAspectRatio,Qt::SmoothTransformation);
         const int row=list->currentRow();
-        if(row>=0&&row<int(outlines.size())&&layers[size_t(row)].visible){QPainter painter(&p);painter.setPen(QPen(QColor("#00d4ff"),2,Qt::DashLine));QPolygonF polygon;for(const auto& point:outlines[size_t(row)])polygon<<point*(zoom->value()/100.);painter.drawPolygon(polygon);}
+        if(row>=0&&row<int(outlines.size())&&layers[size_t(row)].visible&&!(blink&&blink->isChecked()&&blinkHidden)){QPainter painter(&p);painter.setPen(QPen(QColor("#00d4ff"),2,Qt::DashLine));QPolygonF polygon;for(const auto& point:outlines[size_t(row)])polygon<<point*(zoom->value()/100.);painter.drawPolygon(polygon);}
         canvas->setPixmap(p);canvas->resize(p.size());
     }
     void preview(){
         if(layers.empty()){canvas->clear();previewImage={};status->setText(t("Add portions or aligned channels to begin.","Aggiungi porzioni o canali allineati per iniziare."));return;}
-        auto state=layers;auto result=std::make_shared<orbyx::MosaicResult>();
+        auto state=layers;const int selected=list->currentRow();
+        if(blink&&blink->isChecked()&&selected>=0&&selected<int(state.size()))state[size_t(selected)].visible=!blinkHidden;
+        auto result=std::make_shared<orbyx::MosaicResult>();
         run([state,result]{*result=orbyx::renderMosaic(state,1200);},[this,result]{
             auto& m=result->image;QImage image(m.data,m.cols,m.rows,int(m.step),QImage::Format_BGR888);
             const bool first=previewImage.isNull();previewImage=image.copy();previewRatio=result->pixelsPerSourcePixel;outlines.clear();for(const auto& points:result->outlines){QPolygonF polygon;for(const auto& point:points)polygon<<QPointF(point.x,point.y);outlines.push_back(polygon);}if(first)fitPreview();else display();
@@ -193,6 +195,8 @@ public:
         connect(list,&QListWidget::currentRowChanged,this,[this]{if(!updating){readControls();display();}});
         button("mosaicAutoOverlap",t("Automatically align overlaps…","Allinea automaticamente le sovrapposizioni…"),panel,[this]{autoAlign();});
         button("mosaicRestoreRoi",t("Restore profile ROI","Ripristina ROI del profilo"),panel,[this]{restoreProfileRoi();});
+        blink=new QCheckBox(t("Blink selected layer (preview only)","Lampeggia livello selezionato (solo anteprima)"));blink->setObjectName("mosaicBlink");blink->setAccessibleName(blink->text());panel->addWidget(blink);
+        connect(blink,&QCheckBox::toggled,this,[this](bool enabled){blinkHidden=false;setProperty("blinkHidden",false);if(enabled)blinkTimer.start();else blinkTimer.stop();schedule();});
         auto* ordering=new QHBoxLayout;panel->addLayout(ordering);
         button("mosaicDown",t("Lower","Abbassa"),ordering,[this]{reorder(-1);});button("mosaicUp",t("Raise","Alza"),ordering,[this]{reorder(1);});
         button("mosaicRemove",t("Remove","Rimuovi"),panel,[this]{int row=list->currentRow();if(row<0)return;remember();layers.erase(layers.begin()+row);refreshList();});
@@ -227,6 +231,7 @@ public:
         button("mosaicLog",t("Open compositor log","Apri log compositore"),outer,[this]{record("Log opened");QDesktopServices::openUrl(QUrl::fromLocalFile(workingFolder+"/compositor.log"));});
         auto* close=new QPushButton(t("Close","Chiudi"));outer->addWidget(close);connect(close,&QPushButton::clicked,this,&QDialog::reject);
         previewTimer.setSingleShot(true);previewTimer.setInterval(350);connect(&previewTimer,&QTimer::timeout,this,[this]{preview();});
+        blinkTimer.setInterval(700);connect(&blinkTimer,&QTimer::timeout,this,[this]{if(busy)return;blinkHidden=!blinkHidden;setProperty("blinkHidden",blinkHidden);schedule();});
         status->setText(t("Add portions or aligned channels to begin.","Aggiungi porzioni o canali allineati per iniziare."));
     }
     bool isBusy()const{return busy||previewTimer.isActive();}

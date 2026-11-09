@@ -50,6 +50,11 @@ int main(int argc,char** argv){
             check(dialog.state()[2].x==nudgeX+1&&dialog.state()[2].y==nudgeY+10&&dialog.property("mergeStrategy").toString()=="manual","Keyboard fine/coarse alignment failed");
             dialog.undo();waitFor(dialog);check(dialog.state()[2].y==nudgeY,"Keyboard alignment is not undoable");
             dialog.redo();waitFor(dialog);check(dialog.state()[2].y==nudgeY+10,"Keyboard alignment redo failed");
+            const auto beforeBlink=orbyx::mosaicProject(dialog.state());auto* blink=dialog.findChild<QCheckBox*>("mosaicBlink");
+            check(blink,"Blink seam inspection control missing");blink->setChecked(true);
+            QElapsedTimer blinkDeadline;blinkDeadline.start();while(!dialog.property("blinkHidden").toBool()&&blinkDeadline.elapsed()<2500)QTest::qWait(20);
+            check(dialog.property("blinkHidden").toBool(),"Blink seam inspection did not alternate the selected layer");blink->setChecked(false);waitFor(dialog);
+            check(!dialog.property("blinkHidden").toBool()&&orbyx::mosaicProject(dialog.state())==beforeBlink,"Blink seam inspection changed editable or export state");
             dialog.reorder(-1);waitFor(dialog);check(list->currentRow()==1,"Layer reordering failed");
             QString project=temp.path()+(it?"/it.json":"/en.json");dialog.saveProject(project);
             auto expected=orbyx::renderMosaic(dialog.state()).image;
