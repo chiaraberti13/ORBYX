@@ -490,3 +490,22 @@ Qt recente confermata su Ubuntu26 e Fedora senza escludere controlli.
 Guida e report aggiornati; task M2-05 chiuso nel suo ambito esplicito. Restano
 separate le prove esterne già dichiarate e l’eventuale futura integrazione dei
 grezzi richiesta soltanto come domanda conoscitiva.
+
+### M2-06 — Sovrapposizione automatica modificabile
+
+Esteso il compositore senza introdurre ipotesi SX/DX. La porzione selezionata
+resta il riferimento; ORBYX estrae dettagli visuali in un’immagine di lavoro
+ridotta, confronta le porzioni in entrambe le direzioni e accetta soltanto una
+trasformazione robusta con soglie esplicite su inlier, errore, area comune e
+confidenza. Una catena di corrispondenze consente di collocare porzioni che non
+toccano direttamente il riferimento. Livelli uniformi o senza corrispondenza
+restano invariati.
+
+L’interfaccia EN/IT mostra le evidenze prima dell’applicazione e propone
+**Applica/Annulla** con annullamento predefinito. La proposta applicata resta un
+normale stato dell’editor: annulla/ripeti, trascinamento e valori numerici restano
+disponibili. Il messaggio persistente richiede di verificare ogni giunzione prima
+dell’export. Test core locali passati su tre ritagli concatenati, rotazione/scala,
+assenza di sovrapposizione e porzione uniforme; verifica GUI e pipeline remote in
+corso. L’automatismo è visuale, non certifica la geografia e non aggiunge un
+decoder dei grezzi SatDump.

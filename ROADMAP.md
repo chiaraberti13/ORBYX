@@ -195,3 +195,12 @@ Gli stati parziali rimasti riguardano prove esterne: hardware GPU, riferimento g
 - Deliverable: editor non distruttivo a livelli, numero/posizione liberi, colore integrato, progetto e immagine unica
 - Accettazione: niente vincolo SX/DX; nessun secondo programma necessario per comporre i prodotti supportati; originali intatti, PNG8/16bit e progetto riapribile
 - Stato: verificato per l’ambito dichiarato su `fa06d80` — massimo32porzioni PNG in grigio/RGB8/16bit, composizione da tre canali allineati, trasformazioni manuali, crop, ordine/opacità/sfumatura, livelli/gamma/EV/saturazione/bilanciamento, annulla/ripeti e progetto JSON. Motore condiviso preview/export, limiti risorse ed export atomico esclusivo. Test core e widget EN/IT passati, compresa demo reale modificabile e apertura dal pulsante principale. Tutte le sette workflow finali verdi: Ubuntu22/24/26, sanitizer/fuzz/static, Fedora/ARM64, VM, AppImage, OIDC e RDAS autentico; 25gruppi desktop (24eseguiti, GPU skipped), 19sanitizers (18eseguiti, GPU skipped). [Prove](docs/TEST_RESULTS.md#nuova-esigenza-m2-05-compositore-multi-porzione). Non include un decoder grezzo, riconoscimento automatico delle porzioni o funzioni GIMP complete. [Guida e limiti](docs/COMPOSITOR.md).
+
+## M2-06 — Proposta automatica delle sovrapposizioni
+
+- Priorità: P1, estensione richiesta dopo M2-05
+- Dipendenze: M2-05
+- Responsabile: Computer Vision / Qt / UX / QA / AppSec
+- Deliverable: individuazione visuale delle aree comuni fra porzioni generiche e proposta modificabile di posizione, rotazione e scala
+- Accettazione: nessun vincolo SX/DX; riferimento scelto dall’utente; evidenze e conferma prima di applicare; porzioni non affidabili invariate; risultato annullabile e correggibile manualmente
+- Stato: implementato su `main` e in verifica multipiattaforma. Motore ORB con corrispondenze reciproche, stima robusta e soglie su inlier, sovrapposizione, errore e confidenza; concatenamento di più porzioni, conferma EN/IT e log. Non è georeferenziazione, non risolve prospettiva o proiezioni diverse e non sostituisce il controllo delle giunzioni. [Guida e limiti](docs/COMPOSITOR.md).

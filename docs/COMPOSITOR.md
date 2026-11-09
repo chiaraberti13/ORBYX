@@ -23,33 +23,41 @@ non limita il numero o la disposizione dei livelli delle altre acquisizioni.
 4. Se hai già porzioni PNG a colori o in grigio, usa **Aggiungi porzioni PNG…**.
    Sono accettati PNG in grigio/RGB a 8/16 bit, senza alpha; non JPEG/TIFF o
    qualunque immagine generica. Convertire un JPEG non recupera precisione persa.
-5. I livelli iniziano sovrapposti nell’origine della scena. Seleziona un livello
-   nella lista: il suo contorno azzurro appare nell’anteprima. Trascina per
-   spostarlo, oppure imposta **X/Y** in pixel della sorgente. Puoi disporre le
-   porzioni in orizzontale, verticale o su una griglia irregolare.
-6. Regola **Scala**, **Rotazione**, **Ritaglio**, **Opacità** e **Sfumatura bordi**.
+5. Seleziona nella lista una porzione affidabile da lasciare ferma e premi
+   **Allinea automaticamente le sovrapposizioni…**. ORBYX cerca dettagli visivi
+   comuni anche attraverso una catena di più porzioni e propone traslazione,
+   rotazione e scala uniforme. Prima di applicare mostra corrispondenze valide,
+   percentuale di sovrapposizione, errore e confidenza. **Annulla** non modifica
+   nulla; **Applica** crea uno stato completamente modificabile e annullabile.
+   Le porzioni prive di una corrispondenza affidabile restano invariate.
+6. Controlla sempre ogni giunzione. Seleziona un livello: il suo contorno azzurro
+   appare nell’anteprima. Trascina per spostarlo oppure imposta **X/Y**. Se
+   l’automatismo non trova abbastanza dettagli, ritaglia intestazioni e grandi
+   zone nere e riprova, oppure procedi manualmente. Puoi disporre le porzioni in
+   orizzontale, verticale o su una griglia irregolare.
+7. Regola **Scala**, **Rotazione**, **Ritaglio**, **Opacità** e **Sfumatura bordi**.
    I valori del ritaglio sono nelle coordinate della sorgente; larghezza e altezza
    entrambe 0 significano immagine intera. Per eliminare intestazioni usa il
    ritaglio: il compositore non indovina le zone da scartare. X/Y individuano
    l’origine del livello ritagliato; scala e rotazione si applicano attorno a
    quell’origine. Sono ammesse coordinate negative e il canvas include
    automaticamente l’estensione dei livelli visibili.
-7. **Alza/Abbassa** cambia l’ordine di sovrapposizione. La lista va dal fondo alla
+8. **Alza/Abbassa** cambia l’ordine di sovrapposizione. La lista va dal fondo alla
    cima. La sfumatura attenua tutti i bordi del livello, non soltanto una giunzione:
    serve sovrapposizione reale per una transizione continua. Non ricostruisce
    parti mancanti e non elimina automaticamente le cuciture.
-8. Correggi i colori del livello selezionato: nero/bianco normalizzati 0–1,
+9. Correggi i colori del livello selezionato: nero/bianco normalizzati 0–1,
    gamma, esposizione EV, saturazione e guadagni rosso/verde/blu. Per una
    regolazione comune usa **Applica colori selezionati a tutti**. **Ripristina
    colori selezionati** torna ai valori neutri. Valori troppo forti possono
    saturare o tagliare le alte luci: controlla il risultato.
-9. **Annulla/Ripeti** conserva fino a 50 stati modificabili. **Salva progetto
+10. **Annulla/Ripeti** conserva fino a 50 stati modificabili. **Salva progetto
    modificabile…** conserva livelli e parametri in JSON; **Apri progetto…** li
    ricarica. Il progetto usa riferimenti assoluti, non incorpora le immagini:
    conserva originali e porzioni generate nelle loro posizioni. Le porzioni
    colore generate sono conservate nell’area dati dell’app, senza cancellazione
    automatica che renderebbe inutilizzabili i progetti salvati.
-10. Premi **Esporta immagine unica…** e scegli un nuovo PNG. Gli originali non
+11. Premi **Esporta immagine unica…** e scegli un nuovo PNG. Gli originali non
     vengono modificati e un file di destinazione esistente viene rifiutato.
     Il PNG è il risultato appiattito; salva anche il progetto per conservare
     l’editabilità. Alla chiusura l’app chiede come gestire modifiche non salvate.
@@ -75,10 +83,17 @@ encoder e librerie possono richiedere memoria aggiuntiva. Per grandi acquisizion
 servono RAM sufficiente e ritagli appropriati. Gli input sono letti in due passaggi
 limitati e il rendering usa tile; non vengono conservati tutti i livelli decodificati.
 
-L’unione è manuale nelle coordinate della scena. Non è un GIS, non risolve
-automaticamente proiezioni diverse, non riconosce sovrapposizioni inesistenti e
-non certifica la geografia. La geometria assoluta resta M3-01. Non è un editor
-GIMP completo: niente pennelli, maschere dipinte, selezioni libere, deformazioni
+L’allineamento automatico usa esclusivamente dettagli visivi e stima una
+trasformazione di similarità: spostamento, rotazione e scala uniforme. Non altera
+la porzione scelta come riferimento, non applica risultati sotto le soglie di
+affidabilità e non interpreta nomi come SX/DX. Può fallire correttamente con
+porzioni senza area comune, troppo scure o uniformi, scene riprese in tempi
+diversi, nuvole cambiate, prospettiva/parallasse o proiezioni differenti. Non è
+una georeferenziazione e la confidenza statistica non certifica la correttezza
+geografica: la geometria assoluta resta M3-01 e la verifica visiva è obbligatoria.
+
+ORBYX non è un GIS e non è un editor GIMP completo: niente pennelli, maschere
+dipinte, selezioni libere, deformazioni
 prospettiche o filtri generici. Non è inclusa una nuova decodifica dei file grezzi.
 
 ## Verifica
@@ -87,10 +102,14 @@ prospettiche o filtri generici. Non è inclusa una nuova decodifica dei file gre
 ritaglio/scala/rotazione, ordine, opacità e sfumatura, oracoli colore, bit bassi16 bit
 conservati a trasformazioni neutre, JSON round-trip, parametri invalidi, link e
 limiti, export atomico senza sovrascritture.
+Verifica inoltre sovrapposizioni automatiche su tre ritagli concatenati, recupero
+di rotazione/scala e rifiuto di una porzione uniforme o priva di corrispondenza.
 
 `mosaic-widget-flow`: widget reali EN/IT, tre livelli, modifica numerica e drag,
 annulla/ripeti, colore comune, progetto riaperto, composizione Natural Color
 da tre canali e PNG GUI confrontato esattamente col renderer nativo.
+Verifica anche proposta automatica EN/IT, evidenze mostrate, annullamento senza
+modifiche, applicazione esplicita, annulla/ripeti e messaggio di revisione.
 
 Queste prove non certificano automaticamente la qualità di una cucitura su ogni
 scena reale; la valutazione dell’operatore rimane parte del flusso.

@@ -57,7 +57,7 @@ class MosaicDialog final:public QDialog {
     std::vector<orbyx::MosaicLayer> layers;
     std::vector<std::vector<orbyx::MosaicLayer>> undoStates,redoStates;
     QTimer previewTimer;QImage previewImage;double previewRatio=1;
-    QString workingFolder;std::vector<QPolygonF> outlines;
+    QString workingFolder,persistentNotice;std::vector<QPolygonF> outlines;
     QString t(const char* en,const char* italian)const{return QString::fromUtf8(it?italian:en);}
     QPushButton* button(const char* id,const QString& text,QLayout* layout,std::function<void()> action) {
         auto* b=new QPushButton(text);b->setObjectName(id);b->setAccessibleName(text);layout->addWidget(b);
@@ -123,7 +123,7 @@ class MosaicDialog final:public QDialog {
         run([state,result]{*result=orbyx::renderMosaic(state,1200);},[this,result]{
             auto& m=result->image;QImage image(m.data,m.cols,m.rows,int(m.step),QImage::Format_BGR888);
             const bool first=previewImage.isNull();previewImage=image.copy();previewRatio=result->pixelsPerSourcePixel;outlines.clear();for(const auto& points:result->outlines){QPolygonF polygon;for(const auto& point:points)polygon<<QPointF(point.x,point.y);outlines.push_back(polygon);}if(first)fitPreview();else display();
-            status->setText(t("Preview only: export uses original resolution and 8/16-bit depth. Drag to move the selected layer.","Solo anteprima: l’esportazione usa risoluzione originale e profondità 8/16 bit. Trascina per spostare il livello selezionato."));
+            status->setText(persistentNotice.isEmpty()?t("Preview only: export uses original resolution and 8/16-bit depth. Drag to move the selected layer.","Solo anteprima: l’esportazione usa risoluzione originale e profondità 8/16 bit. Trascina per spostare il livello selezionato."):persistentNotice);
         });
     }
     void addFiles(){
@@ -163,13 +163,14 @@ public:
         workingFolder=QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)+"/compositor/"+QUuid::createUuid().toString(QUuid::WithoutBraces);
         auto* outer=new QVBoxLayout(this);auto* body=new QHBoxLayout;outer->addLayout(body,1);
         tools=new QWidget;auto* panel=new QVBoxLayout(tools);auto* scroll=new QScrollArea;scroll->setWidgetResizable(true);scroll->setWidget(tools);scroll->setMinimumWidth(335);scroll->setMaximumWidth(400);body->addWidget(scroll);
-        auto* note=new QLabel(t("Multiple portions, any direction. First align each portion’s channels. Geometry is manual, not georeferencing.","Più porzioni, in ogni direzione. Prima allinea i canali di ciascuna porzione. La geometria è manuale, non una georeferenziazione."));note->setWordWrap(true);panel->addWidget(note);
+        auto* note=new QLabel(t("Multiple portions, any direction. First align each portion’s channels. Automatic overlap proposes editable geometry; it is not georeferencing.","Più porzioni, in ogni direzione. Prima allinea i canali di ciascuna porzione. La sovrapposizione automatica propone una geometria modificabile; non è una georeferenziazione."));note->setWordWrap(true);panel->addWidget(note);
         button("mosaicDemo",t("Add editable demo portions","Aggiungi porzioni demo modificabili"),panel,[this]{appendDemo();});
         button("mosaicAdd",t("Add PNG portions…","Aggiungi porzioni PNG…"),panel,[this]{addFiles();});
         colourMode=new QComboBox;colourMode->addItems({"MSU-GS Natural Color (RGB321)","RGB123"});colourMode->setAccessibleName(t("Channel colour composition","Composizione colore dei canali"));panel->addWidget(colourMode);
         button("mosaicChannels",t("Add 3 aligned channels…","Aggiungi 3 canali allineati…"),panel,[this]{colourFolder();});
         list=new QListWidget;list->setObjectName("mosaicLayers");list->setAccessibleName(t("Layers, bottom to top","Livelli, dal basso verso l’alto"));list->setMaximumHeight(140);panel->addWidget(list);
         connect(list,&QListWidget::currentRowChanged,this,[this]{if(!updating){readControls();display();}});
+        button("mosaicAutoOverlap",t("Automatically align overlaps…","Allinea automaticamente le sovrapposizioni…"),panel,[this]{autoAlign();});
         auto* ordering=new QHBoxLayout;panel->addLayout(ordering);
         button("mosaicDown",t("Lower","Abbassa"),ordering,[this]{reorder(-1);});button("mosaicUp",t("Raise","Alza"),ordering,[this]{reorder(1);});
         button("mosaicRemove",t("Remove","Rimuovi"),panel,[this]{int row=list->currentRow();if(row<0)return;remember();layers.erase(layers.begin()+row);refreshList();});
@@ -230,6 +231,30 @@ public:
         if(busy||layers.size()>=32)return;QDir().mkpath(workingFolder);
         const auto file=workingFolder+"/"+QUuid::createUuid().toString(QUuid::WithoutBraces)+".png";
         run([folder,file,natural]{std::array<std::filesystem::path,3> channels;for(int i=0;i<3;++i)channels[size_t(i)]=std::filesystem::path(folder.toStdString())/("MSUGS-VIS-"+std::to_string(i+1)+".png");if(natural)orbyx::composeNaturalColor(channels,file.toStdString());else orbyx::composeRgb(channels,file.toStdString());},[this,file]{remember();orbyx::MosaicLayer l;l.image=file.toStdString();layers.push_back(l);refreshList();});
+    }
+    void autoAlign(bool confirm=true){
+        if(busy||layers.size()<2){status->setText(t("Add at least two portions.","Aggiungi almeno due porzioni."));return;}
+        const int selected=list->currentRow();const std::size_t anchor=selected>=0?size_t(selected):0;
+        auto state=layers;auto proposal=std::make_shared<orbyx::AutoOverlapResult>();
+        run([state,anchor,proposal]{*proposal=orbyx::autoAlignOverlaps(state,anchor);},[this,proposal,anchor,confirm]{
+            if(proposal->accepted.empty()){
+                persistentNotice=t("No reliable overlap found. Portions were not changed; use crop or manual controls.","Nessuna sovrapposizione affidabile trovata. Le porzioni non sono state modificate; usa ritaglio o controlli manuali.");setProperty("autoOverlapApplied",false);setProperty("autoOverlapAccepted",0);status->setText(persistentNotice);
+                record("Automatic overlap: no reliable matches; no changes applied");return;
+            }
+            QStringList evidence;
+            for(const auto& match:proposal->accepted)evidence<<t("Layer ","Livello ")+QString::number(match.moving+1)+" → "+QString::number(match.reference+1)+
+                QString(" | %1/%2 inlier | overlap %3% | error %4 px | confidence %5%")
+                    .arg(match.inliers).arg(match.candidateMatches).arg(match.overlapFraction*100,0,'f',1).arg(match.medianError,0,'f',2).arg(match.confidence*100,0,'f',0);
+            QString summary=t("Automatic proposal:\n","Proposta automatica:\n")+evidence.join("\n");
+            if(!proposal->unaligned.empty())summary+=t("\n\nUnchanged layers without a reliable match: ","\n\nLivelli non modificati senza corrispondenza affidabile: ");
+            for(size_t i=0;i<proposal->unaligned.size();++i){if(i)summary+=", ";summary+=QString::number(proposal->unaligned[i]+1);}
+            summary+=t("\n\nApply this editable proposal?","\n\nApplicare questa proposta modificabile?");
+            if(confirm&&QMessageBox::question(this,t("Automatic overlap","Sovrapposizione automatica"),summary,QMessageBox::Apply|QMessageBox::Cancel,QMessageBox::Cancel)!=QMessageBox::Apply){
+                persistentNotice=t("Automatic proposal cancelled; no changes applied.","Proposta automatica annullata; nessuna modifica applicata.");setProperty("autoOverlapApplied",false);setProperty("autoOverlapAccepted",0);status->setText(persistentNotice);record("Automatic overlap proposal cancelled");return;
+            }
+            remember();layers=proposal->layers;record(summary);refreshList(int(anchor));
+            persistentNotice=t("Automatic proposal applied. Review every seam and adjust it manually before export.","Proposta automatica applicata. Controlla ogni giunzione e correggila manualmente prima dell’esportazione.");setProperty("autoOverlapApplied",true);setProperty("autoOverlapAccepted",int(proposal->accepted.size()));status->setText(persistentNotice);
+        });
     }
     void reorder(int direction){int row=list->currentRow(),next=row+direction;if(busy||row<0||next<0||next>=int(layers.size()))return;remember();std::swap(layers[size_t(row)],layers[size_t(next)]);refreshList(next);}
     void undo(){if(busy||undoStates.empty())return;dirty=true;redoStates.push_back(layers);layers=undoStates.back();undoStates.pop_back();refreshList();}

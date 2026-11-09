@@ -3,7 +3,9 @@
 #include <QTest>
 #include <QTemporaryDir>
 #include <QElapsedTimer>
+#include <QAbstractButton>
 #include <opencv2/imgcodecs.hpp>
+#include <opencv2/imgproc.hpp>
 #include <iostream>
 void check(bool ok,const char* m){if(!ok)throw std::runtime_error(m);}
 void waitFor(MosaicDialog& dialog){QElapsedTimer timer;timer.start();while(dialog.isBusy()&&timer.elapsed()<30000)QTest::qWait(10);check(!dialog.isBusy(),"Editor worker stuck");}
@@ -14,6 +16,12 @@ int main(int argc,char** argv){
         auto root=std::filesystem::path(temp.path().toStdString());
         cv::Mat input(80,100,CV_16UC3,cv::Scalar(1025,4099,10003));
         for(const char* name:{"one.png","two.png","three.png"})check(cv::imwrite((root/name).string(),input),"Fixture write");
+        cv::Mat autoScene(420,680,CV_8UC3,cv::Scalar(8,8,8));cv::RNG random(0x4155544f);
+        for(int i=0;i<350;++i)cv::circle(autoScene,{random.uniform(5,675),random.uniform(5,415)},random.uniform(2,8),{double(random.uniform(35,255)),double(random.uniform(35,255)),double(random.uniform(35,255))},-1,cv::LINE_AA);
+        for(int i=0;i<60;++i)cv::line(autoScene,{random.uniform(0,680),random.uniform(0,420)},{random.uniform(0,680),random.uniform(0,420)},{double(random.uniform(20,240)),double(random.uniform(20,240)),double(random.uniform(20,240))},1,cv::LINE_AA);
+        cv::putText(autoScene,"ORBYX",{230,210},cv::FONT_HERSHEY_SIMPLEX,1.4,{255,255,255},3,cv::LINE_AA);
+        cv::imwrite((root/"auto-a.png").string(),autoScene(cv::Rect(0,0,410,340)));
+        cv::imwrite((root/"auto-b.png").string(),autoScene(cv::Rect(230,65,410,340)));
         for(bool it:{false,true}){
             MosaicDialog dialog(it);dialog.resize(960,680);dialog.show();
             dialog.appendFiles({temp.path()+"/one.png",temp.path()+"/two.png",temp.path()+"/three.png"});waitFor(dialog);
@@ -48,8 +56,26 @@ int main(int argc,char** argv){
             check(channels.state().size()==1,"GUI colour composition did not create a portion");
             check(orbyx::readCompositePng(channels.state()[0].image).type()==CV_16UC3,"Natural Color in editor lost native depth");
             channels.saveProject(temp.path()+(it?"/channels-it.json":"/channels-en.json"));
+            MosaicDialog automatic(it);automatic.show();automatic.appendFiles({temp.path()+"/auto-a.png",temp.path()+"/auto-b.png"});waitFor(automatic);
+            auto* automaticButton=automatic.findChild<QPushButton*>("mosaicAutoOverlap");check(automaticButton&&automaticButton->isEnabled(),"Automatic overlap control missing");
+            automatic.findChild<QListWidget*>("mosaicLayers")->setCurrentRow(0);
+            bool sawCancellation=false;QTimer cancelAnswer;
+            QObject::connect(&cancelAnswer,&QTimer::timeout,[&]{for(auto* widget:QApplication::topLevelWidgets())if(auto* box=qobject_cast<QMessageBox*>(widget)){sawCancellation=box->text().contains("overlap");box->button(QMessageBox::Cancel)->click();cancelAnswer.stop();}});cancelAnswer.start(10);
+            automatic.autoAlign(true);waitFor(automatic);cancelAnswer.stop();
+            check(sawCancellation&&!automatic.property("autoOverlapApplied").toBool(),"Automatic proposal cancellation was not honoured");
+            check(automatic.state()[1].x==0&&automatic.state()[1].y==0,"Cancelled automatic proposal changed geometry");
+            bool sawEvidence=false;QTimer applyAnswer;
+            QObject::connect(&applyAnswer,&QTimer::timeout,[&]{for(auto* widget:QApplication::topLevelWidgets())if(auto* box=qobject_cast<QMessageBox*>(widget)){sawEvidence=box->text().contains("inlier")&&box->text().contains("confidence");box->button(QMessageBox::Apply)->click();applyAnswer.stop();}});applyAnswer.start(10);
+            automatic.autoAlign(true);waitFor(automatic);applyAnswer.stop();
+            check(sawEvidence,"Automatic proposal did not show registration evidence");
+            check(std::abs(automatic.state()[1].x-230)<=2&&std::abs(automatic.state()[1].y-65)<=2,"GUI automatic overlap proposal incorrect");
+            check(automatic.property("autoOverlapApplied").toBool()&&automatic.property("autoOverlapAccepted").toInt()==1,"Automatic overlap application evidence missing");
+            check(automatic.findChild<QLabel*>("mosaicStatus")->text().contains(it?"applicata":"applied"),"Automatic overlap review message missing");
+            automatic.undo();waitFor(automatic);check(automatic.state()[1].x==0&&automatic.state()[1].y==0,"Automatic overlap is not undoable");
+            automatic.redo();waitFor(automatic);check(std::abs(automatic.state()[1].x-230)<=2,"Automatic overlap redo failed");
+            automatic.saveProject(temp.path()+(it?"/automatic-it.json":"/automatic-en.json"));
             if(it&&argc>1){MosaicDialog demo(it);demo.appendDemo(QString::fromLocal8Bit(argv[1]));waitFor(demo);check(demo.state().size()==2,"Real six-JPEG editable demo missing");auto real=orbyx::renderMosaic(demo.state());check(real.image.size()==cv::Size(1428,1428),"Editable real-demo canvas incorrect");demo.show();QTest::qWait(30);if(qEnvironmentVariableIsSet("ORBYX_MOSAIC_SCREENSHOT"))demo.grab().save(qEnvironmentVariable("ORBYX_MOSAIC_SCREENSHOT"));demo.saveProject(temp.path()+"/demo.json");demo.close();}
-            dialog.close();restored.close();channels.close();
+            dialog.close();restored.close();channels.close();automatic.close();
         }
         std::cout<<"EN/IT multi-layer geometry, drag, undo, colour, project and full-resolution export passed\n";return 0;
     }catch(const std::exception& e){std::cerr<<e.what()<<'\n';return 1;}
