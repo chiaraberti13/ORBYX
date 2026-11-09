@@ -42,6 +42,7 @@
 #include <functional>
 #include <memory>
 #include <algorithm>
+#include <cmath>
 #include <stdexcept>
 
 class MosaicCanvas final:public QLabel {
@@ -258,6 +259,7 @@ public:
         connect(swipePosition,&QSlider::valueChanged,this,[this]{if(inspectionMode->currentIndex()==3)schedule();});
         button("mosaicZoomSeam",t("Zoom to selected overlap","Zoom sulla sovrapposizione selezionata"),panel,[this]{zoomToOverlap();});
         button("mosaicControlPoints",t("Align with control points…","Allinea con punti di controllo…"),panel,[this]{controlPointsDialog();});
+        button("mosaicCropProposal",t("Propose uniform-border crop…","Proponi ritaglio bordi uniformi…"),panel,[this]{proposeCrop();});
         auto* ordering=new QHBoxLayout;panel->addLayout(ordering);
         button("mosaicDown",t("Lower","Abbassa"),ordering,[this]{reorder(-1);});button("mosaicUp",t("Raise","Alza"),ordering,[this]{reorder(1);});
         button("mosaicRemove",t("Remove","Rimuovi"),panel,[this]{int row=list->currentRow();if(row<0)return;remember();layers.erase(layers.begin()+row);refreshList();});
@@ -301,6 +303,17 @@ public:
         if(busy||moving<0||reference<0||moving>=int(layers.size())||reference>=int(layers.size())||moving==reference)throw std::runtime_error("Invalid control-point layer selection");
         remember();layers[size_t(moving)]=solution.layer;setProperty("mergeStrategy","control-points");setProperty("controlPointInliers",int(solution.inliers.size()));setProperty("controlPointMedian",solution.medianError);setProperty("controlPointMaximum",solution.maxError);
         persistentNotice=t("Control-point transform applied. Review residuals and every seam before export.","Trasformazione da punti di controllo applicata. Verifica residui e ogni giunzione prima dell’esportazione.");refreshList(moving);status->setText(persistentNotice);record(QString("Control points: %1 inliers, median %2 px, max %3 px").arg(solution.inliers.size()).arg(solution.medianError,0,'f',3).arg(solution.maxError,0,'f',3));
+    }
+    void applyCropProposal(const orbyx::CropProposal& proposal,int row){
+        if(busy||row<0||row>=int(layers.size())||proposal.original.width<=0||proposal.original.height<=0||proposal.proposed.width<=0||proposal.proposed.height<=0||(proposal.proposed&proposal.original)!=proposal.proposed)throw std::runtime_error("Invalid crop proposal");
+        auto& layer=layers[size_t(row)];const cv::Rect current=layer.crop.area()>0?layer.crop:proposal.original;
+        if(current!=proposal.original)throw std::runtime_error("Crop proposal no longer matches the selected layer");
+        const double dx=proposal.proposed.x-proposal.original.x,dy=proposal.proposed.y-proposal.original.y;
+        const double radians=layer.angle*CV_PI/180.,cosine=std::cos(radians),sine=std::sin(radians);
+        remember();layer.x+=layer.scale*(cosine*dx-sine*dy);layer.y+=layer.scale*(sine*dx+cosine*dy);layer.crop=proposal.proposed;
+        setProperty("mergeStrategy","manual-crop");setProperty("cropProposalApplied",true);setProperty("cropRetainedPercent",proposal.retainedFraction*100.);
+        persistentNotice=t("Crop proposal applied without moving the retained content. Review the borders and undo if needed.","Proposta di ritaglio applicata senza spostare il contenuto conservato. Controlla i bordi e annulla se necessario.");
+        refreshList(row);status->setText(persistentNotice);record(QString("Uniform-border crop applied: x=%1 y=%2 w=%3 h=%4 retained=%5%").arg(proposal.proposed.x).arg(proposal.proposed.y).arg(proposal.proposed.width).arg(proposal.proposed.height).arg(proposal.retainedFraction*100.,0,'f',1));
     }
     void setState(const std::vector<orbyx::MosaicLayer>& state){if(busy)return;orbyx::mosaicProject(state);remember();layers=state;refreshList();}
     void appendDemo(QString sample={}){
@@ -381,6 +394,19 @@ public:
             }
             remember();layers=proposal->layers;setProperty("mergeStrategy","visual-auto");record(summary);refreshList(int(anchor));
             persistentNotice=t("Automatic proposal applied. Review every seam and adjust it manually before export.","Proposta automatica applicata. Controlla ogni giunzione e correggila manualmente prima dell’esportazione.");setProperty("autoOverlapApplied",true);setProperty("autoOverlapAccepted",int(proposal->accepted.size()));status->setText(persistentNotice);
+        });
+    }
+    void proposeCrop(bool confirm=true){
+        const int row=list->currentRow();if(busy||row<0||row>=int(layers.size())){status->setText(t("Select one layer first.","Seleziona prima un livello."));return;}
+        const auto selected=layers[size_t(row)];auto proposal=std::make_shared<orbyx::CropProposal>();
+        run([selected,proposal]{*proposal=orbyx::proposeUniformBorderCrop(selected);},[this,proposal,row,confirm]{
+            const auto& before=proposal->original;const auto& after=proposal->proposed;
+            QString summary=t("Detected low-detail outer borders. This is only a proposal; source pixels are not deleted.\n\nCurrent: x=%1, y=%2, width=%3, height=%4\nProposed: x=%5, y=%6, width=%7, height=%8\nRetained area: %9%\n\nApply this reversible crop?","Rilevati bordi esterni a basso dettaglio. Questa è solo una proposta; i pixel sorgente non vengono eliminati.\n\nAttuale: x=%1, y=%2, larghezza=%3, altezza=%4\nProposto: x=%5, y=%6, larghezza=%7, altezza=%8\nArea conservata: %9%\n\nApplicare questo ritaglio reversibile?")
+                .arg(before.x).arg(before.y).arg(before.width).arg(before.height).arg(after.x).arg(after.y).arg(after.width).arg(after.height).arg(proposal->retainedFraction*100.,0,'f',1);
+            if(confirm&&QMessageBox::question(this,t("Uniform-border crop proposal","Proposta ritaglio bordi uniformi"),summary,QMessageBox::Apply|QMessageBox::Cancel,QMessageBox::Cancel)!=QMessageBox::Apply){
+                persistentNotice=t("Crop proposal cancelled; the layer was not changed.","Proposta di ritaglio annullata; il livello non è stato modificato.");setProperty("cropProposalApplied",false);status->setText(persistentNotice);record("Uniform-border crop proposal cancelled");return;
+            }
+            applyCropProposal(*proposal,row);
         });
     }
     void reorder(int direction){int row=list->currentRow(),next=row+direction;if(busy||row<0||next<0||next>=int(layers.size()))return;remember();std::swap(layers[size_t(row)],layers[size_t(next)]);refreshList(next);}

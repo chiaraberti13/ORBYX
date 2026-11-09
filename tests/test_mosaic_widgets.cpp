@@ -17,6 +17,8 @@ int main(int argc,char** argv){
         auto root=std::filesystem::path(temp.path().toStdString());
         cv::Mat input(80,100,CV_16UC3,cv::Scalar(1025,4099,10003));
         for(const char* name:{"one.png","two.png","three.png"})check(cv::imwrite((root/name).string(),input),"Fixture write");
+        cv::Mat bordered(180,240,CV_16UC3,cv::Scalar(1200,1200,1200)),borderContent(120,170,CV_16UC3);cv::randu(borderContent,cv::Scalar::all(4000),cv::Scalar::all(50000));borderContent.copyTo(bordered(cv::Rect(30,35,170,120)));
+        check(cv::imwrite((root/"bordered.png").string(),bordered),"Bordered fixture write");
         cv::Mat autoScene(420,680,CV_8UC3,cv::Scalar(8,8,8));cv::RNG random(0x4155544f);
         for(int i=0;i<350;++i)cv::circle(autoScene,{random.uniform(5,675),random.uniform(5,415)},random.uniform(2,8),{double(random.uniform(35,255)),double(random.uniform(35,255)),double(random.uniform(35,255))},-1,cv::LINE_AA);
         for(int i=0;i<60;++i)cv::line(autoScene,{random.uniform(0,680),random.uniform(0,420)},{random.uniform(0,680),random.uniform(0,420)},{double(random.uniform(20,240)),double(random.uniform(20,240)),double(random.uniform(20,240))},1,cv::LINE_AA);
@@ -119,8 +121,24 @@ int main(int argc,char** argv){
             automatic.undo();waitFor(automatic);check(automatic.state()[1].x==0&&automatic.state()[1].y==0,"Automatic overlap is not undoable");
             automatic.redo();waitFor(automatic);check(std::abs(automatic.state()[1].x-230)<=2,"Automatic overlap redo failed");
             automatic.saveProject(temp.path()+(it?"/automatic-it.json":"/automatic-en.json"));
+            MosaicDialog cropEditor(it);cropEditor.show();cropEditor.appendFiles({temp.path()+"/bordered.png"});waitFor(cropEditor);
+            auto cropState=cropEditor.state();cropState[0].x=13;cropState[0].y=27;cropState[0].scale=1.5;cropState[0].angle=30;cropEditor.setState(cropState);waitFor(cropEditor);
+            auto* cropButton=cropEditor.findChild<QPushButton*>("mosaicCropProposal");check(cropButton&&cropButton->isEnabled(),"Uniform-border crop proposal control missing");
+            const auto expectedCrop=orbyx::proposeUniformBorderCrop(cropEditor.state()[0]);const auto unchangedCrop=orbyx::mosaicProject(cropEditor.state());
+            bool sawCropCancel=false;QTimer cancelCrop;
+            QObject::connect(&cancelCrop,&QTimer::timeout,[&]{for(auto* widget:QApplication::topLevelWidgets())if(auto* box=qobject_cast<QMessageBox*>(widget)){sawCropCancel=box->text().contains("%");box->button(QMessageBox::Cancel)->click();cancelCrop.stop();}});cancelCrop.start(10);
+            cropEditor.proposeCrop(true);waitFor(cropEditor);cancelCrop.stop();
+            check(sawCropCancel&&!cropEditor.property("cropProposalApplied").toBool()&&orbyx::mosaicProject(cropEditor.state())==unchangedCrop,"Crop proposal cancellation changed the layer");
+            bool sawCropEvidence=false;QTimer applyCrop;
+            QObject::connect(&applyCrop,&QTimer::timeout,[&]{for(auto* widget:QApplication::topLevelWidgets())if(auto* box=qobject_cast<QMessageBox*>(widget)){sawCropEvidence=box->text().contains("%");box->button(QMessageBox::Apply)->click();applyCrop.stop();}});applyCrop.start(10);
+            cropEditor.proposeCrop(true);waitFor(cropEditor);applyCrop.stop();
+            const double cropDx=expectedCrop.proposed.x-expectedCrop.original.x,cropDy=expectedCrop.proposed.y-expectedCrop.original.y,cropAngle=30*CV_PI/180.;
+            check(sawCropEvidence&&cropEditor.state()[0].crop==expectedCrop.proposed&&cropEditor.property("mergeStrategy").toString()=="manual-crop","Confirmed crop proposal was not applied");
+            check(std::abs(cropEditor.state()[0].x-(13+1.5*(std::cos(cropAngle)*cropDx-std::sin(cropAngle)*cropDy)))<1e-8&&std::abs(cropEditor.state()[0].y-(27+1.5*(std::sin(cropAngle)*cropDx+std::cos(cropAngle)*cropDy)))<1e-8,"Crop proposal moved retained scene content");
+            cropEditor.undo();waitFor(cropEditor);check(cropEditor.state()[0].crop.area()==0&&cropEditor.state()[0].x==13&&cropEditor.state()[0].y==27,"Crop proposal is not undoable");
+            cropEditor.saveProject(temp.path()+(it?"/crop-it.json":"/crop-en.json"));
             if(it&&argc>1){MosaicDialog demo(it);demo.appendDemo(QString::fromLocal8Bit(argv[1]));waitFor(demo);check(demo.state().size()==2,"Real six-JPEG editable demo missing");auto real=orbyx::renderMosaic(demo.state());check(real.image.size()==cv::Size(1428,1428),"Editable real-demo canvas incorrect");demo.show();QTest::qWait(30);if(qEnvironmentVariableIsSet("ORBYX_MOSAIC_SCREENSHOT"))demo.grab().save(qEnvironmentVariable("ORBYX_MOSAIC_SCREENSHOT"));demo.saveProject(temp.path()+"/demo.json");demo.close();}
-            dialog.close();restored.close();channels.close();profileRoi.close();automatic.close();
+            dialog.close();restored.close();channels.close();profileRoi.close();automatic.close();cropEditor.close();
         }
         std::cout<<"EN/IT multi-layer geometry, drag, undo, colour, project and full-resolution export passed\n";return 0;
     }catch(const std::exception& e){std::cerr<<e.what()<<'\n';return 1;}
