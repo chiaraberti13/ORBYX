@@ -56,9 +56,11 @@ int main(int argc,char** argv){
             QElapsedTimer blinkDeadline;blinkDeadline.start();while(!dialog.property("blinkHidden").toBool()&&blinkDeadline.elapsed()<2500)QTest::qWait(20);
             check(dialog.property("blinkHidden").toBool(),"Blink seam inspection did not alternate the selected layer");blink->setChecked(false);waitFor(dialog);
             check(!dialog.property("blinkHidden").toBool()&&orbyx::mosaicProject(dialog.state())==beforeBlink,"Blink seam inspection changed editable or export state");
-            auto* inspection=dialog.findChild<QComboBox*>("mosaicInspection");check(inspection&&inspection->count()==2,"Difference seam inspection control missing");
+            auto* inspection=dialog.findChild<QComboBox*>("mosaicInspection");check(inspection&&inspection->count()==3,"Seam inspection modes missing");
             inspection->setCurrentIndex(1);waitFor(dialog);
             check(dialog.property("differenceComparison").toInt()==1&&dialog.property("differencePixels").toInt()>0&&!canvas->pixmap().isNull(),"Difference seam inspection did not compare the selected adjacent pair");
+            inspection->setCurrentIndex(2);waitFor(dialog);
+            check(dialog.property("inspectionRendered").toInt()==2&&dialog.property("differenceComparison").toInt()==1&&!canvas->pixmap().isNull(),"Checkerboard seam inspection did not compare the selected adjacent pair");
             inspection->setCurrentIndex(0);waitFor(dialog);
             check(orbyx::mosaicProject(dialog.state())==beforeBlink,"Difference seam inspection changed editable or export state");
             dialog.reorder(-1);waitFor(dialog);check(list->currentRow()==1,"Layer reordering failed");
