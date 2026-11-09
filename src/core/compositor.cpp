@@ -227,6 +227,11 @@ ControlPointSolution alignFromControlPoints(const MosaicLayer& moving,const Mosa
     const double a=affine.at<double>(0,0),b=affine.at<double>(1,0),scale=std::hypot(a,b);
     check(std::isfinite(scale)&&scale>=.01&&scale<=100,"Control-point scale exceeds limits");
     result.medianError=median(accepted);result.maxError=*std::max_element(accepted.begin(),accepted.end());
+    const auto movingRegion=region(moving,readCompositePng(moving.image)),referenceRegion=region(reference,readCompositePng(reference.image));
+    auto coverage=[&](bool useMoving,const cv::Rect& bounds){double x0=std::numeric_limits<double>::infinity(),y0=x0,x1=-x0,y1=-x0;for(const auto index:result.inliers){const auto& point=useMoving?pairs[index].moving:pairs[index].reference;x0=std::min(x0,point.x);y0=std::min(y0,point.y);x1=std::max(x1,point.x);y1=std::max(y1,point.y);}const double spanX=std::clamp((x1-x0)/bounds.width,0.,1.),spanY=std::clamp((y1-y0)/bounds.height,0.,1.);return std::array<double,3>{spanX*spanY,spanX,spanY};};
+    const auto movingSpread=coverage(true,movingRegion),referenceSpread=coverage(false,referenceRegion);
+    result.movingCoverage=movingSpread[0];result.referenceCoverage=referenceSpread[0];
+    result.spatiallyConcentrated=movingSpread[0]<.05||referenceSpread[0]<.05||movingSpread[1]<.15||movingSpread[2]<.15||referenceSpread[1]<.15||referenceSpread[2]<.15;
     cv::Matx23d local{affine.at<double>(0,0),affine.at<double>(0,1),affine.at<double>(0,2),affine.at<double>(1,0),affine.at<double>(1,1),affine.at<double>(1,2)};
     result.layer=placed(moving,reference,local);return result;
 }

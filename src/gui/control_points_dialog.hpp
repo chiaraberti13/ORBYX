@@ -19,7 +19,7 @@ class ControlPointsDialog final:public QDialog {
     QPushButton *solveButton_{},*applyButton_{};std::optional<orbyx::ControlPointSolution> solution_;
     QString t(const char* en,const char* italian)const{return QString::fromUtf8(it_?italian:en);}
     QDoubleSpinBox* coordinate(double value=0){auto* spin=new QDoubleSpinBox;spin->setRange(-1000000,1000000);spin->setDecimals(3);spin->setValue(value);spin->setKeyboardTracking(false);connect(spin,qOverload<double>(&QDoubleSpinBox::valueChanged),this,[this]{invalidate();});return spin;}
-    void invalidate(){solution_.reset();applyButton_->setEnabled(false);summary_->setText(t("Edit at least three corresponding pairs, then calculate the transform.","Modifica almeno tre coppie corrispondenti, poi calcola la trasformazione."));for(int row=0;row<table_->rowCount();++row){table_->setItem(row,4,new QTableWidgetItem);}}
+    void invalidate(){solution_.reset();applyButton_->setEnabled(false);setProperty("spatialWarning",false);summary_->setText(t("Edit at least three corresponding pairs, then calculate the transform.","Modifica almeno tre coppie corrispondenti, poi calcola la trasformazione."));for(int row=0;row<table_->rowCount();++row){table_->setItem(row,4,new QTableWidgetItem);}}
 public:
     ControlPointsDialog(bool italian,const orbyx::MosaicLayer& moving,const orbyx::MosaicLayer& reference,QWidget* parent=nullptr):QDialog(parent),it_(italian),moving_(moving),reference_(reference){
         setObjectName("controlPointsDialog");setWindowTitle(t("Control-point alignment","Allineamento con punti di controllo"));resize(760,500);
@@ -38,7 +38,9 @@ public:
         try{solution_=orbyx::alignFromControlPoints(moving_,reference_,pairs());}
         catch(const std::exception& error){solution_.reset();applyButton_->setEnabled(false);summary_->setText(t("Cannot calculate: ","Impossibile calcolare: ")+QString::fromUtf8(error.what()));return false;}
         const auto& solved=*solution_;for(int row=0;row<table_->rowCount();++row){const bool inlier=std::find(solved.inliers.begin(),solved.inliers.end(),size_t(row))!=solved.inliers.end();auto* item=new QTableWidgetItem(QString::number(solved.residuals[size_t(row)],'f',2));if(!inlier)item->setBackground(QColor("#8b2635"));table_->setItem(row,4,item);}
-        summary_->setText(t("Accepted points: ","Punti accettati: ")+QString::number(solved.inliers.size())+"/"+QString::number(solved.residuals.size())+t(" · median error: "," · errore mediano: ")+QString::number(solved.medianError,'f',2)+t(" px · maximum inlier error: "," px · errore massimo inlier: ")+QString::number(solved.maxError,'f',2)+" px");applyButton_->setEnabled(true);return true;
+        QString summary=t("Accepted points: ","Punti accettati: ")+QString::number(solved.inliers.size())+"/"+QString::number(solved.residuals.size())+t(" · median error: "," · errore mediano: ")+QString::number(solved.medianError,'f',2)+t(" px · maximum inlier error: "," px · errore massimo inlier: ")+QString::number(solved.maxError,'f',2)+t(" px · spatial coverage moving/reference: "," px · copertura spaziale mobile/riferimento: ")+QString::number(solved.movingCoverage*100.,'f',1)+"% / "+QString::number(solved.referenceCoverage*100.,'f',1)+"%";
+        if(solved.spatiallyConcentrated)summary+=t("\nWarning: accepted points are concentrated in a small area. Add well-spread points before trusting rotation or scale.","\nAttenzione: i punti accettati sono concentrati in una zona ridotta. Aggiungi punti ben distribuiti prima di considerare affidabili rotazione o scala.");
+        summary_->setText(summary);setProperty("spatialWarning",solved.spatiallyConcentrated);applyButton_->setEnabled(true);return true;
     }
     const orbyx::ControlPointSolution& solution()const{if(!solution_)throw std::runtime_error("Control points not solved");return *solution_;}
 };

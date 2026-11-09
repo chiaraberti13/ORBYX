@@ -39,6 +39,8 @@ struct ControlPointSolution {
     std::vector<double> residuals;       // One value per supplied pair.
     std::vector<std::size_t> inliers;    // Robustly accepted pair indices.
     double medianError=0, maxError=0;    // Inlier residuals, in reference pixels.
+    double movingCoverage=0, referenceCoverage=0; // Inlier bounding-box fraction.
+    bool spatiallyConcentrated=false;    // Warning only; never rejects a valid fit.
 };
 struct CropProposal {
     cv::Rect original;

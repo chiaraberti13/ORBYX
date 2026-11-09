@@ -94,6 +94,9 @@ int main(){
         check(std::abs(controlled.layer.x-expectedX)<1e-4&&std::abs(controlled.layer.y-expectedY)<1e-4,"Control points recovered wrong translation");
         check(controlled.residuals.size()==controlPoints.size()&&controlled.inliers.size()==8&&controlled.inliers.back()==7,"Control-point outlier was not rejected");
         check(controlled.medianError<1e-4&&controlled.maxError<1e-4&&controlled.residuals.back()>500,"Control-point residual diagnostics incorrect");
+        check(!controlled.spatiallyConcentrated&&controlled.movingCoverage>.1&&controlled.referenceCoverage>.1,"Well-spread control points reported as concentrated");
+        std::vector<orbyx::ControlPointPair> clustered;for(const cv::Point2d point:std::vector<cv::Point2d>{{10,10},{18,10},{10,18},{18,18}})clustered.push_back({point,{point.x+3,point.y-2}});
+        auto clusteredSolution=orbyx::alignFromControlPoints(moving,reference,clustered);check(clusteredSolution.spatiallyConcentrated&&clusteredSolution.movingCoverage<.01&&clusteredSolution.referenceCoverage<.01,"Concentrated control points did not produce a warning");
         rejects([&]{orbyx::alignFromControlPoints(moving,reference,{{{0,0},{0,0}},{{1,1},{1,1}}});});
         rejects([&]{orbyx::alignFromControlPoints(moving,reference,{{{1,1},{0,0}},{{1,1},{2,2}},{{1,1},{3,3}}});});
         cv::Mat bordered(180,240,CV_16UC1,cv::Scalar(1200));cv::Mat textured(120,170,CV_16UC1);cv::randu(textured,cv::Scalar(4000),cv::Scalar(50000));textured.copyTo(bordered(cv::Rect(30,35,170,120)));

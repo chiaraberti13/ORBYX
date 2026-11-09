@@ -301,7 +301,7 @@ public:
     const std::vector<orbyx::MosaicLayer>& state()const{return layers;}
     void applyControlPoints(const orbyx::ControlPointSolution& solution,int moving,int reference){
         if(busy||moving<0||reference<0||moving>=int(layers.size())||reference>=int(layers.size())||moving==reference)throw std::runtime_error("Invalid control-point layer selection");
-        remember();layers[size_t(moving)]=solution.layer;setProperty("mergeStrategy","control-points");setProperty("controlPointInliers",int(solution.inliers.size()));setProperty("controlPointMedian",solution.medianError);setProperty("controlPointMaximum",solution.maxError);
+        remember();layers[size_t(moving)]=solution.layer;setProperty("mergeStrategy","control-points");setProperty("controlPointInliers",int(solution.inliers.size()));setProperty("controlPointMedian",solution.medianError);setProperty("controlPointMaximum",solution.maxError);setProperty("controlPointConcentrated",solution.spatiallyConcentrated);
         persistentNotice=t("Control-point transform applied. Review residuals and every seam before export.","Trasformazione da punti di controllo applicata. Verifica residui e ogni giunzione prima dell’esportazione.");refreshList(moving);status->setText(persistentNotice);record(QString("Control points: %1 inliers, median %2 px, max %3 px").arg(solution.inliers.size()).arg(solution.medianError,0,'f',3).arg(solution.maxError,0,'f',3));
     }
     void applyCropProposal(const orbyx::CropProposal& proposal,int row){
