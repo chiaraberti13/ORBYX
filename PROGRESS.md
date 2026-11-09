@@ -619,3 +619,20 @@ Test widget EN/IT: alternanza effettiva, arresto e ripristino dell’anteprima,
 confronto serializzato esatto dello stato prima/dopo. Suite compositore passata
 e Cppcheck pulito. Pubblicazione codice:
 `b81580ced6c9d79836faf575ba0130217ca177c6`.
+
+### M2-09 — Terzo incremento: mappa differenza della sovrapposizione
+
+Il menu di ispezione offre ora **Differenza: selezionato e adiacente**. ORBYX
+renderizza separatamente la coppia nello stesso sistema di coordinate, calcola
+la differenza assoluta, limita il risultato all’intersezione reale dei due
+poligoni trasformati e la rappresenta con una scala in falsi colori. Le aree
+non sovrapposte restano nere e non vengono scambiate per errori di giunzione.
+
+Il confronto è generato da copie temporanee dei livelli: visibilità, opacità,
+geometria, cronologia, progetto ed export non cambiano. Test EN/IT con coppia
+sovrapposta e differenza nota, conteggio di pixel diagnostici non nulli,
+selezione automatica del livello adiacente e stato serializzato identico prima e
+dopo. Compilazione e suite compositore passate. Cppcheck locale non avviabile
+per configurazione mancante del pacchetto isolato; la pipeline pulita è il gate
+definitivo. Pubblicazione codice:
+`4063c60d4b670dc2f617ff0a37b5e177f4dd721a`.

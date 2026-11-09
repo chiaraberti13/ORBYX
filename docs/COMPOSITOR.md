@@ -76,6 +76,11 @@ in M2-08.
    **Lampeggia livello selezionato (solo anteprima)** per alternare la porzione
    corrente e vedere più facilmente coste, nuvole o dettagli sdoppiati. Il
    lampeggio non modifica i livelli e non compare nel PNG esportato.
+   Nel menu di ispezione scegli **Differenza: selezionato e adiacente** per
+   visualizzare in falsi colori soltanto le differenze dentro l’area comune tra
+   il livello selezionato e quello immediatamente sotto, oppure quello sopra se
+   è il primo. Il nero indica le zone fuori sovrapposizione. Anche questa vista
+   è soltanto diagnostica e non modifica progetto o esportazione.
 7. Regola **Scala**, **Rotazione**, **Ritaglio**, **Opacità** e **Sfumatura bordi**.
    I valori del ritaglio sono nelle coordinate della sorgente; larghezza e altezza
    entrambe 0 significano immagine intera. Per eliminare intestazioni usa il
