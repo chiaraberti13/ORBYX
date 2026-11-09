@@ -284,7 +284,7 @@ class Window final : public QMainWindow {
         if (busy) return;
         QString sample;
         const QDir appDir(QCoreApplication::applicationDirPath());
-        for (const auto &candidate : {appDir.filePath("../share/orbyx/demo-jpeg"),
+        for (const auto &candidate : {appDir.filePath("../share/orbyx/demo-jpeg"),appDir.filePath("share/orbyx/demo-jpeg"),
              appDir.filePath("../assets/demo-jpeg"),QDir::current().filePath("assets/demo-jpeg")})
             if (QFileInfo(QDir(candidate).filePath("sx_MSUGS-VIS-1.jpg")).isFile()) { sample=candidate; break; }
         const QString base=QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
@@ -292,6 +292,7 @@ class Window final : public QMainWindow {
         QDir().mkpath(base+"/demos"); QDir().mkpath(base+"/logs");
         const QString destination=requestedOutput.isEmpty()?base+"/demos/"+token:requestedOutput;
         const QString logPath=base+"/logs/demo-"+token+".log";
+        setProperty("demoFinished",false);
         demoMode=true;setQueueBusy(true);progress->setRange(0,0);applyText();status->setText(trText("Processing…"));
         auto *worker=QThread::create([this,sample,destination,logPath] {
             QString error;QStringList entries;
@@ -309,6 +310,7 @@ class Window final : public QMainWindow {
                 if(error.isEmpty())error="Could not save demo log";
             }
             QMetaObject::invokeMethod(this,[this,error,destination,logPath] {
+                setProperty("demoFinished",true);setProperty("demoSucceeded",error.isEmpty());
                 setQueueBusy(false);progress->setRange(0,100);progress->setValue(error.isEmpty()?100:0);applyText();
                 status->setText(trText(error.isEmpty()?"Completed":"Processing failed"));
                 if(error.isEmpty()) {
@@ -470,7 +472,7 @@ class Window final : public QMainWindow {
         // Locale-independent: read the durable state the runner persisted.
         QMap<QString, QString> statuses;
         QFile stateFile(statePath);
-        if (!QFileInfo(statePath).isSymLink() && stateFile.open(QIODevice::ReadOnly)) {
+        if (!statePath.isEmpty() && !QFileInfo(statePath).isSymLink() && stateFile.open(QIODevice::ReadOnly)) {
             constexpr qint64 limit = 16 * 1024 * 1024;
             const auto data = stateFile.read(limit + 1);
             QJsonParseError error;
@@ -618,7 +620,7 @@ public:
         auto *queueButtons=new QHBoxLayout; queueAdd=new QPushButton; queueRemove=new QPushButton; queueRun=new QPushButton; queueRun->setEnabled(false);
         queueButtons->addWidget(queueAdd); queueButtons->addWidget(queueRemove); queueButtons->addStretch(); queueButtons->addWidget(queueRun); queueLayout->addLayout(queueButtons);
         leftLayout->addWidget(queueBox); leftLayout->addStretch();
-        auto *setupScroll = new QScrollArea; setupScroll->setWidgetResizable(true); setupScroll->setFrameShape(QFrame::NoFrame); setupScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff); setupScroll->setMinimumWidth(390); setupScroll->setMaximumWidth(490); setupScroll->setWidget(left); splitter->addWidget(setupScroll);
+        auto *setupScroll = new QScrollArea; setupScroll->setObjectName("setupScroll"); setupScroll->setWidgetResizable(true); setupScroll->setFrameShape(QFrame::NoFrame); setupScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff); setupScroll->setMinimumWidth(390); setupScroll->setMaximumWidth(490); setupScroll->setWidget(left); splitter->addWidget(setupScroll);
         auto *right = new QFrame; right->setObjectName("panel"); auto *preview = new QVBoxLayout(right); preview->setContentsMargins(16,16,16,16); auto *tools = new QHBoxLayout;
         previewTitle=label("section"); preview->addWidget(previewTitle); source=new QComboBox; source->addItems({"Input","Output"}); channel=new QComboBox; channel->addItems({"CH1","CH2","CH3"}); channel->setCurrentIndex(settings.value("previewChannel",0).toInt()); fit=new QPushButton; minus=new QPushButton("−"); plus=new QPushButton("+");
         plus->setShortcut(QKeySequence("Ctrl++")); minus->setShortcut(QKeySequence("Ctrl+-"));
@@ -712,7 +714,23 @@ int main(int argc, char **argv) {
     if (args.contains("--run-and-exit")) { /* worker completion controls the exit code */ }
     else if (screenshot>=0 && screenshot+1<args.size()) {
         const QString path=args.at(screenshot+1);
-        QTimer::singleShot(250,&app,[&app,&window,path]{if(!window.grab().save(path)) app.exit(2); else app.quit();});
-    } else if (args.contains("--smoke-test")) QTimer::singleShot(150,&app,&QApplication::quit);
+        if(args.contains("--demo")) {
+            auto *capture=new QTimer(&app);capture->setInterval(50);
+            auto *deadline=new QTimer(&app);deadline->setSingleShot(true);
+            QObject::connect(deadline,&QTimer::timeout,&app,[&app]{app.exit(2);});deadline->start(30000);
+            QObject::connect(capture,&QTimer::timeout,&app,[&app,&window,path,capture]{
+                if(!window.property("demoFinished").toBool())return;
+                capture->stop();
+                app.exit(window.property("demoSucceeded").toBool()&&window.grab().save(path)?0:2);
+            });capture->start();
+        } else QTimer::singleShot(250,&app,[&app,&window,path]{if(!window.grab().save(path)) app.exit(2); else app.quit();});
+    } else if (args.contains("--smoke-test")) {
+        if(args.contains("--demo")) {
+            auto *finished=new QTimer(&app);finished->setInterval(50);
+            QObject::connect(finished,&QTimer::timeout,&app,[&app,&window]{
+                if(window.property("demoFinished").toBool())app.exit(window.property("demoSucceeded").toBool()?0:2);
+            });finished->start();QTimer::singleShot(30000,&app,[&app]{app.exit(2);});
+        } else QTimer::singleShot(150,&app,&QApplication::quit);
+    }
     return app.exec();
 }

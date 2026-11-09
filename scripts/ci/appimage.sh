@@ -236,6 +236,8 @@ if [ "$mode" = test ]; then
   ldd "$appdir/usr/bin/orbyx-gui"
   "$appdir/usr/bin/orbyx" --version
   QT_QPA_PLATFORM=offscreen "$appdir/AppRun" --smoke-test
+  QT_QPA_PLATFORM=offscreen "$appdir/AppRun" --demo --run-and-exit --output /tmp/orbyx-real-demo
+  python3 /checks/check_image_demo.py /tmp/orbyx-real-demo
   "$appdir/usr/bin/orbyx" generate -s L2 -d /tmp/orbyx-fixture/input \
     --config /tmp/orbyx-fixture/profile.json --output /tmp/orbyx-cli-output --cpu
   QT_QPA_PLATFORM=offscreen "$appdir/AppRun" --lang en --cpu --satellite L2 \

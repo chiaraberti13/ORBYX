@@ -44,6 +44,7 @@ jobs:
           bash start.sh --smoke-test
           bash demo.sh --no-open
           test -n "$(find demo-output -name composite.png -print -quit)"
+          python3 scripts/ci/check_image_demo.py "$(dirname "$(find demo-output -name composite.png -print -quit)")"
           test -f build-desktop/.orbyx-install-success
       - name: Preserve installation and startup evidence from the disposable runner
         if: always()

@@ -68,7 +68,7 @@ if [[ "$ready" != true ]]; then tail -100 "$work/vm-serial.log" >&2; exit 1; fi
 ssh "${ssh_options[@]}" -p 2222 orbyx@127.0.0.1 'sudo cloud-init status --wait --long' | tee "$work/cloud-init.log"
 ssh "${ssh_options[@]}" -p 2222 orbyx@127.0.0.1 'sudo mkdir -p /packages /checks; sudo chown orbyx:orbyx /packages /checks'
 scp "${ssh_options[@]}" -P 2222 "$work/packages/"*.rpm "$work/packages/orbyx-fixture-tool" orbyx@127.0.0.1:/packages/
-scp "${ssh_options[@]}" -P 2222 "$repo/scripts/ci/platforms.sh" orbyx@127.0.0.1:/checks/
+scp "${ssh_options[@]}" -P 2222 "$repo/scripts/ci/platforms.sh" "$repo/scripts/ci/check_image_demo.py" orbyx@127.0.0.1:/checks/
 ssh "${ssh_options[@]}" -p 2222 orbyx@127.0.0.1 'bash -se' <<'GUEST' | tee "$work/guest-test.log"
 set -euo pipefail
 source /etc/os-release

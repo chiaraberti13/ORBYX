@@ -25,8 +25,8 @@ cv::Mat readDemoJpeg(const std::filesystem::path& source) {
     for(size_t offset=2;offset+3<bytes.size();) {
         checkDemo(bytes[offset++]==255,"Invalid JPEG marker");
         while(offset<bytes.size()&&bytes[offset]==255)++offset;
-        checkDemo(offset<bytes.size(),"Incomplete JPEG marker");
-        auto marker=bytes[offset++];
+        if(offset>=bytes.size())throw std::runtime_error("Incomplete JPEG marker");
+        auto marker=bytes.at(offset++);
         if(marker==0xda||marker==0xd9)break;
         if(marker==0x01||(marker>=0xd0&&marker<=0xd7))continue;
         checkDemo(offset+2<=bytes.size(),"Incomplete JPEG length");

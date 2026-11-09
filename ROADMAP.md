@@ -123,7 +123,7 @@ Installer Ubuntu: `install.sh` con dipendenze complete, attesa APT, stop alla pr
 - Deliverable: Flussi guidati e componenti rifiniti
 - Test: Test tastiera e utenti
 - Accettazione: Flussi completi EN/IT
-- Stato: verificato in parte — guida iniziale passo passo EN/IT, installer e launcher automatici, demo sintetica guidata con calibrazione/allineamento/Natural Color e desktop precompilato; base accessibile presente: i nuovi widget della coda e del profilo hanno nomi accessibili EN/IT e scorciatoie da tastiera coerenti col resto della GUI. La verifica completa con screen reader, il wizard interattivo di calibrazione resta da rifinire e richiedono tecnologia assistiva reale (non simulabile)
+- Stato: verificato in parte — guida iniziale passo passo EN/IT, installer e launcher automatici, demo reale nel desktop con i sei JPEG forniti, registrazione ECC e immagine unica visualizzata; la simulazione scientifica resta un test distinto; base accessibile presente: i nuovi widget della coda e del profilo hanno nomi accessibili EN/IT e scorciatoie da tastiera coerenti col resto della GUI. Testati click e ripresa da tastiera EN/IT, dialoghi profili e demo anche con finestra 960×680 e controlli realmente nel viewport. Restano da completare wizard interattivo e prove con screen reader/utenti reali
 
 ## M4-02 — Aggiornamenti sicuri e manutenzione periodica
 
@@ -146,7 +146,7 @@ Installer Ubuntu: `install.sh` con dipendenze complete, attesa APT, stop alla pr
 - Deliverable: coda GUI e creazione/duplicazione profili
 - Test: interruzione, ripresa, modifica input, localizzazione
 - Accettazione: stato durevole visibile nel desktop e nessuna perdita dati
-- Stato: verificato in parte — coda desktop che delega al runner batch già verificato (stato durevole, ripresa con digest, nessuna sovrascrittura), gruppo coda e pulsanti visibili, duplicazione profili nel core (`orbyx::duplicateProfile`) con dialog GUI. Verificati da test automatici: esecuzione coda (`gui-queue-flow`: prodotti identici alla CLI e ripresa) e duplicazione profili (`engine-regression`); i widget visibili compilano e si avviano (`gui-smoke`, screenshot ispezionato). Verificati anche i click EN/IT, aggiunta/rimozione, ripresa da tastiera e recupero FailedToStart con `gui-widget-flow`; restano dialoghi profili e screen reader (M4-01)
+- Stato: verificato in parte — coda desktop che delega al runner batch già verificato (stato durevole, ripresa con digest, nessuna sovrascrittura), gruppo coda e pulsanti visibili, duplicazione profili nel core (`orbyx::duplicateProfile`) con dialog GUI. Verificati da test automatici: esecuzione coda (`gui-queue-flow`: prodotti identici alla CLI e ripresa) e duplicazione profili (`engine-regression`); i widget visibili compilano e si avviano (`gui-smoke`, screenshot ispezionato). Verificati anche i click EN/IT, aggiunta/rimozione, ripresa da tastiera e recupero FailedToStart con `gui-widget-flow`; verificata la duplicazione tramite i dialoghi reali con conservazione dell’originale; resta lo screen reader (M4-01)
 
 ## M2-04 — Monitoraggio cartelle e riconoscimento dati
 

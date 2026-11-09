@@ -8,6 +8,8 @@
 #include <QElapsedTimer>
 #include <QCryptographicHash>
 #include <QDialogButtonBox>
+#include <QPointer>
+#include <opencv2/imgcodecs.hpp>
 #include <iostream>
 #include <stdexcept>
 
@@ -16,6 +18,17 @@ template<class F> bool until(F predicate, int timeout = 15000) {
     QElapsedTimer timer; timer.start();
     while (!predicate() && timer.elapsed() < timeout) QTest::qWait(10);
     return predicate();
+}
+void clickVisible(QPushButton *button) {
+    requireTest(button,"Button missing");
+    QTest::qWait(20);
+    for(auto *parent=button->parentWidget();parent;parent=parent->parentWidget())
+        if(auto *area=qobject_cast<QScrollArea*>(parent))area->ensureWidgetVisible(button,5,5);
+    QTest::qWait(10);
+    if(!button->isVisible()||!button->visibleRegion().contains(button->rect().center()))
+        std::cerr<<"Clipped button: "<<button->objectName().toStdString()<<std::endl;
+    requireTest(button->isVisible()&&button->visibleRegion().contains(button->rect().center()),"Button clipped outside the visible viewport");
+    QTest::mouseClick(button,Qt::LeftButton);
 }
 QByteArray hashFile(const QString &path) {
     QFile file(path); requireTest(file.open(QIODevice::ReadOnly), "Output missing");
@@ -28,12 +41,22 @@ int main(int argc, char **argv) {
     qputenv("XDG_DATA_HOME", (temporary.path()+"/data").toUtf8());
     QApplication::setAttribute(Qt::AA_DontUseNativeDialogs);
     QApplication app(argc,argv); app.setApplicationName("ORBYX");
+    bool expectedDialogs=false,unexpectedDialog=false;
+    QTimer watchdog;watchdog.setInterval(50);
+    QObject::connect(&watchdog,&QTimer::timeout,[&] {
+        if(expectedDialogs)return;
+        if(auto *box=qobject_cast<QMessageBox*>(QApplication::activeModalWidget())) {
+            std::cerr<<"Unexpected modal: "<<box->text().toStdString()<<std::endl;
+            unexpectedDialog=true;box->reject();
+        }
+    });watchdog.start();
     try {
         requireTest(argc == 2, "Expected fixture executable");
         const QString fixture = temporary.path()+"/fixture";
         requireTest(QProcess::execute(argv[1], {"--fixture",fixture}) == 0, "Fixture failed");
         for (const QString lang : {"en","it"}) {
-            Window w; w.previewSettings(lang,"dark",{1280,1000}); w.show();
+            std::cout<<"Queue widgets: "<<lang.toStdString()<<std::endl;
+            Window w; w.previewSettings(lang,"dark",lang=="it"?QSize(960,680):QSize(1280,860)); w.show();
             const QString result = temporary.path()+"/output-"+lang;
             w.loadArguments({"--input",fixture+"/input","--config",fixture+"/profile.json","--output",result,"--satellite","L2","--cpu"});
             auto *table=w.findChild<QTableWidget*>("queueTable");
@@ -41,11 +64,11 @@ int main(int argc, char **argv) {
             auto *remove=w.findChild<QPushButton*>("queueRemove");
             auto *run=w.findChild<QPushButton*>("queueRun");
             requireTest(table && add && remove && run, "Queue controls missing");
-            QTest::mouseClick(add,Qt::LeftButton); QTest::mouseClick(add,Qt::LeftButton);
+            clickVisible(add); clickVisible(add);
             requireTest(table->rowCount()==2,"Add clicks failed");
-            table->setCurrentCell(1,0); QTest::mouseClick(remove,Qt::LeftButton);
+            table->setCurrentCell(1,0); clickVisible(remove);
             requireTest(table->rowCount()==1,"Remove click failed");
-            QTest::mouseClick(run,Qt::LeftButton);
+            clickVisible(run);
             requireTest(until([&]{return run->isEnabled();}),"Queue stuck busy");
             if(table->item(0,2)->text()!=(lang=="it"?"Completato":"Done"))std::cerr<<w.findChild<QTextEdit*>()->toPlainText().toStdString()<<'\n';
             requireTest(table->item(0,2)->text()==(lang=="it"?"Completato":"Done"),"Queue completion missing");
@@ -55,6 +78,37 @@ int main(int argc, char **argv) {
             requireTest(until([&]{return run->isEnabled();}),"Resume stuck busy");
             requireTest(hashFile(file)==before,"Resume overwrote image");
             requireTest(table->item(0,2)->text()==(lang=="it"?"Completato":"Done"),"Verified resume did not retain completion");
+            // Fill the actual source/target/save dialogs and dismiss the success box.
+            const auto originalProfile=hashFile(fixture+"/profile.json");
+            const QString copied=temporary.path()+"/profile-"+lang+".json";
+            int answers=0;bool timedOut=false;QPointer<QWidget> handled;
+            QTimer responder;responder.setInterval(20);
+            QElapsedTimer deadline;deadline.start();
+            QObject::connect(&responder,&QTimer::timeout,[&] {
+                auto *dialog=QApplication::activeModalWidget();
+                if(!dialog)return;
+                if(deadline.elapsed()>5000) {timedOut=true; if(auto *d=qobject_cast<QDialog*>(dialog))d->reject();return;}
+                if(handled==dialog)return;
+                handled=dialog;
+                if(auto *input=qobject_cast<QInputDialog*>(dialog)) {
+                    input->setTextValue(answers++==0?"L2":"L9");input->accept();
+                } else if(auto *file=qobject_cast<QFileDialog*>(dialog)) {
+                    file->setDirectory(temporary.path());file->selectFile(QFileInfo(copied).fileName());
+                    auto *edit=file->findChild<QLineEdit*>("fileNameEdit");
+                    if(!edit){timedOut=true;file->reject();return;}
+                    edit->setText(QFileInfo(copied).fileName());
+                    // Invoke the real QFileDialog accept override; QDialog::accept
+                    // would bypass QFileDialog's selection and validation logic.
+                    QMetaObject::invokeMethod(file,"accept",Qt::QueuedConnection);
+                } else if(auto *message=qobject_cast<QMessageBox*>(dialog))message->accept();
+            });
+            expectedDialogs=true;responder.start();clickVisible(w.findChild<QPushButton*>("profileDup"));responder.stop();expectedDialogs=false;
+            requireTest(!timedOut&&answers==2&&QFileInfo::exists(copied),"Profile dialog did not save a new profile");
+            requireTest(hashFile(fixture+"/profile.json")==originalProfile,"Profile dialog changed original");
+            QFile profile(copied);requireTest(profile.open(QIODevice::ReadOnly),"Copied profile unreadable");
+            const auto document=QJsonDocument::fromJson(profile.readAll()).object();
+            requireTest(document.value("L2")==document.value("L9"),"Profile dialog copied wrong satellite");
+            requireTest(w.findChild<QLineEdit*>("config")->text()==copied,"GUI did not select copied profile");
             w.close();
         }
         // Launch a genuine exec failure: the executable exists, its interpreter does not.
@@ -65,10 +119,15 @@ int main(int argc, char **argv) {
         const auto oldPath=qgetenv("PATH"); qputenv("PATH",fakeDir.toUtf8()+":"+oldPath);
         Window w;w.previewSettings("en","dark",{1280,1000});w.show();
         w.loadArguments({"--input",fixture+"/input","--config",fixture+"/profile.json","--output",temporary.path()+"/exec-fail","--satellite","L2","--cpu"});
-        QTest::mouseClick(w.findChild<QPushButton*>("queueAdd"),Qt::LeftButton);
-        auto *run=w.findChild<QPushButton*>("queueRun");QTest::mouseClick(run,Qt::LeftButton);
+        clickVisible(w.findChild<QPushButton*>("queueAdd"));
+        auto *run=w.findChild<QPushButton*>("queueRun");clickVisible(run);
         requireTest(until([&]{return run->isEnabled();}),"FailedToStart left GUI disabled");
         requireTest(w.findChild<QTableWidget*>("queueTable")->item(0,2)->text()=="Error","Exec failure marked successful");
+        requireTest(fake.open(QIODevice::WriteOnly|QIODevice::Truncate),"Fake runner rewrite failed");
+        fake.write("#!/bin/sh\nwhile [ \"$#\" -gt 0 ]; do if [ \"$1\" = --state ]; then shift; state=$1; fi; shift; done\nprintf '%s' '{\"version\":1,\"jobs\":{\"job-1\":{\"status\":\"running\"}}}' > \"$state\"\n");fake.close();
+        clickVisible(run);
+        requireTest(until([&]{return run->isEnabled();}),"Nonterminal state left GUI disabled");
+        requireTest(w.findChild<QTableWidget*>("queueTable")->item(0,2)->text()=="Error","Running state marked successful");
         qputenv("PATH",oldPath); w.close();
         // Drive the production demo button in both languages; verify the displayed
         // image and the source snapshots, rather than a separate renderer.
@@ -76,7 +135,7 @@ int main(int argc, char **argv) {
             Window demo;demo.previewSettings(lang,"dark",{1280,1000});demo.show();
             auto *button=demo.findChild<QPushButton*>("demoButton");
             requireTest(button&&button->isVisible()&&!button->accessibleName().isEmpty(),"Demo button inaccessible");
-            QTest::mouseClick(button,Qt::LeftButton);
+            clickVisible(button);
             requireTest(until([&]{return button->isEnabled();},30000),"Demo stuck busy");
             const auto log=demo.findChild<QTextEdit*>()->toPlainText();
             requireTest(log.contains("1428x1428")&&!log.contains("ERROR:"),"Real six-image demo failed");
@@ -85,7 +144,29 @@ int main(int argc, char **argv) {
             demo.close();
         }
 
-        std::cout<<"Visible queue EN/IT, mouse, keyboard resume, output preservation and exec failure passed\n";
+        const QDir sample(QDir(QCoreApplication::applicationDirPath()).filePath("share/orbyx/demo-jpeg"));
+        QFile sums(sample.filePath("SHA256SUMS"));requireTest(sums.open(QIODevice::ReadOnly),"Demo source hashes unavailable");
+        int sources=0;
+        for(const auto &line:sums.readAll().split('\n')) {
+            if(line.isEmpty())continue;
+            requireTest(hashFile(sample.filePath(QString::fromUtf8(line.mid(66)))).toHex()==line.left(64),"Demo modified source JPEG");++sources;
+        }
+        requireTest(sources==6,"Demo did not verify all six JPEGs");
+        const auto reject=[&](const QString &input,const QString &output) {
+            try {orbyx::runImageDemo(input.toStdString(),output.toStdString());}catch(const std::exception&){return true;}
+            return false;
+        };
+        const auto existing=temporary.path()+"/existing";QDir().mkpath(existing);
+        QFile sentinel(existing+"/keep");requireTest(sentinel.open(QIODevice::WriteOnly),"Sentinel unavailable");sentinel.write("keep");sentinel.close();
+        requireTest(reject(sample.path(),existing)&&QFileInfo::exists(existing+"/keep"),"Demo overwrote an existing output");
+        const auto broken=temporary.path()+"/broken";QDir().mkpath(broken);
+        for(const QString side:{"sx","dx"})for(int c=1;c<=3;++c)
+            cv::imwrite(QDir(broken).filePath(side+"_MSUGS-VIS-"+QString::number(c)+".jpg").toStdString(),cv::Mat::zeros(2048,714,CV_8U));
+        const auto failed=temporary.path()+"/failed-demo";
+        requireTest(reject(broken,failed)&&!QFileInfo::exists(failed),"Unregisterable demo did not fail and roll back");
+        requireTest(reject(temporary.path()+"/missing",failed)&&!QFileInfo::exists(failed),"Missing demo inputs left partial output");
+        requireTest(!unexpectedDialog,"Unexpected modal dialog during widget tests");
+        std::cout<<"Visible queue/profile/demo EN/IT, mouse, keyboard resume, output preservation, exec failure and nonterminal state passed\n";
         return 0;
     } catch (const std::exception &e) { std::cerr<<e.what()<<'\n';return 1; }
 }

@@ -279,3 +279,27 @@ pulsante demo con immagine effettivamente visualizzata (5,46 s, esito positivo).
 Corretti manifest atomico, recupero FailedToStart e rifiuto di stati non
 terminali/malformati. Un errore di avvio non riutilizza più uno stato completato
 vecchio. Restano da verificare dialoghi profili e screen reader fisico.
+
+### Secondo incremento — dialoghi, viewport e runtime installati
+
+`gui-widget-flow` copre ora anche i tre dialoghi di duplicazione profilo EN/IT
+(compresa selezione del nuovo file e digest dell’originale), rifiuto di stato
+`running` anche con backend exit 0, demo da pulsante con immagine mostrata,
+verifica SHA256 dei sei JPEG dopo l’uso, input mancanti/non registrabili,
+rollback e rifiuto di destinazioni esistenti. I click richiedono che il centro
+del pulsante sia nel viewport: provati 1280×860 e 960×680 con scorrimento.
+
+La prima CI ha confermato Ubuntu22/24/26, ARM64, AppImage, acquisizione reale
+SatDump, sanitizzatori, fuzzing, firma GPG effimera e provenienza OIDC.
+Ha rilevato un blocco Fedora nel test widget: la build fuori dai sorgenti non
+aveva il runner batch. Corretto copiando i supporti nella build, senza percorsi
+personali. Il test è poi passato anche con eseguibili/supporti trasferiti fuori
+dai sorgenti e avviati dalla radice. Reso esplicito il controllo bounds del
+marker JPEG segnalato da cppcheck, senza sopprimere il controllo.
+
+La demo del programma **installato** è passata localmente. Il checker
+`scripts/ci/check_image_demo.py` verifica PNG RGB1428×1428, sei intermedi,
+ECC >0,94 e giunzione misurata; aggiunto alle installazioni Ubuntu26, Fedora,
+ARM64, AppImage e VM Fedora. Screenshot automatici della demo attendono la
+fine del worker. Nuova CI richiesta per confermare il secondo incremento.
+Screen reader reale, GPU fisica e geometria assoluta restano aperti.
