@@ -230,6 +230,21 @@ ControlPointSolution alignFromControlPoints(const MosaicLayer& moving,const Mosa
     cv::Matx23d local{affine.at<double>(0,0),affine.at<double>(0,1),affine.at<double>(0,2),affine.at<double>(1,0),affine.at<double>(1,1),affine.at<double>(1,2)};
     result.layer=placed(moving,reference,local);return result;
 }
+CropProposal proposeUniformBorderCrop(const MosaicLayer& layer) {
+    validate(layer);auto source=readCompositePng(layer.image);const auto selected=region(layer,source);cv::Mat image=source(selected),gray;
+    if(image.channels()==3)cv::cvtColor(image,gray,cv::COLOR_BGR2GRAY);else gray=image;
+    const double ratio=std::min(1.,2048./std::max(gray.cols,gray.rows));cv::Mat small;if(ratio<1)cv::resize(gray,small,{},ratio,ratio,cv::INTER_AREA);else small=gray;
+    double low=0,high=0;cv::minMaxLoc(small,&low,&high);check(high-low>=8,"Uniform portion has no reliable content crop");
+    cv::Mat normalized;small.convertTo(normalized,CV_8U,255./(high-low),-low*255./(high-low));
+    auto activeRows=[&](bool rows){std::vector<unsigned char> active(size_t(rows?normalized.rows:normalized.cols));for(int index=0;index<int(active.size());++index){cv::Mat line=rows?normalized.row(index):normalized.col(index);cv::Scalar mean,deviation;cv::meanStdDev(line,mean,deviation);double minimum=0,maximum=0;cv::minMaxLoc(line,&minimum,&maximum);active[size_t(index)]=deviation[0]>=4&&maximum-minimum>=12;}return active;};
+    auto bounds=[](const std::vector<unsigned char>& active){auto first=std::find(active.begin(),active.end(),1);auto last=std::find(active.rbegin(),active.rend(),1);check(first!=active.end(),"Uniform portion has no reliable content crop");return std::pair<int,int>{int(first-active.begin()),int(active.size()-(last-active.rbegin()))};};
+    const auto vertical=bounds(activeRows(true)),horizontal=bounds(activeRows(false));
+    const int marginX=std::max(2,int(normalized.cols*.01)),marginY=std::max(2,int(normalized.rows*.01));
+    const int left=std::max(0,horizontal.first-marginX),right=std::min(normalized.cols,horizontal.second+marginX),top=std::max(0,vertical.first-marginY),bottom=std::min(normalized.rows,vertical.second+marginY);
+    cv::Rect local{int(std::floor(left/ratio)),int(std::floor(top/ratio)),int(std::ceil((right-left)/ratio)),int(std::ceil((bottom-top)/ratio))};local&=cv::Rect(0,0,image.cols,image.rows);
+    check(local.width>=16&&local.height>=16,"Proposed content crop is too small");const double retained=double(local.area())/selected.area();check(retained>=.01,"Proposed content crop is unreliable");
+    CropProposal result;result.original=selected;result.proposed={selected.x+local.x,selected.y+local.y,local.width,local.height};result.retainedFraction=retained;return result;
+}
 AutoOverlapResult autoAlignOverlaps(const std::vector<MosaicLayer>& layers,std::size_t anchor) {
     check(layers.size()>=2&&layers.size()<=32,"Automatic overlap requires 2 to 32 layers");
     check(anchor<layers.size()&&layers[anchor].visible,"Automatic overlap anchor must be visible");

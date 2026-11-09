@@ -40,6 +40,11 @@ struct ControlPointSolution {
     std::vector<std::size_t> inliers;    // Robustly accepted pair indices.
     double medianError=0, maxError=0;    // Inlier residuals, in reference pixels.
 };
+struct CropProposal {
+    cv::Rect original;
+    cv::Rect proposed; // Absolute source-image coordinates.
+    double retainedFraction=1;
+};
 // Strict, bounded PNG reader shared with the core. Grayscale or RGB 8/16-bit.
 cv::Mat readCompositePng(const std::filesystem::path&);
 void writeCompositePng(const cv::Mat&,const std::filesystem::path&);
@@ -56,6 +61,9 @@ AutoOverlapResult autoAlignOverlaps(const std::vector<MosaicLayer>&,std::size_t 
 // outliers and residuals are reported for every supplied pair.
 ControlPointSolution alignFromControlPoints(const MosaicLayer& moving,const MosaicLayer& reference,
                                             const std::vector<ControlPointPair>& pairs);
+// Detect low-detail outer rows/columns and return a reversible crop proposal.
+// No layer or source pixel is modified. Uniform/ambiguous images are rejected.
+CropProposal proposeUniformBorderCrop(const MosaicLayer& layer);
 std::string mosaicProject(const std::vector<MosaicLayer>&);
 std::vector<MosaicLayer> parseMosaicProject(const std::string&);
 }

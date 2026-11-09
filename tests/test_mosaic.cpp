@@ -96,6 +96,11 @@ int main(){
         check(controlled.medianError<1e-4&&controlled.maxError<1e-4&&controlled.residuals.back()>500,"Control-point residual diagnostics incorrect");
         rejects([&]{orbyx::alignFromControlPoints(moving,reference,{{{0,0},{0,0}},{{1,1},{1,1}}});});
         rejects([&]{orbyx::alignFromControlPoints(moving,reference,{{{1,1},{0,0}},{{1,1},{2,2}},{{1,1},{3,3}}});});
+        cv::Mat bordered(180,240,CV_16UC1,cv::Scalar(1200));cv::Mat textured(120,170,CV_16UC1);cv::randu(textured,cv::Scalar(4000),cv::Scalar(50000));textured.copyTo(bordered(cv::Rect(30,35,170,120)));
+        auto borderedFile=root/"bordered.png";cv::imwrite(borderedFile.string(),bordered);orbyx::MosaicLayer borderedLayer;borderedLayer.image=borderedFile;
+        auto crop=orbyx::proposeUniformBorderCrop(borderedLayer);check(crop.original==cv::Rect(0,0,240,180)&&crop.proposed.x<=30&&crop.proposed.x>=27&&crop.proposed.y<=35&&crop.proposed.y>=32&&crop.proposed.br().x>=200&&crop.proposed.br().x<=203&&crop.proposed.br().y>=155&&crop.proposed.br().y<=158,"Uniform-border crop proposal missed known content");
+        check(crop.retainedFraction>.45&&crop.retainedFraction<.65,"Uniform-border retained fraction incorrect");borderedLayer.crop={20,20,200,150};auto nestedCrop=orbyx::proposeUniformBorderCrop(borderedLayer);check(nestedCrop.original==borderedLayer.crop&&nestedCrop.proposed.x>=borderedLayer.crop.x&&nestedCrop.proposed.y>=borderedLayer.crop.y,"Crop proposal ignored an existing crop");
+        orbyx::MosaicLayer uniform;uniform.image=blankFile;rejects([&]{orbyx::proposeUniformBorderCrop(uniform);});
         fs::remove_all(root);std::cout<<"Mosaic geometry, colour, precision, persistence and rejection tests passed\n";return 0;
     }catch(const std::exception& e){std::cerr<<e.what()<<'\n';fs::remove_all(root);return 1;}
 }
