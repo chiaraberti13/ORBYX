@@ -56,11 +56,14 @@ int main(int argc,char** argv){
             QElapsedTimer blinkDeadline;blinkDeadline.start();while(!dialog.property("blinkHidden").toBool()&&blinkDeadline.elapsed()<2500)QTest::qWait(20);
             check(dialog.property("blinkHidden").toBool(),"Blink seam inspection did not alternate the selected layer");blink->setChecked(false);waitFor(dialog);
             check(!dialog.property("blinkHidden").toBool()&&orbyx::mosaicProject(dialog.state())==beforeBlink,"Blink seam inspection changed editable or export state");
-            auto* inspection=dialog.findChild<QComboBox*>("mosaicInspection");check(inspection&&inspection->count()==3,"Seam inspection modes missing");
+            auto* inspection=dialog.findChild<QComboBox*>("mosaicInspection");check(inspection&&inspection->count()==4,"Seam inspection modes missing");
             inspection->setCurrentIndex(1);waitFor(dialog);
             check(dialog.property("differenceComparison").toInt()==1&&dialog.property("differencePixels").toInt()>0&&!canvas->pixmap().isNull(),"Difference seam inspection did not compare the selected adjacent pair");
             inspection->setCurrentIndex(2);waitFor(dialog);
             check(dialog.property("inspectionRendered").toInt()==2&&dialog.property("differenceComparison").toInt()==1&&!canvas->pixmap().isNull(),"Checkerboard seam inspection did not compare the selected adjacent pair");
+            auto* swipe=dialog.findChild<QSlider*>("mosaicSwipe");check(swipe&&!swipe->isEnabled(),"Swipe control enabled outside its inspection mode");
+            inspection->setCurrentIndex(3);swipe->setValue(35);waitFor(dialog);
+            check(swipe->isEnabled()&&dialog.property("inspectionRendered").toInt()==3&&dialog.property("swipeRendered").toInt()==35,"Swipe seam inspection did not render the reviewed position");
             inspection->setCurrentIndex(0);waitFor(dialog);
             check(orbyx::mosaicProject(dialog.state())==beforeBlink,"Difference seam inspection changed editable or export state");
             dialog.reorder(-1);waitFor(dialog);check(list->currentRow()==1,"Layer reordering failed");

@@ -28,6 +28,7 @@
 #include <QPolygonF>
 #include <QPushButton>
 #include <QSaveFile>
+#include <QSlider>
 #include <QScrollArea>
 #include <QStandardPaths>
 #include <QThread>
@@ -63,7 +64,7 @@ protected:
 class MosaicDialog final:public QDialog {
     bool it=false,busy=false,updating=false,dirty=false;
     QWidget* tools{};QListWidget* list{};MosaicCanvas* canvas{};QLabel* status{};
-    QScrollArea* previewView{};QComboBox* colourMode{};QComboBox* inspectionMode{};QDoubleSpinBox* zoom{};QCheckBox* visible{};QCheckBox* blink{};
+    QScrollArea* previewView{};QComboBox* colourMode{};QComboBox* inspectionMode{};QSlider* swipePosition{};QDoubleSpinBox* zoom{};QCheckBox* visible{};QCheckBox* blink{};
     std::vector<QDoubleSpinBox*> controls;
     std::vector<orbyx::MosaicLayer> layers;
     std::vector<orbyx::MosaicLayer> profileRoiBaseline;
@@ -134,9 +135,10 @@ class MosaicDialog final:public QDialog {
         auto state=layers;const int selected=list->currentRow();
         if(blink&&blink->isChecked()&&selected>=0&&selected<int(state.size()))state[size_t(selected)].visible=!blinkHidden;
         const int inspection=inspectionMode?inspectionMode->currentIndex():0;
+        const int swipe=swipePosition?swipePosition->value():50;
         const bool compare=inspection>0&&state.size()>1&&selected>=0;
         struct PreviewResult{orbyx::MosaicResult mosaic;int comparison=-1;int differencePixels=0;int inspection=0;};auto result=std::make_shared<PreviewResult>();
-        run([state,result,selected,inspection,compare]{
+        run([state,result,selected,inspection,compare,swipe]{
             result->inspection=inspection;
             if(!compare){result->mosaic=orbyx::renderMosaic(state,1200);return;}
             const int comparison=selected>0?selected-1:selected+1;result->comparison=comparison;
@@ -159,7 +161,9 @@ class MosaicDialog final:public QDialog {
                 cv::applyColorMap(scaled,heat,cv::COLORMAP_TURBO);heat.setTo(cv::Scalar::all(0),maskA==0);a.image=heat;
             }else{
                 cv::Mat combined;cv::add(a.image,b.image,combined);
-                for(int y=0;y<combined.rows;++y){auto* destination=combined.ptr<cv::Vec3b>(y);const auto* fromA=a.image.ptr<cv::Vec3b>(y);const auto* fromB=b.image.ptr<cv::Vec3b>(y);const auto* overlap=maskA.ptr<uchar>(y);for(int x=0;x<combined.cols;++x)if(overlap[x])destination[x]=((x/32+y/32)&1)?fromA[x]:fromB[x];}
+                const int divider=combined.cols*swipe/100;
+                for(int y=0;y<combined.rows;++y){auto* destination=combined.ptr<cv::Vec3b>(y);const auto* fromA=a.image.ptr<cv::Vec3b>(y);const auto* fromB=b.image.ptr<cv::Vec3b>(y);const auto* overlap=maskA.ptr<uchar>(y);for(int x=0;x<combined.cols;++x)if(overlap[x])destination[x]=inspection==2?(((x/32+y/32)&1)?fromA[x]:fromB[x]):(x<divider?fromA[x]:fromB[x]);}
+                if(inspection==3)cv::line(combined,{divider,0},{divider,combined.rows-1},cv::Scalar(0,212,255),1,cv::LINE_AA);
                 a.image=combined;
             }
             result->mosaic=std::move(a);
@@ -169,6 +173,7 @@ class MosaicDialog final:public QDialog {
             setProperty("differenceComparison",result->comparison);
             setProperty("differencePixels",result->differencePixels);
             setProperty("inspectionRendered",result->inspection);
+            setProperty("swipeRendered",swipePosition?swipePosition->value():50);
             status->setText(persistentNotice.isEmpty()?t("Preview only: export uses original resolution and 8/16-bit depth. Drag to move the selected layer.","Solo anteprima: l’esportazione usa risoluzione originale e profondità 8/16 bit. Trascina per spostare il livello selezionato."):persistentNotice);
         });
     }
@@ -230,8 +235,10 @@ public:
         button("mosaicRestoreRoi",t("Restore profile ROI","Ripristina ROI del profilo"),panel,[this]{restoreProfileRoi();});
         blink=new QCheckBox(t("Blink selected layer (preview only)","Lampeggia livello selezionato (solo anteprima)"));blink->setObjectName("mosaicBlink");blink->setAccessibleName(blink->text());panel->addWidget(blink);
         connect(blink,&QCheckBox::toggled,this,[this](bool enabled){blinkHidden=false;setProperty("blinkHidden",false);if(enabled)blinkTimer.start();else blinkTimer.stop();schedule();});
-        inspectionMode=new QComboBox;inspectionMode->setObjectName("mosaicInspection");inspectionMode->addItems({t("Composite preview","Anteprima composita"),t("Difference: selected vs adjacent","Differenza: selezionato e adiacente"),t("Checkerboard: selected vs adjacent","Scacchiera: selezionato e adiacente")});inspectionMode->setAccessibleName(t("Seam inspection mode","Modalità ispezione giunzione"));panel->addWidget(inspectionMode);
-        connect(inspectionMode,qOverload<int>(&QComboBox::currentIndexChanged),this,[this]{schedule();});
+        inspectionMode=new QComboBox;inspectionMode->setObjectName("mosaicInspection");inspectionMode->addItems({t("Composite preview","Anteprima composita"),t("Difference: selected vs adjacent","Differenza: selezionato e adiacente"),t("Checkerboard: selected vs adjacent","Scacchiera: selezionato e adiacente"),t("Swipe: selected vs adjacent","Tendina: selezionato e adiacente")});inspectionMode->setAccessibleName(t("Seam inspection mode","Modalità ispezione giunzione"));panel->addWidget(inspectionMode);
+        swipePosition=new QSlider(Qt::Horizontal);swipePosition->setObjectName("mosaicSwipe");swipePosition->setRange(0,100);swipePosition->setValue(50);swipePosition->setAccessibleName(t("Swipe comparison position","Posizione confronto a tendina"));swipePosition->setEnabled(false);panel->addWidget(swipePosition);
+        connect(inspectionMode,qOverload<int>(&QComboBox::currentIndexChanged),this,[this](int mode){swipePosition->setEnabled(mode==3);schedule();});
+        connect(swipePosition,&QSlider::valueChanged,this,[this]{if(inspectionMode->currentIndex()==3)schedule();});
         auto* ordering=new QHBoxLayout;panel->addLayout(ordering);
         button("mosaicDown",t("Lower","Abbassa"),ordering,[this]{reorder(-1);});button("mosaicUp",t("Raise","Alza"),ordering,[this]{reorder(1);});
         button("mosaicRemove",t("Remove","Rimuovi"),panel,[this]{int row=list->currentRow();if(row<0)return;remember();layers.erase(layers.begin()+row);refreshList();});
