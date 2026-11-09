@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "orbyx/compositor.hpp"
 #include <opencv2/imgcodecs.hpp>
+#include <opencv2/imgproc.hpp>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -52,6 +53,33 @@ int main(){
         check(cv::norm(cv::imread(file.string(),cv::IMREAD_UNCHANGED),result.image,cv::NORM_INF)==0,"PNG depth/pixels changed");
         check(cv::norm(cv::imread((root/"a.png").string(),cv::IMREAD_UNCHANGED),a,cv::NORM_INF)==0,"Source overwritten");
         auto preview=orbyx::renderMosaic({l,n},32);check(preview.image.depth()==CV_8U,"Preview is not explicitly 8-bit");
+        // Automatic overlap works on arbitrary portions, including a chain in
+        // two directions; a featureless part is retained for manual editing.
+        cv::Mat scene(520,760,CV_8UC3,cv::Scalar(8,8,8));cv::RNG random(0x4f524259);
+        for(int i=0;i<450;++i){cv::Point point(random.uniform(8,752),random.uniform(8,512));cv::Scalar colour(random.uniform(35,255),random.uniform(35,255),random.uniform(35,255));cv::circle(scene,point,random.uniform(2,9),colour,-1,cv::LINE_AA);}
+        for(int i=0;i<80;++i)cv::line(scene,{random.uniform(0,760),random.uniform(0,520)},{random.uniform(0,760),random.uniform(0,520)},cv::Scalar(random.uniform(20,240),random.uniform(20,240),random.uniform(20,240)),1,cv::LINE_AA);
+        cv::putText(scene,"ORBYX AUTO OVERLAP",{55,255},cv::FONT_HERSHEY_SIMPLEX,1.2,{255,255,255},3,cv::LINE_AA);
+        const std::array<cv::Rect,3> portions{{{0,0,430,360},{240,70,430,360},{130,240,430,280}}};
+        std::vector<orbyx::MosaicLayer> automatic;
+        for(size_t i=0;i<portions.size();++i){auto file=root/("portion-"+std::to_string(i)+".png");cv::imwrite(file.string(),scene(portions[i]));orbyx::MosaicLayer part;part.image=file;automatic.push_back(part);}
+        auto blankFile=root/"blank.png";cv::imwrite(blankFile.string(),cv::Mat(240,320,CV_8UC3,cv::Scalar(30,30,30)));orbyx::MosaicLayer blank;blank.image=blankFile;automatic.push_back(blank);
+        auto arranged=orbyx::autoAlignOverlaps(automatic,0);
+        check(arranged.accepted.size()==2&&arranged.unaligned==std::vector<std::size_t>{3},"Automatic overlap did not distinguish connected and unmatched portions");
+        for(size_t i=1;i<3;++i){check(std::abs(arranged.layers[i].x-portions[i].x)<=2&&std::abs(arranged.layers[i].y-portions[i].y)<=2,"Automatic translation outside tolerance");check(std::abs(arranged.layers[i].scale-1)<.01&&std::abs(arranged.layers[i].angle)<.3,"Automatic geometry invented rotation or scale");}
+        for(const auto& match:arranged.accepted)check(match.inliers>=12&&match.confidence>0&&match.overlapFraction>=.03,"Automatic overlap evidence missing");
+        check(automatic[1].x==0&&automatic[1].y==0,"Automatic proposal modified caller state");
+        // Recover rotation and scale, not only translation.
+        auto referenceFile=root/"reference.png";cv::imwrite(referenceFile.string(),scene(cv::Rect(80,60,520,400)));
+        cv::Mat rotation=cv::getRotationMatrix2D({260,200},6,.94),rotated;cv::warpAffine(scene(cv::Rect(80,60,520,400)),rotated,rotation,{520,400},cv::INTER_LINEAR,cv::BORDER_REFLECT);
+        auto rotatedFile=root/"rotated.png";cv::imwrite(rotatedFile.string(),rotated);
+        orbyx::MosaicLayer reference;reference.image=referenceFile;orbyx::MosaicLayer moving;moving.image=rotatedFile;
+        auto recovered=orbyx::autoAlignOverlaps({reference,moving});cv::Mat inverse;cv::invertAffineTransform(rotation,inverse);
+        check(recovered.accepted.size()==1&&recovered.unaligned.empty(),"Rotation/scale overlap was not accepted");
+        check(std::abs(recovered.layers[1].scale-std::hypot(inverse.at<double>(0,0),inverse.at<double>(1,0)))<.025,"Automatic scale outside tolerance");
+        check(std::abs(recovered.layers[1].angle-std::atan2(inverse.at<double>(1,0),inverse.at<double>(0,0))*180/CV_PI)<.7,"Automatic rotation outside tolerance");
+        check(std::abs(recovered.layers[1].x-inverse.at<double>(0,2))<6&&std::abs(recovered.layers[1].y-inverse.at<double>(1,2))<6,"Automatic rotated translation outside tolerance");
+        auto noMatch=orbyx::autoAlignOverlaps({automatic[0],blank});
+        check(noMatch.accepted.empty()&&noMatch.unaligned==std::vector<std::size_t>{1},"Featureless portion was not retained for manual editing");
         fs::remove_all(root);std::cout<<"Mosaic geometry, colour, precision, persistence and rejection tests passed\n";return 0;
     }catch(const std::exception& e){std::cerr<<e.what()<<'\n';fs::remove_all(root);return 1;}
 }
