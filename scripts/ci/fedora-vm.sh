@@ -29,8 +29,10 @@ python3 - "$work" <<'PY'
 from pathlib import Path
 import sys
 work=Path(sys.argv[1]);public=(work/'ssh_key.pub').read_text().strip()
-(work/'meta-data').write_text('instance-id: orbyx-clean-fedora44\nlocal-hostname: orbyx-vm\n')
+(work/'meta-data').write_text('instance-id: orbyx-clean-fedora44\n')
 (work/'user-data').write_text('''#cloud-config
+# Keep the base image hostname; runtime QA connects by forwarded IP.
+preserve_hostname: true
 ssh_pwauth: false
 disable_root: true
 users:

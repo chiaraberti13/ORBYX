@@ -303,3 +303,18 @@ ECC >0,94 e giunzione misurata; aggiunto alle installazioni Ubuntu26, Fedora,
 ARM64, AppImage e VM Fedora. Screenshot automatici della demo attendono la
 fine del worker. Nuova CI richiesta per confermare il secondo incremento.
 Screen reader reale, GPU fisica e geometria assoluta restano aperti.
+
+### Decoder JPEG nel test headless e VM Fedora
+
+Aggiunto `image-demo-regression` al CTest comune, quindi anche ad ASan/UBSan:
+composizione reale dai sei JPEG, canale di riferimento invariato pixel per pixel,
+originali conservati, correlazione ECC e scarto di giunzione verificati;
+troncamenti, marker incompleti, limite1MiB, symlink e canale mancante rifiutati
+con rollback; destinazione esistente conservata. Passato localmente in3,70s.
+
+Su8103ae6 la matrice nativa Fedora/ARM64 è verde, inclusa la demo installata.
+La VM completa ha passato la compilazione e19 gruppi CTest (GPU saltata),
+poi cloud-init ha segnalato un errore recuperabile nel tentativo di cambiare
+hostname. La prova non necessita di un hostname specifico: rimossa tale
+richiesta e impostato `preserve_hostname: true`; il controllo stretto dell’esito
+cloud-init resta attivo. In attesa di nuova prova completa della VM.
