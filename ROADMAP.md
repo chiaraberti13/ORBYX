@@ -301,7 +301,11 @@ progettazione, non dipendenze da integrare automaticamente.
 ## M2-09 — Controllo professionale dell’allineamento
 
 - Priorità: P0
-- Stato: proposto, non implementato
+- Stato: in corso — primo incremento implementato e verificato: oltre a
+  trascinamento e valori numerici, il canvas accetta frecce da tastiera per
+  spostamenti di1pixel e `Shift`+freccia per10pixel, con annulla/ripeti e
+  strategia manuale esplicita. Restano da implementare le modalità di ispezione
+  seam, i punti di controllo e la proposta di esclusione dei bordi uniformi.
 - Dipendenze: M2-07, M2-08
 - Responsabile: Computer Vision / Scientific Imaging UX / Qt / QA
 - Deliverable: strumenti mirati alla giunzione, senza trasformare ORBYX in un

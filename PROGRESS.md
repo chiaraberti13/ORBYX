@@ -590,3 +590,19 @@ porzione, ripristino della posizione e dei ritagli originari, strategia riportat
 a `profile-roi`, salvataggio del progetto. Mosaic e GUI end-to-end passati;
 Cppcheck pulito. Pubblicazione codice:
 `83f75d7f07a5d6f2a59cb5fbfa21cb907741d74d`.
+
+### M2-09 — Primo incremento: regolazione fine della giunzione
+
+Il canvas del compositore è ora focalizzabile e accessibile da tastiera. Le
+frecce spostano il livello selezionato di1pixel; `Shift`+freccia applica un
+passo di10pixel. Il trascinamento e i campi X/Y restano invariati. Ogni pressione
+crea uno stato annullabile/ripetibile e marca esplicitamente la strategia come
+manuale, così l’utente può rifinire una costa doppia o una giunzione senza
+dipendere dalla precisione del mouse.
+
+Test widget EN/IT su passo fine e grosso, assi X/Y, annulla, ripeti e strategia;
+suite specifica del compositore e test GUI completo passati. Le soglie di attesa
+del test headless per dialoghi e demo sono state ampliate perché due esecuzioni
+sotto carico avevano raggiunto punti diversi senza un difetto funzionale;
+nessuna verifica è stata rimossa. Cppcheck pulito. Pubblicazione codice:
+`955dde7b5848849aa0925d9babe4a14fe6d5299e`.

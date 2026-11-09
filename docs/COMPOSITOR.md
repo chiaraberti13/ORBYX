@@ -70,6 +70,9 @@ in M2-08.
    l’automatismo non trova abbastanza dettagli, ritaglia intestazioni e grandi
    zone nere e riprova, oppure procedi manualmente. Puoi disporre le porzioni in
    orizzontale, verticale o su una griglia irregolare.
+   Per una correzione precisa fai clic sull’anteprima e usa le frecce: ogni
+   pressione sposta il livello selezionato di1pixel; con `Shift` lo spostamento
+   è di10pixel. Anche questi movimenti sono annullabili e ripetibili.
 7. Regola **Scala**, **Rotazione**, **Ritaglio**, **Opacità** e **Sfumatura bordi**.
    I valori del ritaglio sono nelle coordinate della sorgente; larghezza e altezza
    entrambe 0 significano immagine intera. Per eliminare intestazioni usa il
