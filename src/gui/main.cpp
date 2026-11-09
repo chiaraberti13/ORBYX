@@ -6,6 +6,7 @@
 #include "update_dialog.hpp"
 #include "queue_persistence.hpp"
 #include "mosaic_dialog.hpp"
+#include "final_image_wizard.hpp"
 
 #include <QAbstractItemView>
 #include <QApplication>
@@ -130,7 +131,9 @@ class Window final : public QMainWindow {
     bool demoMode = false;
     QString lastOutput;
     QString demoResult;
-    QPushButton *demoButton{}, *wizardButton{}, *watchButton{}, *updatesButton{};
+    QPushButton *demoButton{}, *wizardButton{}, *finalImageButton{}, *watchButton{}, *updatesButton{};
+    bool openFinalEditor=false;
+    bool finalNaturalColour=true;
     QString importedFingerprint;
     QPointer<ImportDialog> importWindow;
     QPointer<UpdateDialog> updateWindow;
@@ -167,6 +170,8 @@ class Window final : public QMainWindow {
         watchButton->setText(it?"Monitora acquisizioni…":"Monitor acquisitions…");watchButton->setAccessibleName(watchButton->text());
         wizardButton->setText(it?"Calibrazione guidata…":"Guided calibration…");
         wizardButton->setAccessibleName(wizardButton->text());
+        finalImageButton->setText(it?"Crea immagine finale…":"Create final image…");
+        finalImageButton->setAccessibleName(finalImageButton->text());
         demoButton->setText(trText("Run image demo"));
         demoButton->setAccessibleName(trText("Run image demo"));
         demoButton->setToolTip(trText("Align the six bundled JPEGs and join the left and right halves."));
@@ -356,6 +361,14 @@ class Window final : public QMainWindow {
         const auto destination=QFileDialog::getSaveFileName(this,trText("Save Natural Color PNG"),QDir(folder).filePath("natural-color.png"),"PNG (*.png)");
         if(!destination.isEmpty())exportNatural(folder,destination);
     }
+    void openMosaic(bool natural=true) {
+        MosaicDialog dialog(it,this);
+        const QDir generated(lastOutput);
+        if(QFileInfo(generated.filePath("MSUGS_VIS-1_Aligned/MSUGS-VIS-1.png")).isFile()&&
+           QFileInfo(generated.filePath("MSUGS_VIS-2_Aligned/MSUGS-VIS-1.png")).isFile())
+            dialog.appendGeneratedProducts(lastOutput,config->text(),satellite->currentText(),natural);
+        dialog.exec();
+    }
     void execute() {
         if (busy) return;
         if (input->text().isEmpty() || config->text().isEmpty() || output->text().isEmpty()) {
@@ -381,6 +394,8 @@ class Window final : public QMainWindow {
             } catch (const std::exception &e) { error = QString::fromUtf8(e.what()); }
             catch (...) { error = "Unknown processing exception"; }
             QMetaObject::invokeMethod(this, [this,error,options] {
+                const bool launchFinalEditor=openFinalEditor;
+                openFinalEditor=false;
                 setQueueBusy(false); progress->setRange(0,100); progress->setValue(error.isEmpty()?100:0); applyText();
                 status->setText(trText(error.isEmpty()?"Completed":"Processing failed"));
                 if (quitAfterRun) { QApplication::exit(error.isEmpty()?0:2); return; }
@@ -392,6 +407,8 @@ class Window final : public QMainWindow {
                         log->append(it?"Profilo calcolato selezionato. Controlla le regioni di fusione, poi avvia l’allineamento.":"Calculated profile selected. Review merge regions, then start alignment.");
                     }
                     source->setCurrentIndex(1); loadPreview();
+                    if(launchFinalEditor&&!options.calibrate)
+                        QTimer::singleShot(0,this,[this]{openMosaic(finalNaturalColour);});
                 }
             }, Qt::QueuedConnection);
         });
@@ -509,7 +526,7 @@ class Window final : public QMainWindow {
     void setQueueBusy(bool running) {
         busy = running;
         setup->setEnabled(!running); start->setEnabled(!running);
-        naturalExport->setEnabled(!running); mosaicButton->setEnabled(!running); demoButton->setEnabled(!running); wizardButton->setEnabled(!running);watchButton->setEnabled(!running);updatesButton->setEnabled(!running);
+        naturalExport->setEnabled(!running); mosaicButton->setEnabled(!running); demoButton->setEnabled(!running); wizardButton->setEnabled(!running);finalImageButton->setEnabled(!running);watchButton->setEnabled(!running);updatesButton->setEnabled(!running);
         queueAdd->setEnabled(!running&&queueStoreHealthy); queueRemove->setEnabled(!running&&queueStoreHealthy);
         queueRun->setEnabled(!running && queueStoreHealthy && queue->rowCount() > 0);
     }
@@ -752,16 +769,18 @@ public:
         modeLabel=label(); mode=new QComboBox; mode->addItems({"Align channels","Calculate calibration"}); form->addWidget(modeLabel); form->addWidget(mode);
         engineLabel=label(); engine=new QComboBox; engine->addItems({"Automatic CPU / OpenCL","CPU only"}); form->addWidget(engineLabel); form->addWidget(engine);
         hint=label("muted"); hint->setWordWrap(true); hint->setMinimumHeight(48); hint->setSizePolicy(QSizePolicy::Preferred,QSizePolicy::Minimum); form->addWidget(hint); leftLayout->addWidget(setup);
+        finalImageButton=new QPushButton;finalImageButton->setObjectName("finalImageButton");leftLayout->addWidget(finalImageButton);
+        connect(finalImageButton,&QPushButton::clicked,this,[this]{
+            FinalImageWizard wizard(it,input->text(),config->text(),output->text(),satellite->currentText(),engine->currentIndex()==1,this);
+            if(wizard.exec()!=QDialog::Accepted)return;
+            input->setText(wizard.inputPath());config->setText(wizard.profilePath());output->setText(wizard.outputPath());
+            if(satellite->findText(wizard.satelliteId())<0)satellite->addItem(wizard.satelliteId());
+            satellite->setCurrentText(wizard.satelliteId());engine->setCurrentIndex(wizard.cpuOnly()?1:0);mode->setCurrentIndex(0);
+            finalNaturalColour=wizard.naturalColour();openFinalEditor=true;loadPreview();execute();
+        });
         start=new QPushButton; start->setObjectName("start"); start->setShortcut(QKeySequence("Ctrl+Return")); leftLayout->addWidget(start);
         mosaicButton=new QPushButton; mosaicButton->setObjectName("mosaicButton");leftLayout->addWidget(mosaicButton);
-        connect(mosaicButton,&QPushButton::clicked,this,[this]{
-            MosaicDialog dialog(it,this);
-            const QDir generated(lastOutput);
-            if(QFileInfo(generated.filePath("MSUGS_VIS-1_Aligned/MSUGS-VIS-1.png")).isFile()&&
-               QFileInfo(generated.filePath("MSUGS_VIS-2_Aligned/MSUGS-VIS-1.png")).isFile())
-                dialog.appendGeneratedProducts(lastOutput,config->text(),satellite->currentText(),true);
-            dialog.exec();
-        });
+        connect(mosaicButton,&QPushButton::clicked,this,[this]{openMosaic();});
         naturalExport=new QPushButton; naturalExport->setObjectName("naturalExport");
         naturalExport->setShortcut(QKeySequence("Ctrl+Shift+N"));leftLayout->addWidget(naturalExport);
         status=label("status"); leftLayout->addWidget(status); progress=new QProgressBar; progress->setTextVisible(false); progress->setValue(0); leftLayout->addWidget(progress);

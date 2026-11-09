@@ -57,6 +57,8 @@ int main(int argc, char **argv) {
         for (const QString lang : {"en","it"}) {
             std::cout<<"Queue widgets: "<<lang.toStdString()<<std::endl;
             Window w; w.previewSettings(lang,"dark",lang=="it"?QSize(960,680):QSize(1280,860)); w.show();
+            auto *finalButton=w.findChild<QPushButton*>("finalImageButton");
+            requireTest(finalButton&&finalButton->isVisible()&&!finalButton->accessibleName().isEmpty(),"Final-image guided action is not accessible");
             bool compositorOpened=false;
             QTimer closeCompositor;closeCompositor.setInterval(20);
             QObject::connect(&closeCompositor,&QTimer::timeout,[&]{if(auto* dialog=dynamic_cast<MosaicDialog*>(QApplication::activeModalWidget())){compositorOpened=true;dialog->reject();}});
@@ -96,6 +98,19 @@ int main(int argc, char **argv) {
             bool roiEditorOpened=false;QTimer inspectRoiEditor;inspectRoiEditor.setInterval(20);
             QObject::connect(&inspectRoiEditor,&QTimer::timeout,[&]{if(auto* dialog=dynamic_cast<MosaicDialog*>(QApplication::activeModalWidget()))if(!dialog->isBusy()&&dialog->state().size()==2){roiEditorOpened=dialog->property("loadedProfileRoi").toBool()&&dialog->state()[1].x==20;dialog->saveProject(temporary.path()+"/main-roi-"+lang+".json");dialog->reject();}});
             inspectRoiEditor.start();clickVisible(w.findChild<QPushButton*>("mosaicButton"));inspectRoiEditor.stop();requireTest(roiEditorOpened,"Main window did not open historical ROI as editable layers");
+            const QString guidedResult=temporary.path()+"/guided-output-"+lang;
+            w.loadArguments({"--input",fixture+"/input","--config",roiProfile,"--output",guidedResult,"--satellite","L2","--cpu"});
+            bool guidedEditorOpened=false;QTimer driveGuided;driveGuided.setInterval(30);
+            QObject::connect(&driveGuided,&QTimer::timeout,[&]{
+                if(auto *wizard=dynamic_cast<FinalImageWizard*>(QApplication::activeModalWidget())) {
+                    if(wizard->currentId()<4)QTest::mouseClick(wizard->button(QWizard::NextButton),Qt::LeftButton);
+                    else {auto *confirm=wizard->findChild<QCheckBox*>("finalConfirm");if(!confirm->isChecked())QTest::mouseClick(confirm,Qt::LeftButton);QTest::mouseClick(wizard->button(QWizard::FinishButton),Qt::LeftButton);}
+                } else if(auto *dialog=dynamic_cast<MosaicDialog*>(QApplication::activeModalWidget())) {
+                    if(!dialog->isBusy()&&dialog->state().size()==2){guidedEditorOpened=dialog->property("loadedProfileRoi").toBool();dialog->saveProject(temporary.path()+"/guided-project-"+lang+".json");dialog->reject();}
+                }
+            });
+            driveGuided.start();clickVisible(finalButton);requireTest(until([&]{return guidedEditorOpened;},30000),"Guided final-image action did not hand off to the editable ROI compositor");driveGuided.stop();
+            requireTest(QFileInfo::exists(guidedResult+"/MSUGS_VIS_Aligned/MSUGS-VIS-1.png"),"Guided final-image action omitted historical output");
             // Fill the actual source/target/save dialogs and dismiss the success box.
             const auto originalProfile=hashFile(fixture+"/profile.json");
             const QString copied=temporary.path()+"/profile-"+lang+".json";
@@ -148,6 +163,27 @@ int main(int argc, char **argv) {
             CalibrationWizard invalid(italian,fixture+"/input",fixture+"/profile.json",fixture+"/input", "L4");invalid.show();
             QTest::mouseClick(invalid.button(QWizard::NextButton),Qt::LeftButton);
             requireTest(invalid.currentId()==0&&!invalid.property("validationError").toString().isEmpty(),"Wizard allowed existing/input destination");invalid.reject();
+        }
+        for(const bool italian:{false,true}) {
+            FinalImageWizard wizard(italian,fixture+"/input",fixture+"/profile.json",
+                                    temporary.path()+QString("/final-wizard-%1").arg(italian?"it":"en"),"L2",true);
+            wizard.show();QTest::qWait(20);
+            requireTest(wizard.pageIds().size()==5&&wizard.button(QWizard::FinishButton)->text().contains(italian?"editor":"editor",Qt::CaseInsensitive),"Final-image wizard does not expose five guided stages");
+            QTest::mouseClick(wizard.button(QWizard::NextButton),Qt::LeftButton);
+            requireTest(wizard.currentId()==1,"Final-image wizard rejected a complete SatDump export");
+            QTest::mouseClick(wizard.button(QWizard::NextButton),Qt::LeftButton);
+            requireTest(wizard.currentId()==2&&!wizard.findChild<QLabel*>("finalJoinSummary")->text().isEmpty(),"Final-image wizard omitted join guidance");
+            QTest::mouseClick(wizard.button(QWizard::NextButton),Qt::LeftButton);
+            requireTest(wizard.currentId()==3,"Final-image wizard omitted colour stage");
+            wizard.findChild<QComboBox*>("finalColour")->setCurrentIndex(1);
+            QTest::mouseClick(wizard.button(QWizard::NextButton),Qt::LeftButton);
+            requireTest(wizard.currentId()==4&&!wizard.button(QWizard::FinishButton)->isEnabled(),"Final-image wizard omitted explicit export review");
+            QTest::mouseClick(wizard.findChild<QCheckBox*>("finalConfirm"),Qt::LeftButton);
+            QTest::mouseClick(wizard.button(QWizard::FinishButton),Qt::LeftButton);
+            requireTest(wizard.result()==QDialog::Accepted&&wizard.cpuOnly()&&!wizard.naturalColour(),"Final-image wizard lost reviewed settings");
+            FinalImageWizard invalid(italian,fixture+"/input",fixture+"/profile.json",fixture+"/input","L2",false);
+            invalid.show();QTest::mouseClick(invalid.button(QWizard::NextButton),Qt::LeftButton);
+            requireTest(invalid.currentId()==0&&!invalid.property("validationError").toString().isEmpty(),"Final-image wizard allowed a destructive destination");invalid.reject();
         }
         {
             // The native-size synthetic fixture gets explicitly synthetic but
