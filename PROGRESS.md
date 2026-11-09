@@ -701,3 +701,20 @@ annullabile/ripetibile.
 Test widget con cinque punti coerenti e un outlier: evidenza `5/6`, applicazione,
 strategia, diagnostica, annulla e ripeti. Suite compositore e GUI globale EN/IT
 passate. Pubblicazione: `063f7dcf5139a65c10fc5b06a56989fb398763eb`.
+
+### M2-09 — Nono incremento: proposta reversibile dei bordi uniformi
+
+Il core rileva righe e colonne esterne a basso dettaglio e restituisce soltanto
+una proposta di ritaglio in coordinate assolute: non modifica livelli, sorgenti
+o pixel. Immagini uniformi/ambigue e proposte troppo piccole vengono rifiutate;
+un ritaglio già presente delimita l’analisi. Test core con contenuto sintetico a
+limiti noti, area conservata, ritaglio annidato e rifiuto uniforme passato.
+Pubblicazione core: `739d4a81d42899713dc1920f0ba5fb96216effd8`.
+
+Nell’editor EN/IT **Proponi ritaglio bordi uniformi…** esegue l’analisi in
+background e mostra rettangolo attuale/proposto e percentuale conservata.
+Annulla non cambia il livello; Applica conserva il file sorgente e compensa la
+posizione tenendo conto di scala e rotazione, così il contenuto rimasto non si
+sposta nella scena. L’operazione è loggata e annullabile/ripetibile. Test widget
+EN/IT su annullamento, evidenze, applicazione, compensazione e annulla passato.
+Pubblicazione editor: `29023a398fd5752d89d7b7152dbc475a70883ee1`.

@@ -98,10 +98,17 @@ in M2-08.
    righe; **Calcola trasformazione** mostra residuo, inlier e outlier prima di
    abilitare **Applica**. Distribuisci i punti su tutta la zona comune: punti
    concentrati in una sola area descrivono peggio rotazione e scala.
+   Se la sorgente contiene grandi fasce esterne uniformi, seleziona il livello e
+   premi **Proponi ritaglio bordi uniformi…**. ORBYX mostra il rettangolo attuale,
+   quello proposto e la percentuale di area conservata. **Annulla** non cambia
+   nulla; **Applica** modifica soltanto il ritaglio del progetto, non il file
+   sorgente, e compensa X/Y per lasciare fermo il contenuto conservato. La
+   proposta resta annullabile. Su immagini uniformi o senza un confine affidabile
+   viene mostrato un errore invece di inventare un ritaglio.
 7. Regola **Scala**, **Rotazione**, **Ritaglio**, **Opacità** e **Sfumatura bordi**.
    I valori del ritaglio sono nelle coordinate della sorgente; larghezza e altezza
-   entrambe 0 significano immagine intera. Per eliminare intestazioni usa il
-   ritaglio: il compositore non indovina le zone da scartare. X/Y individuano
+   entrambe 0 significano immagine intera. Per intestazioni o aree non uniformi
+   usa i campi del ritaglio manuale. X/Y individuano
    l’origine del livello ritagliato; scala e rotazione si applicano attorno a
    quell’origine. Sono ammesse coordinate negative e il canvas include
    automaticamente l’estensione dei livelli visibili.
@@ -178,6 +185,9 @@ ritagli e posizione iniziale esatti, il ripristino dopo una modifica manuale e
 la loro persistenza in un progetto.
 Verifica il solver dei punti di controllo su una trasformazione nota con un
 outlier, i residui per coppia, il riepilogo EN/IT e applicazione/annulla/ripeti.
+Verifica inoltre la proposta di ritaglio su un bordo sintetico noto, il rifiuto
+di un’immagine uniforme, il rispetto di un ritaglio esistente, conferma e
+annullamento EN/IT, compensazione di posizione con scala/rotazione e annulla.
 
 `engine-regression` verifica che l’attivazione delle porzioni modificabili non
 cambi neppure un pixel del prodotto ROI storico, che il comportamento

@@ -311,8 +311,11 @@ progettazione, non dipendenze da integrare automaticamente.
   Un comando centra e ingrandisce l’intersezione reale della coppia selezionata.
   I punti di controllo sono inseribili/modificabili in coppie, stimati con
   RANSAC, accompagnati da residui e outlier e applicati solo dopo conferma, con
-  annulla/ripeti. Restano da implementare la proposta di esclusione dei bordi
-  uniformi e l’avviso sulla concentrazione spaziale dei punti.
+  annulla/ripeti. È disponibile anche una proposta reversibile per escludere
+  grandi bordi uniformi: viene calcolata in background, mostra rettangolo e area
+  conservata, richiede conferma e mantiene fermo il contenuto nella scena.
+  Immagini uniformi o ambigue vengono rifiutate. Resta da implementare l’avviso
+  sulla concentrazione spaziale dei punti.
 - Dipendenze: M2-07, M2-08
 - Responsabile: Computer Vision / Scientific Imaging UX / Qt / QA
 - Deliverable: strumenti mirati alla giunzione, senza trasformare ORBYX in un

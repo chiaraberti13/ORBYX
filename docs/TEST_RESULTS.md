@@ -87,6 +87,21 @@ applicabili e Cppcheck completo. Questi risultati non trasformano il matching
 visivo in georeferenziazione, non provano prospettiva/proiezioni differenti e
 non sostituiscono il controllo umano di ogni giunzione.
 
+## Estensione M2-09: controllo e preparazione dell’allineamento
+
+Gli incrementi conclusi comprendono spostamento da tastiera 1/10pixel,
+lampeggio, differenza, scacchiera, tendina, zoom sulla sovrapposizione, punti di
+controllo robusti con residui e proposta dei bordi uniformi. Il nuovo rilevatore
+di bordi non cancella pixel e non applica automaticamente il risultato.
+
+Test core locale: immagine16bit con bordo e contenuto a limiti noti, percentuale
+conservata, ritaglio preesistente e rifiuto di una sorgente uniforme. Test widget
+locale EN/IT: riepilogo prima della decisione, annullamento senza modifiche,
+applicazione esplicita, conservazione della posizione con scala/rotazione e
+annulla. Le suite `mosaic-regression` e `mosaic-widget-flow` sono passate.
+Commit core `739d4a8`; editor `29023a3`. La CI remota di questi due incrementi
+deve concludersi prima di riportare qui un’esecuzione come verde.
+
 ## Funzioni completate
 
 - **Calibrazione guidata EN/IT**: tre passaggi, controllo degli input nativi,
