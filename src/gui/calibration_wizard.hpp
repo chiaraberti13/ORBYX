@@ -45,7 +45,7 @@ public:
         pathField(form,profileEdit,text("Existing calibration profile","Profilo di calibrazione esistente"),true,false);
         pathField(form,outputEdit,text("New output folder","Nuova cartella di destinazione"),false,true);addPage(source);
         auto *options=new QWizardPage;options->setTitle(text("2. Select satellite and working scale","2. Scegli satellite e scala di lavoro"));auto *fields=new QVBoxLayout(options);
-        satelliteEdit=new QComboBox;satelliteEdit->setObjectName("wizardSatellite");satelliteEdit->addItems({"L2","L3","L4","L5","M1","M2"});satelliteEdit->setCurrentText(satellite);
+        satelliteEdit=new QComboBox;satelliteEdit->setObjectName("wizardSatellite");satelliteEdit->addItems({"L2","L3","L4","L5","M1","M2"});if(satelliteEdit->findText(satellite)<0)satelliteEdit->addItem(satellite);satelliteEdit->setCurrentText(satellite);
         satelliteEdit->setAccessibleName(text("Satellite","Satellite"));fields->addWidget(satelliteEdit);
         auto *scaleLabel=new QLabel(text("ECC working scale (exports retain native resolution)","Scala di lavoro ECC (esportazione a risoluzione originale)"));fields->addWidget(scaleLabel);
         scaleEdit=new QDoubleSpinBox;scaleEdit->setObjectName("wizardScale");scaleEdit->setDecimals(3);scaleEdit->setRange(.0625,1);scaleEdit->setSingleStep(.125);scaleEdit->setValue(.125);scaleLabel->setBuddy(scaleEdit);scaleEdit->setAccessibleName(scaleLabel->text());fields->addWidget(scaleEdit);

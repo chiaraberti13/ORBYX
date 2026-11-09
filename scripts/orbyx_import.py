@@ -104,7 +104,7 @@ def snapshot(directory: Path) -> dict:
             info = path.lstat()
             if not stat.S_ISREG(info.st_mode) or info.st_size == 0:
                 raise ValueError("Missing, empty or symlink file")
-            result[f"{vis}/{name}"] = (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+            result[f"{vis}/{name}"] = (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns, hashlib.sha256(read_regular(path,1024*1024)).hexdigest() if name=="product.cbor" else None)
     return result
 
 

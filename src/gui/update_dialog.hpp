@@ -20,9 +20,9 @@
 #include <QFile>
 #include <functional>
 class UpdateDialog final : public QDialog {
-    const bool it;std::function<void(bool)> busy;QLineEdit *archive{},*bundle{},*commit{};QPushButton *install{},*rollback{},*close{};QPlainTextEdit *log{};QProcess process;QByteArray output;bool completed=true;
+    const bool it;std::function<void(bool)> busy;QLineEdit *archive{},*bundle{},*commit{};QPushButton *install{},*rollback{},*closeButton{};QPlainTextEdit *log{};QProcess process;QByteArray output;bool completed=true;
     QString text(const char *en,const char *italian)const{return QString::fromUtf8(it?italian:en);}
-    void state(bool running) {archive->setEnabled(!running);bundle->setEnabled(!running);commit->setEnabled(!running);install->setEnabled(!running);rollback->setEnabled(!running);close->setEnabled(!running);busy(running);}
+    void state(bool running) {archive->setEnabled(!running);bundle->setEnabled(!running);commit->setEnabled(!running);install->setEnabled(!running);rollback->setEnabled(!running);closeButton->setEnabled(!running);busy(running);}
     void finish(int code) {
         if(completed)return;completed=true;output+=process.readAllStandardOutput();log->setPlainText(QString::fromUtf8(output));
         auto dir=QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)+"/logs";QDir().mkpath(dir);
@@ -41,8 +41,8 @@ public:
         field(archive,text("Native signed package (.tar.gz)","Pacchetto nativo firmato (.tar.gz)"),true,"TGZ (*.tar.gz)");archive->setObjectName("updateArchive");
         field(bundle,text("Sigstore provenance bundle (.json)","Bundle di provenienza Sigstore (.json)"),true,"JSON (*.json)");bundle->setObjectName("updateBundle");
         field(commit,text("Approved source commit (40 hexadecimal characters)","Commit sorgente approvato (40 caratteri esadecimali)"),false,{});commit->setMaxLength(40);commit->setObjectName("updateCommit");
-        log=new QPlainTextEdit;log->setReadOnly(true);log->setObjectName("updateLog");layout->addWidget(log,1);auto *buttons=new QHBoxLayout;install=new QPushButton(text("Verify and install","Verifica e installa"));install->setObjectName("updateInstall");rollback=new QPushButton(text("Restore previous verified version","Ripristina versione verificata precedente"));rollback->setObjectName("updateRollback");close=new QPushButton(text("Close","Chiudi"));buttons->addWidget(install);buttons->addWidget(rollback);buttons->addWidget(close);layout->addLayout(buttons);
-        connect(close,&QPushButton::clicked,this,&UpdateDialog::reject);
+        log=new QPlainTextEdit;log->setReadOnly(true);log->setObjectName("updateLog");layout->addWidget(log,1);auto *buttons=new QHBoxLayout;install=new QPushButton(text("Verify and install","Verifica e installa"));install->setObjectName("updateInstall");rollback=new QPushButton(text("Restore previous verified version","Ripristina versione verificata precedente"));rollback->setObjectName("updateRollback");closeButton=new QPushButton(text("Close","Chiudi"));buttons->addWidget(install);buttons->addWidget(rollback);buttons->addWidget(closeButton);layout->addLayout(buttons);
+        connect(closeButton,&QPushButton::clicked,this,&UpdateDialog::reject);
         connect(install,&QPushButton::clicked,this,[this]{if(!QRegularExpression("^[0-9a-fA-F]{40}$").match(commit->text()).hasMatch()||!QFileInfo::exists(archive->text())||!QFileInfo::exists(bundle->text())){log->setPlainText(text("Choose both files and a full approved commit.","Scegli entrambi i file e un commit completo approvato."));return;}run({"install","--archive",archive->text(),"--bundle",bundle->text(),"--commit",commit->text()});});
         connect(rollback,&QPushButton::clicked,this,[this]{run({"rollback"});});
         process.setProcessChannelMode(QProcess::MergedChannels);connect(&process,&QProcess::readyReadStandardOutput,this,[this]{output+=process.readAllStandardOutput();if(output.size()>1024*1024){process.kill();output="Update diagnostics exceeded limits";}log->setPlainText(QString::fromUtf8(output));});

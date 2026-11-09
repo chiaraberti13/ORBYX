@@ -64,6 +64,7 @@ int main(int argc, char **argv) {
             auto *remove=w.findChild<QPushButton*>("queueRemove");
             auto *run=w.findChild<QPushButton*>("queueRun");
             requireTest(table && add && remove && run, "Queue controls missing");
+            while(table->rowCount()){table->setCurrentCell(table->rowCount()-1,0);clickVisible(remove);}
             clickVisible(add); clickVisible(add);
             requireTest(table->rowCount()==2,"Add clicks failed");
             table->setCurrentCell(1,0); clickVisible(remove);
@@ -110,6 +111,11 @@ int main(int argc, char **argv) {
             requireTest(document.value("L2")==document.value("L9"),"Profile dialog copied wrong satellite");
             requireTest(w.findChild<QLineEdit*>("config")->text()==copied,"GUI did not select copied profile");
             w.close();
+            Window reopened;reopened.previewSettings(lang,"dark",{1280,860});
+            auto *restored=reopened.findChild<QTableWidget*>("queueTable");
+            requireTest(restored->rowCount()==1,"Queued jobs were lost on restart");
+            requireTest(restored->item(0,2)->text()==(lang=="it"?"Da verificare":"Needs verification"),"Restart trusted stale completion without digest verification");
+            requireTest(hashFile(file)==before,"Queue restore modified product");reopened.close();
         }
         for(const bool italian:{false,true}) {
             CalibrationWizard wizard(italian,fixture+"/input",fixture+"/profile.json",temporary.path()+"/wizard-output", "L4");wizard.show();
@@ -159,12 +165,14 @@ int main(int argc, char **argv) {
         const auto oldPath=qgetenv("PATH"); qputenv("PATH",fakeDir.toUtf8()+":"+oldPath);
         Window w;w.previewSettings("en","dark",{1280,1000});w.show();
         w.loadArguments({"--input",fixture+"/input","--config",fixture+"/profile.json","--output",temporary.path()+"/exec-fail","--satellite","L2","--cpu"});
+        auto *failureTable=w.findChild<QTableWidget*>("queueTable");
+        while(failureTable->rowCount()){failureTable->setCurrentCell(failureTable->rowCount()-1,0);clickVisible(w.findChild<QPushButton*>("queueRemove"));}
         clickVisible(w.findChild<QPushButton*>("queueAdd"));
         auto *run=w.findChild<QPushButton*>("queueRun");clickVisible(run);
         requireTest(until([&]{return run->isEnabled();}),"FailedToStart left GUI disabled");
         requireTest(w.findChild<QTableWidget*>("queueTable")->item(0,2)->text()=="Error","Exec failure marked successful");
         requireTest(fake.open(QIODevice::WriteOnly|QIODevice::Truncate),"Fake runner rewrite failed");
-        fake.write("#!/bin/sh\nwhile [ \"$#\" -gt 0 ]; do if [ \"$1\" = --state ]; then shift; state=$1; fi; shift; done\nprintf '%s' '{\"version\":1,\"jobs\":{\"job-1\":{\"status\":\"running\"}}}' > \"$state\"\n");fake.close();
+        fake.write(QByteArray("#!/bin/sh\nwhile [ \"$#\" -gt 0 ]; do if [ \"$1\" = --state ]; then shift; state=$1; fi; shift; done\nprintf '%s' '{\"version\":1,\"jobs\":{\"job-1\":{\"status\":\"running\"}}}' > \"$state\"\n").replace("job-1",w.findChild<QTableWidget*>("queueTable")->item(0,0)->data(Qt::UserRole).toMap()["id"].toString().toUtf8()));fake.close();
         clickVisible(run);
         requireTest(until([&]{return run->isEnabled();}),"Nonterminal state left GUI disabled");
         requireTest(w.findChild<QTableWidget*>("queueTable")->item(0,2)->text()=="Error","Running state marked successful");
@@ -184,6 +192,16 @@ int main(int argc, char **argv) {
             demo.close();
         }
 
+        {
+            Window first,second;first.previewSettings("en","dark",{1280,860});second.previewSettings("en","dark",{1280,860});first.show();second.show();
+            first.loadArguments({"--input",fixture+"/input","--config",fixture+"/profile.json","--output",temporary.path()+"/persist-first","--satellite","L2","--cpu"});
+            second.loadArguments({"--input",fixture+"/input","--config",fixture+"/profile.json","--output",temporary.path()+"/persist-second","--satellite","L2","--cpu"});
+            int before=second.findChild<QTableWidget*>("queueTable")->rowCount();
+            clickVisible(first.findChild<QPushButton*>("queueAdd"));clickVisible(second.findChild<QPushButton*>("queueAdd"));
+            requireTest(second.findChild<QTableWidget*>("queueTable")->rowCount()==before,"Concurrent window silently overwrote queue");
+            requireTest(!second.findChild<QPushButton*>("queueAdd")->isEnabled(),"Stale queue remained writable");
+            Window check;requireTest(check.findChild<QTableWidget*>("queueTable")->rowCount()==before+1,"Saved queue was lost after revision conflict");check.close();second.close();first.close();
+        }
         const QDir sample(QDir(QCoreApplication::applicationDirPath()).filePath("share/orbyx/demo-jpeg"));
         QFile sums(sample.filePath("SHA256SUMS"));requireTest(sums.open(QIODevice::ReadOnly),"Demo source hashes unavailable");
         int sources=0;

@@ -8,6 +8,7 @@ import tempfile
 import json
 import subprocess
 import sys
+import os
 import unittest
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -39,7 +40,7 @@ class ImportTests(unittest.TestCase):
         self.assertEqual(before,{str(p):hashlib.sha256(p.read_bytes()).digest() for p in self.product.rglob('*') if p.is_file()})
     def test_same_size_concurrent_write_is_withheld(self):
         path=self.product/'MSUGS_VIS1/product.cbor'
-        def writer(_):path.write_bytes(path.read_bytes())
+        def writer(_):path.write_bytes(path.read_bytes().replace(b"L4",b"L3"))
         self.assertEqual(imp.discover(self.parent,0,sleep=writer)[0]['status'],'unstable')
     def test_conflicting_satellites_rejected(self):
         (self.product/'MSUGS_VIS2/product.cbor').write_bytes(cbor(metadata('L3')))
@@ -67,7 +68,8 @@ class ImportTests(unittest.TestCase):
         self.assertEqual(imp.discover(self.parent,0)[0]['status'],'rejected')
     def test_batch_rechecks_import_fingerprint_before_start(self):
         fingerprint=imp.inspect_product(self.product)['fingerprint']
-        path=self.product/'MSUGS_VIS1/product.cbor';path.write_bytes(path.read_bytes())
+        for vis in (1,2):
+            path=self.product/f'MSUGS_VIS{vis}/product.cbor';path.write_bytes(path.read_bytes().replace(b'L4',b'L3'))
         profile=self.parent/'profile.json';profile.write_text('{}')
         engine=self.parent/'engine';marker=self.parent/'called'
         engine.write_text('#!'+sys.executable+'\nfrom pathlib import Path\nPath('+repr(str(marker))+').touch()\n');engine.chmod(0o700)

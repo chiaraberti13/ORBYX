@@ -4,12 +4,14 @@
 #include "calibration_wizard.hpp"
 #include "import_dialog.hpp"
 #include "update_dialog.hpp"
+#include "queue_persistence.hpp"
 
 #include <QAbstractItemView>
 #include <QApplication>
 #include <QCloseEvent>
 #include <QFile>
 #include <QSaveFile>
+#include <QSet>
 #include <QRegularExpression>
 #include <QPointer>
 #include <QUuid>
@@ -95,6 +97,7 @@ const QMap<QString, QString> italian = {
  {"Processing queue", "Coda di elaborazione"},
  {"Add to queue", "Aggiungi alla coda"}, {"Remove", "Rimuovi"}, {"Run queue", "Avvia coda"},
  {"Job", "Lavoro"}, {"Status", "Stato"}, {"Queued", "In coda"}, {"Running…", "In esecuzione…"},
+ {"Needs verification", "Da verificare"}, {"Interrupted", "Interrotto"},
  {"Done", "Completato"}, {"Skipped", "Saltato"}, {"Error", "Errore"},
  {"The queue runs jobs in order with durable, resumable state. Existing outputs are never overwritten.",
   "La coda esegue i lavori in ordine con stato durevole e ripristinabile. Gli output esistenti non vengono mai sovrascritti."},
@@ -146,7 +149,8 @@ class Window final : public QMainWindow {
     QTableWidget *queue{};
     QPushButton *queueAdd{}, *queueRemove{}, *queueRun{}, *profileDup{}, *naturalExport{};
     QProcess *queueProcess{};
-    int queueCounter = 0;
+    QueuePersistence queueStore{QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)+"/desktop-queue.json"};
+    bool queueStoreHealthy=true;
 
     QString trText(const QString &s) const { return it ? italian.value(s, s) : s; }
     QLabel *label(const QString &name = {}) { auto *w = new QLabel; w->setObjectName(name); return w; }
@@ -193,6 +197,11 @@ class Window final : public QMainWindow {
         naturalExport->setText(trText("Export Natural Color…"));
         naturalExport->setAccessibleName(trText("Export Natural Color…"));
         naturalExport->setToolTip(trText("RGB321 hue rendering preserves 8/16-bit depth. Select one aligned VIS product. This is not calibrated true colour."));
+        for(int row=0;row<queue->rowCount();++row) {
+            queue->item(row,2)->setText(trText(queueStatusLabel(queue->item(row,2)->data(Qt::UserRole).toString())));
+            const auto job=queue->item(row,0)->data(Qt::UserRole).toMap();
+            queue->item(row,1)->setText(job["satellite"].toString()+" · "+trText(job["mode"]=="calibrate"?"Calculate calibration":"Align channels"));
+        }
         queue->setHorizontalHeaderLabels({trText("Job"), trText("Operation"), trText("Status")});
         queueAdd->setAccessibleName(trText("Add to queue")); queueRemove->setAccessibleName(trText("Remove"));
         queueRun->setAccessibleName(trText("Run queue")); profileDup->setAccessibleName(trText("Duplicate profile…"));
@@ -397,45 +406,111 @@ class Window final : public QMainWindow {
                 if (QFileInfo::exists(candidate)) { runner = candidate; break; }
         return runner;
     }
-    void addToQueue() {
-        if (busy) return;
+    const char *queueStatusLabel(const QString& state) const {
+        if(state=="completed")return "Done";if(state=="skipped")return "Skipped";
+        if(state=="running")return "Running…";if(state=="queued")return "Queued";
+        if(state=="needs_verification")return "Needs verification";if(state=="interrupted")return "Interrupted";
+        return "Error";
+    }
+    void appendQueueJob(const QVariantMap& job,QString state="queued") {
+        const int row=queue->rowCount();queue->insertRow(row);auto *item=new QTableWidgetItem(QString::number(row+1));
+        item->setData(Qt::UserRole,job);item->setToolTip(job["id"].toString());queue->setItem(row,0,item);
+        queue->setItem(row,1,new QTableWidgetItem(job["satellite"].toString()+" · "+trText(job["mode"]=="calibrate"?"Calculate calibration":"Align channels")));
+        auto *statusItem=new QTableWidgetItem(trText(queueStatusLabel(state)));statusItem->setData(Qt::UserRole,state);queue->setItem(row,2,statusItem);
+    }
+    bool persistQueue() {
+        try {
+            QJsonArray jobs;QJsonObject statuses;
+            for(int row=0;row<queue->rowCount();++row) {
+                const auto job=queue->item(row,0)->data(Qt::UserRole).toMap();jobs.append(QJsonObject::fromVariantMap(job));
+                statuses[job["id"].toString()]=queue->item(row,2)->data(Qt::UserRole).toString();
+            }
+            queueStore.save({{"version",1},{"jobs",jobs},{"statuses",statuses}});return true;
+        }catch(const std::exception& error) {
+            queueStoreHealthy=false;log->append((it?"Coda non salvata: ":"Queue not saved: ")+QString::fromUtf8(error.what()).toHtmlEscaped());
+            queueAdd->setEnabled(false);queueRemove->setEnabled(false);queueRun->setEnabled(false);return false;
+        }
+    }
+    void restoreQueue() {
+        try {
+            auto document=queueStore.load();
+            const auto dataDir=QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+            if(!QFileInfo::exists(dataDir+"/desktop-queue.json")&&QFileInfo::exists(dataDir+"/queue.json")) {
+                QFile legacy(dataDir+"/queue.json");
+                if(QFileInfo(legacy).isSymLink()||!legacy.open(QIODevice::ReadOnly))throw std::runtime_error("Cannot migrate previous queue");
+                const auto raw=legacy.read(1024*1024+1);QJsonParseError error;const auto parsed=QJsonDocument::fromJson(raw,&error);
+                if(raw.size()>1024*1024||error.error!=QJsonParseError::NoError||!parsed.isObject()||!parsed.object()["jobs"].isArray())throw std::runtime_error("Invalid previous queue");
+                document["jobs"]=parsed.object()["jobs"];
+                QFile state(dataDir+"/queue.state.json");QJsonObject states;
+                if(!QFileInfo(state).isSymLink()&&state.open(QIODevice::ReadOnly)) {
+                    const auto data=state.read(16*1024*1024+1);const auto saved=QJsonDocument::fromJson(data).object();
+                    if(data.size()<=16*1024*1024&&saved["version"].toInt()==1) {
+                        const auto entries=saved["jobs"].toObject();
+                        for(auto entry=entries.begin();entry!=entries.end();++entry)states[entry.key()]=entry.value().toObject()["status"];
+                    }
+                }
+                document["statuses"]=states;
+            }
+            const auto jobs=document["jobs"].toArray();const auto statuses=document["statuses"].toObject();
+            if(jobs.size()>10000)throw std::runtime_error("Too many saved jobs");
+            QSet<QString> ids;
+            for(const auto& value:jobs) {
+                auto job=value.toObject();const auto id=job["id"].toString();
+                const QSet<QString> allowed{"id","satellite","input","output","config","mode","cpu","calibration_scale","acquisition_fingerprint"};
+                for(auto key=job.begin();key!=job.end();++key)if(!allowed.contains(key.key()))throw std::runtime_error("Unknown saved job field");
+                if(!QRegularExpression("^[A-Za-z0-9_.-]{1,128}$").match(id).hasMatch()||ids.contains(id)||!job["cpu"].isBool()||(job["mode"]!="generate"&&job["mode"]!="calibrate"))throw std::runtime_error("Invalid saved job");
+                if(!QRegularExpression("^[A-Z0-9_]{1,32}$").match(job["satellite"].toString()).hasMatch())throw std::runtime_error("Invalid saved satellite");
+                for(const auto& field:{"input","output","config"})if(!job[field].isString()||job[field].toString().isEmpty()||job[field].toString().contains(QChar(0))||job[field].toString().size()>4096)throw std::runtime_error("Invalid saved path");
+                if(job.contains("calibration_scale")&&(!job["calibration_scale"].isDouble()||job["mode"]!="calibrate"||!(job["calibration_scale"].toDouble()>0&&job["calibration_scale"].toDouble()<=1)))throw std::runtime_error("Invalid saved calibration scale");
+                if(job.contains("acquisition_fingerprint")&&!QRegularExpression("^[0-9a-f]{64}$").match(job["acquisition_fingerprint"].toString()).hasMatch())throw std::runtime_error("Invalid saved acquisition fingerprint");
+                ids.insert(id);
+            }
+            for(const auto& value:jobs) {
+                auto job=value.toObject();auto state=statuses[job["id"].toString()].toString("queued");
+                if(state=="completed"||state=="skipped")state="needs_verification";
+                if(state=="running")state="interrupted";
+                appendQueueJob(job.toVariantMap(),state);
+            }
+        }catch(const std::exception& error){queueStoreHealthy=false;log->append((it?"Ripristino coda non riuscito: ":"Queue restore failed: ")+QString::fromUtf8(error.what()).toHtmlEscaped());}
+        setQueueBusy(false);
+    }
+    bool addToQueue() {
+        if (busy||!queueStoreHealthy||queue->rowCount()>=10000) return false;
         if (input->text().isEmpty() || config->text().isEmpty() || output->text().isEmpty()) {
             QMessageBox::warning(this, trText("Missing settings"),
                 trText("Fill in input, calibration profile and a new output folder before queueing."));
-            return;
+            return false;
         }
         QVariantMap job;
-        job["id"] = QString("job-%1").arg(++queueCounter);
+        job["id"] = "job-"+QUuid::createUuid().toString(QUuid::WithoutBraces);
         job["satellite"] = satellite->currentText();
         if(!importedFingerprint.isEmpty())job["acquisition_fingerprint"]=importedFingerprint;
-        job["input"] = input->text(); job["config"] = config->text(); job["output"] = output->text();
+        job["input"] = QFileInfo(input->text()).absoluteFilePath(); job["config"] = QFileInfo(config->text()).absoluteFilePath(); job["output"] = QFileInfo(output->text()).absoluteFilePath();
         job["mode"] = mode->currentIndex() == 1 ? "calibrate" : "generate";
         job["cpu"] = engine->currentIndex() == 1;
         if(mode->currentIndex()==1&&guidedScale!=1.0)job["calibration_scale"]=guidedScale;
-        const int row = queue->rowCount();
-        queue->insertRow(row);
-        auto *id = new QTableWidgetItem(job["id"].toString());
-        id->setData(Qt::UserRole, job);
-        queue->setItem(row, 0, id);
-        queue->setItem(row, 1, new QTableWidgetItem(job["satellite"].toString() + " · " +
-            trText(mode->currentIndex() == 1 ? "Calculate calibration" : "Align channels")));
-        queue->setItem(row, 2, new QTableWidgetItem(trText("Queued")));
-        queueRun->setEnabled(!busy);
+        const int row=queue->rowCount();appendQueueJob(job);
+        if(!persistQueue()){queue->removeRow(row);return false;}
+        queueRun->setEnabled(!busy);return true;
     }
     void removeQueued() {
-        const int row = queue->currentRow();
-        if (row >= 0) queue->removeRow(row);
-        queueRun->setEnabled(queue->rowCount() > 0 && !busy);
+        if(busy||!queueStoreHealthy)return;
+        const int row=queue->currentRow();
+        if(row<0)return;
+        const auto job=queue->item(row,0)->data(Qt::UserRole).toMap();const auto state=queue->item(row,2)->data(Qt::UserRole).toString();
+        queue->removeRow(row);if(!persistQueue())appendQueueJob(job,state);
+        for(int i=0;i<queue->rowCount();++i)queue->item(i,0)->setText(QString::number(i+1));
+        queueRun->setEnabled(queueStoreHealthy&&queue->rowCount()>0&&!busy);
     }
     void setQueueBusy(bool running) {
         busy = running;
         setup->setEnabled(!running); start->setEnabled(!running);
         naturalExport->setEnabled(!running); demoButton->setEnabled(!running); wizardButton->setEnabled(!running);watchButton->setEnabled(!running);updatesButton->setEnabled(!running);
-        queueAdd->setEnabled(!running); queueRemove->setEnabled(!running);
-        queueRun->setEnabled(!running && queue->rowCount() > 0);
+        queueAdd->setEnabled(!running&&queueStoreHealthy); queueRemove->setEnabled(!running&&queueStoreHealthy);
+        queueRun->setEnabled(!running && queueStoreHealthy && queue->rowCount() > 0);
     }
     void executeQueue() {
-        if (busy || queueProcess || queue->rowCount() == 0) return;
+        if (busy || !queueStoreHealthy || queueProcess || queue->rowCount() == 0) return;
         const QString runner = batchRunner();
         const QString python = runner.endsWith(".py") ? QStandardPaths::findExecutable("python3") : QString();
         if (runner.isEmpty() || (runner.endsWith(".py") && python.isEmpty())) {
@@ -468,7 +543,8 @@ class Window final : public QMainWindow {
             return;
         }
         for (int row = 0; row < queue->rowCount(); ++row)
-            queue->item(row, 2)->setText(trText("Running…"));
+            {queue->item(row, 2)->setText(trText("Running…"));queue->item(row,2)->setData(Qt::UserRole,"running");}
+        if(!persistQueue())return;
         QStringList command;
         command << manifestPath << "--orbyx" << QDir(QCoreApplication::applicationDirPath()).filePath("orbyx")
                 << "--state" << statePath << "--lang" << (it ? "it" : "en");
@@ -513,13 +589,13 @@ class Window final : public QMainWindow {
             }
         }
         for (int row = 0; row < queue->rowCount(); ++row) {
-            const QString state = statuses.value(queue->item(row, 0)->text());
+            const QString state = statuses.value(queue->item(row,0)->data(Qt::UserRole).toMap()["id"].toString());
             const char *label = state == "completed" ? "Done" : state == "skipped" ? "Skipped"
                 : "Error";
             if (state != "completed" && state != "skipped") code = 2;
-            queue->item(row, 2)->setText(trText(label));
+            queue->item(row, 2)->setText(trText(label));queue->item(row,2)->setData(Qt::UserRole,state.isEmpty()?"failed":state);
         }
-        setQueueBusy(false);
+        persistQueue();setQueueBusy(false);
         progress->setRange(0, 100); progress->setValue(code == 0 ? 100 : 0);
         status->setText(trText(code == 0 ? "Completed" : "Processing failed"));
         if (queueProcess) {
@@ -544,6 +620,8 @@ class Window final : public QMainWindow {
             orbyx::duplicateProfile(config->text().toStdString(), from.toStdString(),
                                     to.toStdString(), destination.toStdString());
             config->setText(destination);
+            if(satellite->findText(to)<0)satellite->addItem(to);satellite->setCurrentText(to);
+            auto custom=settings.value("customSatellites").toStringList();custom.append(to);custom.removeDuplicates();settings.setValue("customSatellites",custom);
             QMessageBox::information(this, trText("Profile duplicated"), destination);
         } catch (const std::exception &error) {
             QMessageBox box(QMessageBox::Warning, trText("Could not duplicate the profile"),
@@ -656,7 +734,7 @@ public:
                 selectInput(data["path"].toString());importedFingerprint=data["fingerprint"].toString();
                 const auto base=QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)+"/imports";QDir().mkpath(base);
                 output->setText(base+"/"+QUuid::createUuid().toString(QUuid::WithoutBraces));
-                if(automatic)addToQueue();
+                if(automatic)return addToQueue();
                 return true;
             },this);importWindow->setAttribute(Qt::WA_DeleteOnClose);importWindow->show();
         });
@@ -664,7 +742,9 @@ public:
         connect(updatesButton,&QPushButton::clicked,this,[this]{if(updateWindow){updateWindow->show();updateWindow->raise();return;}updateWindow=new UpdateDialog(it,[this](bool running){setQueueBusy(running);},this);updateWindow->setAttribute(Qt::WA_DeleteOnClose);updateWindow->show();});
         profileDup=new QPushButton; profileDup->setObjectName("profileDup"); form->addWidget(profileDup);
         outputLabel=label(); output=new QLineEdit; outputBrowse=new QPushButton; form->addWidget(outputLabel); form->addLayout(pathRow(output,outputBrowse));
-        satLabel=label(); satellite=new QComboBox; satellite->addItems({"L2","L3","L4","L5","M1","M2"}); satellite->setCurrentText(settings.value("satellite","L2").toString()); form->addWidget(satLabel); form->addWidget(satellite);
+        satLabel=label(); satellite=new QComboBox; satellite->addItems({"L2","L3","L4","L5","M1","M2"});
+        for(const auto& name:settings.value("customSatellites").toStringList().mid(0,128))if(QRegularExpression("^[A-Z0-9_]{1,32}$").match(name).hasMatch()&&satellite->findText(name)<0)satellite->addItem(name);
+        satellite->setCurrentText(settings.value("satellite","L2").toString()); form->addWidget(satLabel); form->addWidget(satellite);
         modeLabel=label(); mode=new QComboBox; mode->addItems({"Align channels","Calculate calibration"}); form->addWidget(modeLabel); form->addWidget(mode);
         engineLabel=label(); engine=new QComboBox; engine->addItems({"Automatic CPU / OpenCL","CPU only"}); form->addWidget(engineLabel); form->addWidget(engine);
         hint=label("muted"); hint->setWordWrap(true); hint->setMinimumHeight(48); hint->setSizePolicy(QSizePolicy::Preferred,QSizePolicy::Minimum); form->addWidget(hint); leftLayout->addWidget(setup);
@@ -701,6 +781,13 @@ public:
         connect(channel,qOverload<int>(&QComboBox::currentIndexChanged),this,[this](int i){settings.setValue("previewChannel",i);loadPreview();});
         connect(start,&QPushButton::clicked,this,[this]{execute();}); connect(clear,&QPushButton::clicked,log,&QTextEdit::clear);
         connect(naturalExport,&QPushButton::clicked,this,[this]{naturalColorDialog();});
+        connect(queue,&QTableWidget::cellDoubleClicked,this,[this](int row,int){
+            if(busy||row<0||row>=queue->rowCount())return;
+            const auto job=queue->item(row,0)->data(Qt::UserRole).toMap();selectInput(job["input"].toString());
+            importedFingerprint=job["acquisition_fingerprint"].toString();config->setText(job["config"].toString());output->setText(job["output"].toString());
+            if(satellite->findText(job["satellite"].toString())<0)satellite->addItem(job["satellite"].toString());satellite->setCurrentText(job["satellite"].toString());
+            mode->setCurrentIndex(job["mode"]=="calibrate"?1:0);engine->setCurrentIndex(job["cpu"].toBool()?1:0);guidedScale=job.value("calibration_scale",1.0).toDouble();
+        });
         connect(queueAdd,&QPushButton::clicked,this,[this]{addToQueue();}); connect(queueRemove,&QPushButton::clicked,this,[this]{removeQueued();});
         connect(queueRun,&QPushButton::clicked,this,[this]{executeQueue();}); connect(profileDup,&QPushButton::clicked,this,[this]{duplicateProfileDialog();});
         connect(fit,&QPushButton::clicked,this,[this]{fitImage();}); connect(plus,&QPushButton::clicked,this,[this]{zoom=std::min(zoom*1.25,8.0);resizeImage();}); connect(minus,&QPushButton::clicked,this,[this]{zoom=std::max(zoom/1.25,0.02);resizeImage();});
@@ -709,6 +796,7 @@ public:
         for (auto *edit : {input,config,output}) edit->setAcceptDrops(false);
         setup->setSizePolicy(QSizePolicy::Preferred,QSizePolicy::Minimum);
         applyText(); applyTheme(); restoreGeometry(settings.value("geometry").toByteArray());
+        restoreQueue();
         // Preview is explicit: startup never reads a previously selected acquisition.
     }
 };

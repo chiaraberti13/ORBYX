@@ -395,3 +395,17 @@ Install.sh rifiuta di modificare direttamente una release gestita verificata.
 rollback con contenuti diversi, cache manomessa, mismatch piattaforma, percorso
 ostile, link, pin errato e concorrenza. Prova autentica install/rollback/tamper
 aggiunta alla workflow OIDC con build native separate Ubuntu22/24/26.
+
+### Persistenza effettiva della coda desktop
+
+Aggiunte/rimozioni/stati salvati subito con QSaveFile, lock di processo e confronto
+della revisione: un’altra istanza non può sovrascrivere silenziosamente lavori
+salvati nel frattempo. Ripristino alla riapertura con input solo dei metadati
+locali della coda, non delle acquisizioni. Stati conclusi mostrati Da verificare
+finché il batch non riconferma i digest; lavori interrotti non sono Completati.
+ID UUID separati dalla numerazione visibile, migrazione del precedente manifest,
+parametri rivedibili con doppio click e profili personalizzati selezionabili.
+Test reali di riapertura e conflitto fra due finestre aggiunti ai widget EN/IT.
+Corretto il nome del pulsante Chiudi del nuovo dialogo che nascondeva QWidget::close.
+La stabilità CBOR ora comprende il digest dei metadati, anche se il filesystem
+non aggiorna i timestamp per una riscrittura nella stessa frazione di secondo.
