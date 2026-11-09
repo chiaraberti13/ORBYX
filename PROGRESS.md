@@ -506,6 +506,22 @@ L’interfaccia EN/IT mostra le evidenze prima dell’applicazione e propone
 normale stato dell’editor: annulla/ripeti, trascinamento e valori numerici restano
 disponibili. Il messaggio persistente richiede di verificare ogni giunzione prima
 dell’export. Test core locali passati su tre ritagli concatenati, rotazione/scala,
-assenza di sovrapposizione e porzione uniforme; verifica GUI e pipeline remote in
-corso. L’automatismo è visuale, non certifica la geografia e non aggiunge un
-decoder dei grezzi SatDump.
+assenza di sovrapposizione e porzione uniforme. L’automatismo è visuale, non
+certifica la geografia e non aggiunge un decoder dei grezzi SatDump.
+
+### Chiusura verificata M2-06
+
+Motore pubblicato in `7d87b42936cdbe27959606c14fe9e39ed085aa1d` e interfaccia,
+test e guida in `338675dc356fb260ae60e5076f42b8280ff2fd58`. Suite locale:
+24/24gruppi applicabili senza errori, GPU fisica skipped e firma GPG esclusa per
+il limite dell’agente locale; Cppcheck completo senza segnalazioni. Il test GUI
+EN/IT conferma evidenze nel dialogo, annullamento immutabile, applicazione,
+annulla/ripeti e persistenza del progetto.
+
+Tutte le pipeline applicabili concluse success: Build/regressioni42620629575,
+Fedora/ARM6442620629613, VM42620629591, AppImage42620629586,
+OIDC42620629514, CodeQL42620629494. Il motore identico del primo incremento ha
+superato anche RDAS/SatDump autentico42620271984. Desktop25gruppi,24eseguiti e
+GPU skipped; sanitizers19gruppi,18eseguiti e GPU skipped. M2-06 chiuso nel suo
+ambito esplicito; restano esterne georeferenziazione certificata, giudizio visivo
+universale e GPU fisica.

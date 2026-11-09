@@ -50,6 +50,43 @@ Nessuna prova di geolocalizzazione assoluta o valutazione universale delle
 cuciture viene dedotta dai test di compositing. La decodifica dei grezzi rimane
 una funzionalità distinta, non aggiunta dall’editor.
 
+## Estensione M2-06: sovrapposizione automatica modificabile
+
+Motore: **7d87b42936cdbe27959606c14fe9e39ed085aa1d**. Interfaccia, test e
+guida conclusivi: **338675dc356fb260ae60e5076f42b8280ff2fd58**.
+
+Il livello selezionato resta fermo come riferimento. Il motore cerca dettagli
+visivi comuni, richiede corrispondenze reciproche e stima con RANSAC una
+trasformazione limitata a traslazione, rotazione e scala uniforme. Inlier,
+percentuale di area comune, errore mediano e confidenza devono superare soglie
+esplicite. Le porzioni possono essere collegate in catena; quelle uniformi o
+senza corrispondenza affidabile restano invariate.
+
+L’interfaccia mostra le evidenze e richiede **Applica** o **Annulla**, con
+annullamento predefinito. Una proposta applicata resta modificabile con tutti i
+controlli manuali e con annulla/ripeti. Il test core usa tre ritagli concatenati,
+verifica il recupero di rotazione/scala e rifiuta porzioni uniformi o senza area
+comune. Il test widget EN/IT verifica il dialogo reale, le evidenze, annullamento
+senza cambiamenti, applicazione esplicita, annulla/ripeti e salvataggio progetto.
+
+Tutte le esecuzioni applicabili sono concluse con esito **success**.
+
+| Prova conclusiva | Esecuzione |
+| --- | --- |
+| Ubuntu22.04/24.04/26.04, CTest, sanitizers, fuzz e Cppcheck | [42620629575](https://github.com/chiaraberti13/ORBYX/actions/runs/42620629575) |
+| Fedora44 e ARM64 nativo | [42620629613](https://github.com/chiaraberti13/ORBYX/actions/runs/42620629613) |
+| Fedora44 in VM completa | [42620629591](https://github.com/chiaraberti13/ORBYX/actions/runs/42620629591) |
+| AppImage in ambiente pulito | [42620629586](https://github.com/chiaraberti13/ORBYX/actions/runs/42620629586) |
+| Provenienza e aggiornamenti/rollback OIDC reali | [42620629514](https://github.com/chiaraberti13/ORBYX/actions/runs/42620629514) |
+| CodeQL | [42620629494](https://github.com/chiaraberti13/ORBYX/actions/runs/42620629494) |
+| Acquisizione autentica Elektro-L4 e SatDump sul motore invariato | [42620271984](https://github.com/chiaraberti13/ORBYX/actions/runs/42620271984) |
+
+Nei build desktop:25gruppi CTest,24eseguiti e GPU fisica skipped; nei
+sanitizers19gruppi,18eseguiti e GPU skipped. In locale sono passati24/24gruppi
+applicabili e Cppcheck completo. Questi risultati non trasformano il matching
+visivo in georeferenziazione, non provano prospettiva/proiezioni differenti e
+non sostituiscono il controllo umano di ogni giunzione.
+
 ## Funzioni completate
 
 - **Calibrazione guidata EN/IT**: tre passaggi, controllo degli input nativi,
