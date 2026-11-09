@@ -244,6 +244,23 @@ int main(int argc, char **argv) {
             requireTest(demo.findChild<QProgressBar*>()->value()==100,"Demo was not completed");
             demo.close();
         }
+        // Manual image simulation: the dedicated button exists and is accessible,
+        // and running the pipeline on an explicitly chosen folder (the bundled
+        // demo images) produces the same composite — no RDAS data, no .json.
+        {
+            Window sim;sim.previewSettings("it","dark",{1280,1000});sim.show();
+            auto *simButton=sim.findChild<QPushButton*>("simulateButton");
+            requireTest(simButton&&simButton->isVisible()&&!simButton->accessibleName().isEmpty(),"Simulation button inaccessible");
+            const QString folder=sim.demoFolderForTests();
+            requireTest(!folder.isEmpty(),"Bundled demo folder not found for manual simulation");
+            sim.runImageSimulation(folder);
+            requireTest(until([&]{return simButton->isEnabled();},60000),"Manual simulation stuck busy");
+            const auto simLog=sim.findChild<QTextEdit*>()->toPlainText();
+            requireTest(simLog.contains("1428x1428")&&!simLog.contains("ERROR:"),"Manual image simulation failed");
+            requireTest(!sim.findChild<QLabel*>("canvas")->pixmap().isNull(),"Manual simulation result not displayed");
+            requireTest(sim.findChild<QProgressBar*>()->value()==100,"Manual simulation was not completed");
+            sim.close();
+        }
 
         {
             Window first,second;first.previewSettings("en","dark",{1280,860});second.previewSettings("en","dark",{1280,860});first.show();second.show();

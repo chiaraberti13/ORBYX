@@ -66,6 +66,12 @@ const QMap<QString, QString> italian = {
  {"Processing setup", "Configurazione elaborazione"},
  {"RDAS input folder", "Cartella RDAS di origine"},
  {"Calibration profile", "Profilo di calibrazione"},
+ {"Calibration profile (included)", "Profilo di calibrazione (incluso)"},
+ {"Run the image demo on a chosen folder of six JPEGs; defaults to the bundled demo images.",
+  "Esegue la demo su una cartella di sei JPEG a tua scelta; predefinita la cartella demo inclusa."},
+ {"Choose six demo JPEGs (sx_/dx_ MSUGS-VIS-1/2/3)", "Scegli sei JPEG demo (sx_/dx_ MSUGS-VIS-1/2/3)"},
+ {"This folder does not contain the six JPEGs sx_/dx_ MSUGS-VIS-1/2/3.",
+  "Questa cartella non contiene i sei JPEG sx_/dx_ MSUGS-VIS-1/2/3."},
  {"New output folder", "Nuova cartella di destinazione"},
  {"Select…", "Seleziona…"}, {"Satellite", "Satellite"}, {"Operation", "Operazione"},
  {"Align channels", "Allinea canali"}, {"Calculate calibration", "Calcola calibrazione"},
@@ -131,7 +137,7 @@ class Window final : public QMainWindow {
     bool demoMode = false;
     QString lastOutput;
     QString demoResult;
-    QPushButton *demoButton{}, *wizardButton{}, *finalImageButton{}, *watchButton{}, *updatesButton{};
+    QPushButton *demoButton{}, *simulateButton{}, *wizardButton{}, *finalImageButton{}, *watchButton{}, *updatesButton{};
     bool openFinalEditor=false;
     bool finalNaturalColour=true;
     QString importedFingerprint;
@@ -175,8 +181,11 @@ class Window final : public QMainWindow {
         demoButton->setText(trText("Run image demo"));
         demoButton->setAccessibleName(trText("Run image demo"));
         demoButton->setToolTip(trText("Align the six bundled JPEGs and join the left and right halves."));
+        simulateButton->setText(it?"Simulazione immagini…":"Image simulation…");
+        simulateButton->setAccessibleName(simulateButton->text());
+        simulateButton->setToolTip(trText("Run the image demo on a chosen folder of six JPEGs; defaults to the bundled demo images."));
         setup->setTitle(trText("Processing setup"));
-        inputLabel->setText(trText("RDAS input folder")); configLabel->setText(trText("Calibration profile")); outputLabel->setText(trText("New output folder"));
+        inputLabel->setText(trText("RDAS input folder")); configLabel->setText(trText("Calibration profile (included)")); outputLabel->setText(trText("New output folder"));
         satLabel->setText(trText("Satellite")); modeLabel->setText(trText("Operation")); engineLabel->setText(trText("Processing engine"));
         for (auto *b : {inputBrowse, configBrowse, outputBrowse}) b->setText(trText("Select…"));
         inputBrowse->setAccessibleName(trText("Browse the RDAS input folder")); configBrowse->setAccessibleName(trText("Browse calibration profiles")); outputBrowse->setAccessibleName(trText("Choose a parent folder and edit the new destination name"));
@@ -310,13 +319,51 @@ class Window final : public QMainWindow {
         });
         connect(worker,&QThread::finished,worker,&QObject::deleteLater);worker->start();
     }
-    void executeImageDemo(const QString &requestedOutput = {}) {
-        if (busy) return;
-        QString sample;
-        const QDir appDir(QCoreApplication::applicationDirPath());
-        for (const auto &candidate : {appDir.filePath("../share/orbyx/demo-jpeg"),appDir.filePath("share/orbyx/demo-jpeg"),
+    // Bundled calibration profile shipped with ORBYX so users never need to
+    // supply or hunt for a .json: the GUI pre-fills it and restores it if cleared.
+    QString bundledProfile() const {
+        const QDir appDir(QApplication::applicationDirPath());
+        for (const QString &candidate : {appDir.filePath("../share/orbyx/calibration.json"),
+             QDir::current().filePath("resources/calibration.json"),
+             appDir.filePath("../resources/calibration.json")})
+            if (QFileInfo::exists(candidate)) return candidate;
+        return {};
+    }
+    // Folder holding the six bundled demo JPEGs (sx_/dx_ MSUGS-VIS-1/2/3).
+    QString bundledDemoFolder() const {
+        const QDir appDir(QApplication::applicationDirPath());
+        for (const QString &candidate : {appDir.filePath("../share/orbyx/demo-jpeg"),appDir.filePath("share/orbyx/demo-jpeg"),
              appDir.filePath("../assets/demo-jpeg"),QDir::current().filePath("assets/demo-jpeg")})
-            if (QFileInfo(QDir(candidate).filePath("sx_MSUGS-VIS-1.jpg")).isFile()) { sample=candidate; break; }
+            if (QFileInfo(QDir(candidate).filePath("sx_MSUGS-VIS-1.jpg")).isFile()) return candidate;
+        return {};
+    }
+    bool hasDemoImages(const QString &folder) const {
+        if (folder.isEmpty()) return false;
+        for (const QString &name : {"sx_MSUGS-VIS-1.jpg","sx_MSUGS-VIS-2.jpg","sx_MSUGS-VIS-3.jpg",
+             "dx_MSUGS-VIS-1.jpg","dx_MSUGS-VIS-2.jpg","dx_MSUGS-VIS-3.jpg"})
+            if (!QFileInfo(QDir(folder).filePath(name)).isFile()) return false;
+        return true;
+    }
+    // Manual image simulation: run the real image pipeline on a folder of six
+    // JPEGs the user picks, defaulting to the bundled demo images. No RDAS data
+    // and no profile file are required; it reuses the same engine as the demo.
+    void imageSimulationDialog() {
+        if (busy) return;
+        const QString start=bundledDemoFolder();
+        const QString folder=QFileDialog::getExistingDirectory(this,
+            trText("Choose six demo JPEGs (sx_/dx_ MSUGS-VIS-1/2/3)"),
+            start.isEmpty()?QDir::homePath():start);
+        if (folder.isEmpty()) return;
+        if (!hasDemoImages(folder)) {
+            QMessageBox::warning(this,trText("Missing settings"),
+                trText("This folder does not contain the six JPEGs sx_/dx_ MSUGS-VIS-1/2/3."));
+            return;
+        }
+        executeImageDemo({},folder);
+    }
+    void executeImageDemo(const QString &requestedOutput = {}, const QString &sampleFolder = {}) {
+        if (busy) return;
+        const QString sample = hasDemoImages(sampleFolder) ? sampleFolder : bundledDemoFolder();
         const QString base=QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
         const QString token=QDateTime::currentDateTimeUtc().toString("yyyyMMddTHHmmssZ")+"-"+QUuid::createUuid().toString(QUuid::WithoutBraces);
         QDir().mkpath(base+"/demos"); QDir().mkpath(base+"/logs");
@@ -371,6 +418,9 @@ class Window final : public QMainWindow {
     }
     void execute() {
         if (busy) return;
+        // The calibration profile is bundled: if the user cleared it, restore the
+        // included one so they are never blocked for lack of a .json to load.
+        if (config->text().isEmpty()) config->setText(bundledProfile());
         if (input->text().isEmpty() || config->text().isEmpty() || output->text().isEmpty()) {
             if (quitAfterRun) { QApplication::exit(2); return; }
             QMessageBox::warning(this, trText("Missing settings"), trText("Select an input folder, calibration profile and new output folder.")); return;
@@ -526,7 +576,7 @@ class Window final : public QMainWindow {
     void setQueueBusy(bool running) {
         busy = running;
         setup->setEnabled(!running); start->setEnabled(!running);
-        naturalExport->setEnabled(!running); mosaicButton->setEnabled(!running); demoButton->setEnabled(!running); wizardButton->setEnabled(!running);finalImageButton->setEnabled(!running);watchButton->setEnabled(!running);updatesButton->setEnabled(!running);
+        naturalExport->setEnabled(!running); mosaicButton->setEnabled(!running); demoButton->setEnabled(!running); simulateButton->setEnabled(!running); wizardButton->setEnabled(!running);finalImageButton->setEnabled(!running);watchButton->setEnabled(!running);updatesButton->setEnabled(!running);
         queueAdd->setEnabled(!running&&queueStoreHealthy); queueRemove->setEnabled(!running&&queueStoreHealthy);
         queueRun->setEnabled(!running && queueStoreHealthy && queue->rowCount() > 0);
     }
@@ -677,6 +727,10 @@ protected:
         else { settings.setValue("geometry",saveGeometry()); QMainWindow::closeEvent(event); }
     }
 public:
+    // Test seam: resolve the bundled demo folder and run a manual image
+    // simulation on a chosen folder without going through the native picker.
+    QString demoFolderForTests() const { return bundledDemoFolder(); }
+    void runImageSimulation(const QString &folder) { executeImageDemo({},folder); }
     void previewSettings(const QString &locale,const QString &appearance,const QSize &size) {
         if (!locale.isEmpty()) { it=locale=="it"; language->setCurrentIndex(it?0:1); }
         if (!appearance.isEmpty()) { dark=appearance=="dark"; theme->setCurrentIndex(dark?0:1); }
@@ -719,16 +773,16 @@ public:
         demoButton=new QPushButton;demoButton->setObjectName("demoButton");
         demoButton->setShortcut(QKeySequence("Ctrl+Shift+D"));header->addWidget(demoButton);
         connect(demoButton,&QPushButton::clicked,this,[this]{executeImageDemo();});
+        simulateButton=new QPushButton;simulateButton->setObjectName("simulateButton");
+        simulateButton->setShortcut(QKeySequence("Ctrl+Shift+S"));header->addWidget(simulateButton);
+        connect(simulateButton,&QPushButton::clicked,this,[this]{imageSimulationDialog();});
         header->addWidget(languageLabel); header->addWidget(language); header->addSpacing(12); header->addWidget(themeLabel); header->addWidget(theme); page->addWidget(headerWidget);
         auto *splitter = new QSplitter; page->addWidget(splitter,1);
         auto *left = new QWidget; left->setObjectName("root"); left->setMinimumWidth(360); auto *leftLayout = new QVBoxLayout(left); leftLayout->setContentsMargins(0,0,16,0); leftLayout->setSpacing(8);
         setup=new QGroupBox; auto *form = new QVBoxLayout(setup); form->setSpacing(4); form->setContentsMargins(8,12,8,8);
         inputLabel=label(); input=new QLineEdit(settings.value("input").toString()); inputBrowse=new QPushButton; form->addWidget(inputLabel); form->addLayout(pathRow(input,inputBrowse));
         configLabel=label();
-        QString defaultConfig = QDir(QApplication::applicationDirPath()).filePath("../share/orbyx/calibration.json");
-        if (!QFileInfo::exists(defaultConfig)) defaultConfig=QDir::current().filePath("resources/calibration.json");
-        if (!QFileInfo::exists(defaultConfig)) defaultConfig=QDir(QApplication::applicationDirPath()).filePath("../resources/calibration.json");
-        config=new QLineEdit(settings.value("config",defaultConfig).toString()); configBrowse=new QPushButton; form->addWidget(configLabel); form->addLayout(pathRow(config,configBrowse));
+        config=new QLineEdit(settings.value("config",bundledProfile()).toString()); configBrowse=new QPushButton; form->addWidget(configLabel); form->addLayout(pathRow(config,configBrowse));
         wizardButton=new QPushButton;wizardButton->setObjectName("wizardButton");form->addWidget(wizardButton);
         connect(wizardButton,&QPushButton::clicked,this,[this]{
             CalibrationWizard wizard(it,input->text(),config->text(),output->text(),satellite->currentText(),this);
