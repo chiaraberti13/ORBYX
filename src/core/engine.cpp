@@ -304,6 +304,25 @@ Inspection inspect(const std::filesystem::path& image) {
   const auto mat=readImage(image);
   return {mat.cols,mat.rows,mat.depth()==CV_16U?16:8};
 }
+EditableMergeLayout editableMergeLayout(
+    const fs::path& configFile,const std::string& satellite,
+    const std::array<fs::path,2>& alignedChannels) {
+  require(!satellite.empty()&&satellite.size()<=32,"Specify a satellite/profile identifier");
+  for(char c:satellite)
+    require((c>='A'&&c<='Z')||(c>='0'&&c<='9')||c=='_',"Invalid satellite identifier");
+  const auto config=readConfig(configFile);
+  std::array<cv::Mat,2> images{readImage(alignedChannels[0],false),
+                               readImage(alignedChannels[1],false)};
+  const auto key1=satellite+"VIS1",key2=satellite+"VIS2";
+  EditableMergeLayout layout;
+  layout.profileRoi=config[key1].isMember("ROI")&&config[key2].isMember("ROI");
+  for(int i=0;i<2;++i) {
+    const auto region=layout.profileRoi?roi(config[i?key2:key1],images[size_t(i)].size()):
+                                        cv::Rect(0,0,images[size_t(i)].cols,images[size_t(i)].rows);
+    layout.regions[size_t(i)]={region.x,region.y,region.width,region.height};
+  }
+  return layout;
+}
 void run(const RunOptions& options,const Log& log) {
   auto message=[&](const std::string& s){if(log)log(translate(s,options.language));};
   require(!options.satellite.empty() && options.satellite.size()<=32,
@@ -375,6 +394,10 @@ void run(const RunOptions& options,const Log& log) {
       }
       message("Writing merged aligned channels");
       writeProduct(stage.path/"MSUGS_VIS_Aligned",merged,dirs[0]/"product.cbor");
+      if(options.editableParts) {
+        writeProduct(stage.path/"MSUGS_VIS-1_Aligned",products[0],dirs[0]/"product.cbor");
+        writeProduct(stage.path/"MSUGS_VIS-2_Aligned",products[1],dirs[1]/"product.cbor");
+      }
     } else {
       message("No complete merge ROIs; writing separate aligned VIS products");
       writeProduct(stage.path/"MSUGS_VIS-1_Aligned",products[0],dirs[0]/"product.cbor");

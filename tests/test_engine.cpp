@@ -51,6 +51,8 @@ void separate(const fs::path& root,int type,const std::string& name) {
  check(result.rows==16&&result.cols==64&&result.type()==type,"aligned dimensions/depth");
  check(cv::norm(result,original(cv::Rect(0,3606,64,16)),cv::NORM_INF)==0,"Must save transformed channel, not original");
  check(read(output/"MSUGS_VIS-2_Aligned/product.cbor")=="synthetic-cbor-vis2","VIS2 CBOR provenance");
+ const auto fullLayout=orbyx::editableMergeLayout(profile,"L2",{output/"MSUGS_VIS-1_Aligned/MSUGS-VIS-1.png",output/"MSUGS_VIS-2_Aligned/MSUGS-VIS-1.png"});
+ check(!fullLayout.profileRoi&&fullLayout.regions[0].width==64&&fullLayout.regions[1].height==16,"Missing ROI must expose full editable products");
  check(cv::imread((input/"MSUGS_VIS1/MSUGS-VIS-2.png").string(),cv::IMREAD_UNCHANGED).rows==3622,"Input unchanged");
  fails([&]{orbyx::run(options);});
  const auto inspection=orbyx::inspect(input/"MSUGS_VIS1/MSUGS-VIS-1.png");
@@ -65,8 +67,16 @@ void separate(const fs::path& root,int type,const std::string& name) {
  const auto merged=cv::imread((options.output/"MSUGS_VIS_Aligned/MSUGS-VIS-2.png").string(),cv::IMREAD_UNCHANGED);
  check(merged.cols==40&&merged.rows==16,"Merged canvas uses actual ROI dimensions");
  check(cv::countNonZero(merged(cv::Rect(20,10,20,6)))==0,"Uncovered merged pixels initialized to zero");
+ check(!fs::exists(options.output/"MSUGS_VIS-1_Aligned"),"Default legacy ROI output unexpectedly gained editable products");
+ options.editableParts=true;options.output=root/(name+"-merged-editable");orbyx::run(options);
+ const auto editableMerged=cv::imread((options.output/"MSUGS_VIS_Aligned/MSUGS-VIS-2.png").string(),cv::IMREAD_UNCHANGED);
+ check(cv::norm(merged,editableMerged,cv::NORM_INF)==0,"Editable opt-in changed historical ROI pixels");
+ check(fs::is_regular_file(options.output/"MSUGS_VIS-1_Aligned/MSUGS-VIS-1.png")&&fs::is_regular_file(options.output/"MSUGS_VIS-2_Aligned/MSUGS-VIS-1.png"),"Editable aligned VIS products missing");
+ const auto roiLayout=orbyx::editableMergeLayout(profile,"L2",{options.output/"MSUGS_VIS-1_Aligned/MSUGS-VIS-1.png",options.output/"MSUGS_VIS-2_Aligned/MSUGS-VIS-1.png"});
+ check(roiLayout.profileRoi&&roiLayout.regions[0].x==1&&roiLayout.regions[0].width==20&&roiLayout.regions[1].height==10,"Historical ROI was not preserved as editable layout");
  config["L2VIS1"]["ROI"]["width"]=1000;writeJson(profile,config);options.output=root/(name+"-badroi");
  fails([&]{orbyx::run(options);});check(!fs::exists(options.output),"Invalid ROI leaves no destination");
+ fails([&]{orbyx::editableMergeLayout(profile,"L2",{root/(name+"-merged-editable/MSUGS_VIS-1_Aligned/MSUGS-VIS-1.png"),root/(name+"-merged-editable/MSUGS_VIS-2_Aligned/MSUGS-VIS-1.png")});});
 }
 // Independent double-precision scalar RGB/HSV oracle, without cvtColor.
 cv::Vec3d naturalOracle(cv::Vec3d bgr,double maximum) {

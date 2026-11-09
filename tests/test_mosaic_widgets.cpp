@@ -7,6 +7,7 @@
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 #include <iostream>
+#include <fstream>
 void check(bool ok,const char* m){if(!ok)throw std::runtime_error(m);}
 void waitFor(MosaicDialog& dialog){QElapsedTimer timer;timer.start();while(dialog.isBusy()&&timer.elapsed()<30000)QTest::qWait(10);check(!dialog.isBusy(),"Editor worker stuck");}
 int main(int argc,char** argv){
@@ -22,6 +23,11 @@ int main(int argc,char** argv){
         cv::putText(autoScene,"ORBYX",{230,210},cv::FONT_HERSHEY_SIMPLEX,1.4,{255,255,255},3,cv::LINE_AA);
         cv::imwrite((root/"auto-a.png").string(),autoScene(cv::Rect(0,0,410,340)));
         cv::imwrite((root/"auto-b.png").string(),autoScene(cv::Rect(230,65,410,340)));
+        const auto generated=root/"generated";std::filesystem::create_directories(generated/"MSUGS_VIS-1_Aligned");std::filesystem::create_directories(generated/"MSUGS_VIS-2_Aligned");
+        for(int vis=1;vis<=2;++vis)for(int channel=1;channel<=3;++channel)
+            cv::imwrite((generated/("MSUGS_VIS-"+std::to_string(vis)+"_Aligned")/("MSUGS-VIS-"+std::to_string(channel)+".png")).string(),cv::Mat(80,100,CV_16UC1,cv::Scalar(vis*5000+channel*1000)));
+        const auto generatedProfile=root/"generated-profile.json";
+        std::ofstream(generatedProfile)<<R"({"L2VIS1":{"ROI":{"x":5,"y":6,"width":60,"height":50}},"L2VIS2":{"ROI":{"x":10,"y":8,"width":55,"height":45}}})";
         for(bool it:{false,true}){
             MosaicDialog dialog(it);dialog.resize(960,680);dialog.show();
             dialog.appendFiles({temp.path()+"/one.png",temp.path()+"/two.png",temp.path()+"/three.png"});waitFor(dialog);
@@ -56,6 +62,11 @@ int main(int argc,char** argv){
             check(channels.state().size()==1,"GUI colour composition did not create a portion");
             check(orbyx::readCompositePng(channels.state()[0].image).type()==CV_16UC3,"Natural Color in editor lost native depth");
             channels.saveProject(temp.path()+(it?"/channels-it.json":"/channels-en.json"));
+            MosaicDialog profileRoi(it);profileRoi.show();profileRoi.appendGeneratedProducts(QString::fromStdString(generated.string()),QString::fromStdString(generatedProfile.string()),"L2",true);waitFor(profileRoi);
+            check(profileRoi.state().size()==2&&profileRoi.property("loadedProfileRoi").toBool(),"Profile ROI output was not opened as editable layers");
+            check(profileRoi.state()[0].crop==cv::Rect(5,6,60,50)&&profileRoi.state()[1].crop==cv::Rect(10,8,55,45)&&profileRoi.state()[1].x==60,"Editable profile ROI geometry differs from historical merge");
+            check(profileRoi.findChild<QLabel*>("mosaicStatus")->text().contains("ROI"),"Editable profile ROI explanation missing");
+            profileRoi.saveProject(temp.path()+(it?"/profile-roi-it.json":"/profile-roi-en.json"));
             MosaicDialog automatic(it);automatic.show();automatic.appendFiles({temp.path()+"/auto-a.png",temp.path()+"/auto-b.png"});waitFor(automatic);
             auto* automaticButton=automatic.findChild<QPushButton*>("mosaicAutoOverlap");check(automaticButton&&automaticButton->isEnabled(),"Automatic overlap control missing");
             automatic.findChild<QListWidget*>("mosaicLayers")->setCurrentRow(0);
@@ -75,7 +86,7 @@ int main(int argc,char** argv){
             automatic.redo();waitFor(automatic);check(std::abs(automatic.state()[1].x-230)<=2,"Automatic overlap redo failed");
             automatic.saveProject(temp.path()+(it?"/automatic-it.json":"/automatic-en.json"));
             if(it&&argc>1){MosaicDialog demo(it);demo.appendDemo(QString::fromLocal8Bit(argv[1]));waitFor(demo);check(demo.state().size()==2,"Real six-JPEG editable demo missing");auto real=orbyx::renderMosaic(demo.state());check(real.image.size()==cv::Size(1428,1428),"Editable real-demo canvas incorrect");demo.show();QTest::qWait(30);if(qEnvironmentVariableIsSet("ORBYX_MOSAIC_SCREENSHOT"))demo.grab().save(qEnvironmentVariable("ORBYX_MOSAIC_SCREENSHOT"));demo.saveProject(temp.path()+"/demo.json");demo.close();}
-            dialog.close();restored.close();channels.close();automatic.close();
+            dialog.close();restored.close();channels.close();profileRoi.close();automatic.close();
         }
         std::cout<<"EN/IT multi-layer geometry, drag, undo, colour, project and full-resolution export passed\n";return 0;
     }catch(const std::exception& e){std::cerr<<e.what()<<'\n';return 1;}

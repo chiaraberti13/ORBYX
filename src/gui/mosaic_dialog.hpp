@@ -232,6 +232,37 @@ public:
         const auto file=workingFolder+"/"+QUuid::createUuid().toString(QUuid::WithoutBraces)+".png";
         run([folder,file,natural]{std::array<std::filesystem::path,3> channels;for(int i=0;i<3;++i)channels[size_t(i)]=std::filesystem::path(folder.toStdString())/("MSUGS-VIS-"+std::to_string(i+1)+".png");if(natural)orbyx::composeNaturalColor(channels,file.toStdString());else orbyx::composeRgb(channels,file.toStdString());},[this,file]{remember();orbyx::MosaicLayer l;l.image=file.toStdString();layers.push_back(l);refreshList();});
     }
+    void appendGeneratedProducts(const QString& outputRoot,const QString& profile,const QString& satellite,bool natural=true){
+        if(busy||layers.size()>30)return;
+        const QDir root(outputRoot);const QStringList names{"MSUGS_VIS-1_Aligned","MSUGS_VIS-2_Aligned"};
+        for(const auto& name:names)if(!QFileInfo(root.filePath(name+"/MSUGS-VIS-1.png")).isFile()){
+            persistentNotice=t("No editable aligned VIS pair was found in the selected output.","Nell’output selezionato non è stata trovata una coppia VIS allineata modificabile.");status->setText(persistentNotice);return;
+        }
+        const auto destination=workingFolder+"/generated-"+QUuid::createUuid().toString(QUuid::WithoutBraces);QDir().mkpath(destination);
+        struct Import {std::vector<orbyx::MosaicLayer> layers;bool profileRoi=false;};
+        auto imported=std::make_shared<Import>();
+        run([outputRoot,profile,satellite,natural,destination,names,imported]{
+            const QDir root(outputRoot);std::array<std::filesystem::path,2> representative;
+            for(int vis=0;vis<2;++vis)representative[size_t(vis)]=root.filePath(names[vis]+"/MSUGS-VIS-1.png").toStdString();
+            const auto layout=orbyx::editableMergeLayout(profile.toStdString(),satellite.toStdString(),representative);
+            imported->profileRoi=layout.profileRoi;
+            for(int vis=0;vis<2;++vis){
+                std::array<std::filesystem::path,3> channels;
+                for(int channel=0;channel<3;++channel)channels[size_t(channel)]=root.filePath(names[vis]+"/MSUGS-VIS-"+QString::number(channel+1)+".png").toStdString();
+                const auto file=std::filesystem::path(destination.toStdString())/("vis-"+std::to_string(vis+1)+".png");
+                if(natural)orbyx::composeNaturalColor(channels,file);else orbyx::composeRgb(channels,file);
+                const auto region=layout.regions[size_t(vis)];orbyx::MosaicLayer layer;layer.image=file;
+                layer.crop={region.x,region.y,region.width,region.height};layer.x=vis?layout.regions[0].width:0;
+                imported->layers.push_back(layer);
+            }
+        },[this,imported]{
+            remember();layers.insert(layers.end(),imported->layers.begin(),imported->layers.end());
+            persistentNotice=imported->profileRoi?
+                t("Profile ROI loaded as two editable layers. The historical result is unchanged until you edit it.","ROI del profilo caricata come due livelli modificabili. Il risultato storico resta invariato finché non lo modifichi."):
+                t("No complete profile ROI: both aligned VIS products were loaded for visual or manual placement.","ROI del profilo non complete: i due prodotti VIS allineati sono stati caricati per il posizionamento visuale o manuale.");
+            setProperty("loadedProfileRoi",imported->profileRoi);refreshList();status->setText(persistentNotice);
+        });
+    }
     void autoAlign(bool confirm=true){
         if(busy||layers.size()<2){status->setText(t("Add at least two portions.","Aggiungi almeno due porzioni."));return;}
         const int selected=list->currentRow();const std::size_t anchor=selected>=0?size_t(selected):0;

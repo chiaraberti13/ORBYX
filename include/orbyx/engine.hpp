@@ -13,14 +13,30 @@ struct RunOptions {
   std::string language = "en";
   // Explicit ECC working resolution; output transforms remain in native pixels.
   double calibrationScale = 1.0;
+  // GUI opt-in: retain both aligned VIS products beside the byte-compatible
+  // profile-ROI merge so they can be opened as editable compositor layers.
+  // CLI/default output remains unchanged when false.
+  bool editableParts = false;
 };
 using Log = std::function<void(const std::string&)>;
 struct Inspection { int width, height, depth; };
+struct CropRegion { int x=0, y=0, width=0, height=0; };
+struct EditableMergeLayout {
+  bool profileRoi = false;
+  std::array<CropRegion,2> regions;
+};
 // All failures throw std::exception. The destination must not exist.
 // The input images and input calibration profile are never modified.
 void run(const RunOptions&, const Log& log = {});
 std::string translate(const std::string& message, const std::string& language);
 Inspection inspect(const std::filesystem::path& image);
+// Resolve the same profile ROI decision used by generate for two already
+// aligned representative channels. With no complete ROI pair, returns the full
+// images. This is read-only and lets the GUI reproduce the historical merge as
+// editable layers instead of flattening it first.
+EditableMergeLayout editableMergeLayout(
+    const std::filesystem::path& config, const std::string& satellite,
+    const std::array<std::filesystem::path,2>& alignedChannels);
 // Copy one satellite's calibration entries to a new satellite id, writing a new
 // profile that also preserves every original entry. The source profile is never
 // modified and the destination must not already exist.

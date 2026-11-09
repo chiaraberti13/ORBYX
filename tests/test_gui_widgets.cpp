@@ -84,6 +84,18 @@ int main(int argc, char **argv) {
             requireTest(until([&]{return run->isEnabled();}),"Resume stuck busy");
             requireTest(hashFile(file)==before,"Resume overwrote image");
             requireTest(table->item(0,2)->text()==(lang=="it"?"Completato":"Done"),"Verified resume did not retain completion");
+            const QString roiProfile=temporary.path()+"/roi-profile-"+lang+".json";
+            QFile sourceProfile(fixture+"/profile.json");requireTest(sourceProfile.open(QIODevice::ReadOnly),"ROI profile source unreadable");
+            auto roiDocument=QJsonDocument::fromJson(sourceProfile.readAll()).object();sourceProfile.close();
+            for(const QString vis:{"L2VIS1","L2VIS2"}){auto section=roiDocument[vis].toObject();section["ROI"]=QJsonObject{{"x",1},{"y",0},{"width",20},{"height",vis.endsWith('1')?16:10}};roiDocument[vis]=section;}
+            QFile roiFile(roiProfile);requireTest(roiFile.open(QIODevice::WriteOnly|QIODevice::NewOnly),"ROI profile fixture creation failed");requireTest(roiFile.write(QJsonDocument(roiDocument).toJson())>0,"ROI profile fixture write failed");roiFile.close();
+            const QString directResult=temporary.path()+"/direct-output-"+lang;
+            w.loadArguments({"--input",fixture+"/input","--config",roiProfile,"--output",directResult,"--satellite","L2","--cpu"});
+            auto* start=w.findChild<QPushButton*>("start");clickVisible(start);requireTest(until([&]{return start->isEnabled();}),"Direct processing stuck busy");
+            requireTest(QFileInfo::exists(directResult+"/MSUGS_VIS_Aligned/MSUGS-VIS-1.png")&&QFileInfo::exists(directResult+"/MSUGS_VIS-1_Aligned/MSUGS-VIS-1.png"),"GUI did not retain editable products beside historical ROI output");
+            bool roiEditorOpened=false;QTimer inspectRoiEditor;inspectRoiEditor.setInterval(20);
+            QObject::connect(&inspectRoiEditor,&QTimer::timeout,[&]{if(auto* dialog=dynamic_cast<MosaicDialog*>(QApplication::activeModalWidget()))if(!dialog->isBusy()&&dialog->state().size()==2){roiEditorOpened=dialog->property("loadedProfileRoi").toBool()&&dialog->state()[1].x==20;dialog->saveProject(temporary.path()+"/main-roi-"+lang+".json");dialog->reject();}});
+            inspectRoiEditor.start();clickVisible(w.findChild<QPushButton*>("mosaicButton"));inspectRoiEditor.stop();requireTest(roiEditorOpened,"Main window did not open historical ROI as editable layers");
             // Fill the actual source/target/save dialogs and dismiss the success box.
             const auto originalProfile=hashFile(fixture+"/profile.json");
             const QString copied=temporary.path()+"/profile-"+lang+".json";

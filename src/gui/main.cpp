@@ -367,6 +367,7 @@ class Window final : public QMainWindow {
         options.calibrationScale=mode->currentIndex()==1?guidedScale:1.0;
         options.language = it ? "it" : "en";
         options.satellite = satellite->currentText().toStdString(); options.cpu = engine->currentIndex() == 1; options.calibrate = mode->currentIndex() == 1;
+        options.editableParts=!options.calibrate;
         lastOutput = output->text(); setQueueBusy(true);
         progress->setRange(0,0); status->setText(trText("Processing…")); applyText();
         if (!quitAfterRun) { settings.setValue("input", input->text()); settings.setValue("config", config->text()); settings.setValue("satellite", satellite->currentText()); }
@@ -753,7 +754,14 @@ public:
         hint=label("muted"); hint->setWordWrap(true); hint->setMinimumHeight(48); hint->setSizePolicy(QSizePolicy::Preferred,QSizePolicy::Minimum); form->addWidget(hint); leftLayout->addWidget(setup);
         start=new QPushButton; start->setObjectName("start"); start->setShortcut(QKeySequence("Ctrl+Return")); leftLayout->addWidget(start);
         mosaicButton=new QPushButton; mosaicButton->setObjectName("mosaicButton");leftLayout->addWidget(mosaicButton);
-        connect(mosaicButton,&QPushButton::clicked,this,[this]{MosaicDialog dialog(it,this);dialog.exec();});
+        connect(mosaicButton,&QPushButton::clicked,this,[this]{
+            MosaicDialog dialog(it,this);
+            const QDir generated(lastOutput);
+            if(QFileInfo(generated.filePath("MSUGS_VIS-1_Aligned/MSUGS-VIS-1.png")).isFile()&&
+               QFileInfo(generated.filePath("MSUGS_VIS-2_Aligned/MSUGS-VIS-1.png")).isFile())
+                dialog.appendGeneratedProducts(lastOutput,config->text(),satellite->currentText(),true);
+            dialog.exec();
+        });
         naturalExport=new QPushButton; naturalExport->setObjectName("naturalExport");
         naturalExport->setShortcut(QKeySequence("Ctrl+Shift+N"));leftLayout->addWidget(naturalExport);
         status=label("status"); leftLayout->addWidget(status); progress=new QProgressBar; progress->setTextVisible(false); progress->setValue(0); leftLayout->addWidget(progress);
