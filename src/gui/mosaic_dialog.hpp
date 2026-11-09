@@ -23,6 +23,7 @@
 #include <QMessageBox>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QPixmap>
 #include <QPolygonF>
 #include <QPushButton>
 #include <QSaveFile>
@@ -35,6 +36,8 @@
 #include <QDir>
 #include <functional>
 #include <memory>
+#include <algorithm>
+#include <stdexcept>
 
 class MosaicCanvas final:public QLabel {
     QPointF pressed;

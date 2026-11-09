@@ -464,3 +464,16 @@ file esistente immutato, drag/annulla/riapertura/PNG confrontato col renderer e
 Natural Color effettivo EN/IT. Screenshot della demo modificabile ispezionato.
 Cppcheck completo passato. Pipeline remote avviate; esiti conclusivi da registrare.
 La geografia certificata, la GPU fisica e lo screen reader reale non sono implicati.
+
+### Compatibilità Qt recente e rendering delle aree occupate
+
+La CI del secondo incremento4f307e8 ha rilevato un errore di compilazione del
+nuovo test su Qt recente (Ubuntu26/Fedora): findChild su una sottoclasse senza
+Q_OBJECT è ora rifiutato. Il test cerca il QLabel con nome esatto e verifica
+poi il tipo concreto tramite dynamic_cast; nessuna prova disattivata o classe
+fittizia sostituita. Locale Qt6.4 non imponeva questo controllo.
+
+Rendering limitato ai tile del rettangolo trasformato di ciascun livello,
+anziché attraversare l’intero canvas per ogni porzione; guadagni/esponente
+precalcolati e percorso neutro senza pow per pixel. Mosaic core e widget
+nuovamente passati con geometria/colore/export invariati negli oracoli previsti.

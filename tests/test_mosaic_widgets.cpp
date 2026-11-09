@@ -27,7 +27,7 @@ int main(int argc,char** argv){
             dialog.redo();waitFor(dialog);check(dialog.state()[2].x==-15,"Redo geometry failed");
             gamma->setValue(1.25);waitFor(dialog);dialog.applyColoursToAll();waitFor(dialog);
             for(const auto& layer:dialog.state())check(layer.gamma==1.25,"Colour application not applied to all portions");
-            auto* canvas=dialog.findChild<MosaicCanvas*>("mosaicCanvas");check(canvas&&!canvas->pixmap().isNull(),"Composite preview missing");
+            auto* canvas=dynamic_cast<MosaicCanvas*>(dialog.findChild<QLabel*>("mosaicCanvas"));check(canvas&&!canvas->pixmap().isNull(),"Composite preview missing");
             const auto oldX=dialog.state()[2].x;
             QTest::mousePress(canvas,Qt::LeftButton,{},QPoint(10,10));QTest::mouseRelease(canvas,Qt::LeftButton,{},QPoint(20,15));waitFor(dialog);
             check(dialog.state()[2].x==oldX+10,"Drag editing did not move selected layer");

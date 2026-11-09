@@ -81,10 +81,17 @@ MosaicResult renderMosaic(const std::vector<MosaicLayer>& layers,int previewEdge
         m(0,2)-=minX*ratio;m(1,2)-=minY*ratio;
         cv::Matx23d inverse;cv::invertAffineTransform(m,inverse);
         const double nativeMaximum=source.depth()==CV_16U?65535.:255.,outMaximum=outputDepth==CV_16U?65535.:255.;
+        const double gammaExponent=1./l.gamma,exposureGain=std::exp2(l.exposure);
+        const std::array<double,3> gains{l.blue*exposureGain,l.green*exposureGain,l.red*exposureGain};
+        const bool neutral=l.black==0&&l.white==1&&l.gamma==1&&l.exposure==0&&l.saturation==1&&l.red==1&&l.green==1&&l.blue==1;
+        double left=cols,right=0,top=rows,bottom=0;
+        for(const auto& point:result.outlines[i]){left=std::min(left,point.x);right=std::max(right,point.x);top=std::min(top,point.y);bottom=std::max(bottom,point.y);}
+        const int firstX=std::clamp(int(std::floor(left)),0,cols),lastX=std::clamp(int(std::ceil(right)),0,cols);
+        const int firstY=std::clamp(int(std::floor(top)),0,rows),lastY=std::clamp(int(std::ceil(bottom)),0,rows);
         // Bound scratch allocations independently of full scene size. A layer is
         // decoded once per pass, colour conversion and blending use small tiles.
-        for(int y=0;y<rows;y+=256)for(int x=0;x<cols;x+=256) {
-            cv::Rect tile(x,y,std::min(256,cols-x),std::min(256,rows-y));
+        for(int y=firstY;y<lastY;y+=256)for(int x=firstX;x<lastX;x+=256) {
+            cv::Rect tile(x,y,std::min(256,lastX-x),std::min(256,lastY-y));
             auto local=m;local(0,2)-=x;local(1,2)-=y;
             cv::Mat warped,colour;cv::warpAffine(image,warped,local,tile.size(),cv::INTER_LINEAR,cv::BORDER_REPLICATE);
             if(warped.channels()==1)cv::cvtColor(warped,colour,cv::COLOR_GRAY2BGR);else colour=warped;
@@ -99,9 +106,10 @@ MosaicResult renderMosaic(const std::vector<MosaicLayer>& layers,int previewEdge
                     double alpha=l.opacity;
                     if(l.feather>0)alpha*=std::clamp(std::min({sx+.5,sy+.5,image.cols-.5-sx,image.rows-.5-sy})*l.scale/l.feather,0.,1.);
                     auto v=values[xx];
+                    if(neutral){for(int c=0;c<3;++c)dest[xx][c]=float(v[c]*alpha+dest[xx][c]*(1-alpha));continue;}
                     for(int c=0;c<3;++c) {
                         double n=std::clamp((v[c]-l.black)/(l.white-l.black),0.,1.);
-                        v[c]=float(std::pow(n,1./l.gamma)*std::exp2(l.exposure)*(c==0?l.blue:c==1?l.green:l.red));
+                        v[c]=float((l.gamma==1?n:std::pow(n,gammaExponent))*gains[size_t(c)]);
                     }
                     float luminance=.0722f*v[0]+.7152f*v[1]+.2126f*v[2];
                     for(int c=0;c<3;++c) {
