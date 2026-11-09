@@ -56,7 +56,7 @@ if "$install_dependencies"; then
   sudo -v
   apt_run update
   apt_run install -y build-essential cmake ninja-build libopencv-dev libjsoncpp-dev \
-    qt6-base-dev qt6-qpa-plugins libgl-dev gnupg binutils python3 fonts-dejavu-core
+    qt6-base-dev qt6-qpa-plugins libgl-dev gnupg binutils python3 gh fonts-dejavu-core
 fi
 for tool in cmake ctest ninja c++ python3; do
   if ! command -v "$tool" >/dev/null; then
@@ -67,6 +67,11 @@ for tool in cmake ctest ninja c++ python3; do
 done
 build="$orbyx_repo/build-desktop"
 prefix=$(orbyx_prefix)
+if [[ -L "$prefix" ]]; then
+  orbyx_message 'Installazione gestita da aggiornamenti firmati: usa Aggiornamenti nell’app oppure bash update.sh. La release verificata non viene modificata da install.sh.' \
+    'Signed managed installation: use Updates in the app or bash update.sh. install.sh does not modify a verified release.' >&2
+  exit 2
+fi
 orbyx_phase=configurazione
 orbyx_run cmake -S "$orbyx_repo" -B "$build" -G Ninja -DCMAKE_BUILD_TYPE=Release \
   -DORBYX_BUILD_GUI=ON -DBUILD_TESTING=ON -DCMAKE_INSTALL_PREFIX="$prefix"

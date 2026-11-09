@@ -3,6 +3,7 @@
 #include "orbyx/engine.hpp"
 #include "calibration_wizard.hpp"
 #include "import_dialog.hpp"
+#include "update_dialog.hpp"
 
 #include <QAbstractItemView>
 #include <QApplication>
@@ -125,9 +126,10 @@ class Window final : public QMainWindow {
     bool demoMode = false;
     QString lastOutput;
     QString demoResult;
-    QPushButton *demoButton{}, *wizardButton{}, *watchButton{};
+    QPushButton *demoButton{}, *wizardButton{}, *watchButton{}, *updatesButton{};
     QString importedFingerprint;
     QPointer<ImportDialog> importWindow;
+    QPointer<UpdateDialog> updateWindow;
     double guidedScale=1.0;
     QPixmap image;
     double zoom = 1.0;
@@ -156,6 +158,7 @@ class Window final : public QMainWindow {
     }
     void applyText() {
         subtitle->setText(trText(demoMode?"Real JPEG demo — six channels, one image":"Satellite imaging workspace")); eyebrow->setText(trText("ALIGN / CALIBRATE / EXPLORE"));
+        updatesButton->setText(it?"Aggiornamenti verificati…":"Verified updates…");updatesButton->setAccessibleName(updatesButton->text());
         watchButton->setText(it?"Monitora acquisizioni…":"Monitor acquisitions…");watchButton->setAccessibleName(watchButton->text());
         wizardButton->setText(it?"Calibrazione guidata…":"Guided calibration…");
         wizardButton->setAccessibleName(wizardButton->text());
@@ -427,7 +430,7 @@ class Window final : public QMainWindow {
     void setQueueBusy(bool running) {
         busy = running;
         setup->setEnabled(!running); start->setEnabled(!running);
-        naturalExport->setEnabled(!running); demoButton->setEnabled(!running); wizardButton->setEnabled(!running);watchButton->setEnabled(!running);
+        naturalExport->setEnabled(!running); demoButton->setEnabled(!running); wizardButton->setEnabled(!running);watchButton->setEnabled(!running);updatesButton->setEnabled(!running);
         queueAdd->setEnabled(!running); queueRemove->setEnabled(!running);
         queueRun->setEnabled(!running && queue->rowCount() > 0);
     }
@@ -596,6 +599,7 @@ public:
         if (args.contains("--calibrate")) mode->setCurrentIndex(1);
         if (!value("--input").isEmpty()) loadPreview();
         quitAfterRun=args.contains("--run-and-exit");
+        if(args.contains("--updates"))QTimer::singleShot(0,updatesButton,&QPushButton::click);
         if (demoMode) {
             const auto destination=value("--output");
             QTimer::singleShot(0,this,[this,destination]{executeImageDemo(destination);});
@@ -656,6 +660,8 @@ public:
                 return true;
             },this);importWindow->setAttribute(Qt::WA_DeleteOnClose);importWindow->show();
         });
+        updatesButton=new QPushButton;updatesButton->setObjectName("updatesButton");form->addWidget(updatesButton);
+        connect(updatesButton,&QPushButton::clicked,this,[this]{if(updateWindow){updateWindow->show();updateWindow->raise();return;}updateWindow=new UpdateDialog(it,[this](bool running){setQueueBusy(running);},this);updateWindow->setAttribute(Qt::WA_DeleteOnClose);updateWindow->show();});
         profileDup=new QPushButton; profileDup->setObjectName("profileDup"); form->addWidget(profileDup);
         outputLabel=label(); output=new QLineEdit; outputBrowse=new QPushButton; form->addWidget(outputLabel); form->addLayout(pathRow(output,outputBrowse));
         satLabel=label(); satellite=new QComboBox; satellite->addItems({"L2","L3","L4","L5","M1","M2"}); satellite->setCurrentText(settings.value("satellite","L2").toString()); form->addWidget(satLabel); form->addWidget(satellite);

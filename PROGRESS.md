@@ -379,3 +379,19 @@ loader e libtirpc venivano letti come nomi di pacchetto. Ispezionato l’artifac
 reale, corretto il parser perché selezioni soltanto una riga di proprietà valida
 (non deduca proprietà dalle diversion), aggiunte due regressioni con l’output
 osservato. Le segnalazioni di vulnerabilità restano nel report, non ignorate.
+
+### Aggiornamento nativo e rollback autenticati
+
+Implementato motore Python senza shell/sudo/fallback non firmati, GUI EN/IT e
+launcher update.sh. Verifica gh attestation con identità ORBYX/workflow/main,
+commit completo approvato e runner ospitato; snapshot prima della verifica,
+archivi a root unica limitati senza traversal/link/device, manifest piattaforma
+firmato nell’archivio, health check CLI/GUI prima dell’attivazione atomica.
+Release precedenti conservate; rollback ricostruisce dall’archivio riverificato,
+non si fida dei file installati o di hash locali modificabili. Migrazione atomica
+dell’installazione sorgente con backup; nessun rollback firmato verso il legacy.
+Install.sh rifiuta di modificare direttamente una release gestita verificata.
+9regressioni locali con verifica crittografica iniettata (dichiarata), inclusi
+rollback con contenuti diversi, cache manomessa, mismatch piattaforma, percorso
+ostile, link, pin errato e concorrenza. Prova autentica install/rollback/tamper
+aggiunta alla workflow OIDC con build native separate Ubuntu22/24/26.

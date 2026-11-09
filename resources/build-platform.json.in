@@ -1,0 +1,1 @@
+{"id":"@ORBYX_DISTRO_ID@","version_id":"@ORBYX_DISTRO_VERSION@","architecture":"@CMAKE_SYSTEM_PROCESSOR@"}

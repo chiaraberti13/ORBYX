@@ -146,6 +146,11 @@ int main(int argc, char **argv) {
             importer.findChild<QCheckBox*>("watchAutomatic")->setChecked(true);importer.scanOnce();requireTest(until([&]{return !importer.scanning();}),"Automatic scan stuck");requireTest(automatic==1,"Opt-in automatic import failed");
             importer.scanOnce();requireTest(until([&]{return !importer.scanning();}),"Duplicate scan stuck");requireTest(automatic==1,"Duplicate acquisition queued twice");importer.reject();
         }
+        for(const bool italian:{false,true}) {
+            bool busy=false;UpdateDialog updates(italian,[&](bool running){busy=running;});updates.show();
+            clickVisible(updates.findChild<QPushButton*>("updateInstall"));
+            requireTest(!busy&&!updates.findChild<QPlainTextEdit*>("updateLog")->toPlainText().isEmpty(),"Update dialog accepted missing signature settings");updates.close();
+        }
         // Launch a genuine exec failure: the executable exists, its interpreter does not.
         const QString fakeDir=temporary.path()+"/fake"; QDir().mkpath(fakeDir);
         QFile fake(fakeDir+"/orbyx-batch"); requireTest(fake.open(QIODevice::WriteOnly),"Fake runner unavailable");

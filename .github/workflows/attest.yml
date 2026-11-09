@@ -9,7 +9,11 @@ permissions:
 jobs:
   attest:
     if: github.repository == 'chiaraberti13/ORBYX' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04, ubuntu-26.04]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     permissions:
       contents: read
@@ -33,7 +37,8 @@ jobs:
           cmake --build build-provenance --target package_source
           cpack --config build-provenance/CPackConfig.cmake -G TGZ -B build-provenance/packages
           mkdir dist
-          cp build-provenance/packages/*.tar.gz build-provenance/*Source.tar.gz dist/
+          cp build-provenance/packages/*.tar.gz "dist/orbyx-${{ matrix.os }}-x86_64.tar.gz"
+          cp build-provenance/*Source.tar.gz dist/
           (cd dist && sha256sum -- *.tar.gz > SHA256SUMS && sha256sum -c SHA256SUMS)
       - name: Sign artifact provenance with repository OIDC identity
         id: provenance
@@ -70,9 +75,35 @@ jobs:
           fi
           echo 'Modified subject rejected after authentic subjects verified'
           cp "$ORBYX_ATTESTATION_BUNDLE" dist/provenance.sigstore.json
+      - name: Exercise genuine verified installation and rollback
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ORBYX_ATTESTATION_BUNDLE: ${{ steps.provenance.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/orbyx-managed-update"
+          package="dist/orbyx-${{ matrix.os }}-x86_64.tar.gz"
+          # First signed install; then a second verified activation of the same
+          # actual build to exercise rollback without inventing a release identity.
+          python3 scripts/orbyx_update.py --root "$root" install --archive "$package" --bundle "$ORBYX_ATTESTATION_BUNDLE" --commit "$GITHUB_SHA"
+          first=$(readlink "$root/application")
+          python3 scripts/orbyx_update.py --root "$root" install --archive "$package" --bundle "$ORBYX_ATTESTATION_BUNDLE" --commit "$GITHUB_SHA"
+          second=$(readlink "$root/application")
+          test "$first" != "$second"
+          python3 scripts/orbyx_update.py --root "$root" rollback
+          "$root/application/bin/orbyx" --version
+          QT_QPA_PLATFORM=offscreen "$root/application/bin/orbyx-gui" --smoke-test
+          before=$(readlink "$root/application")
+          cp "$package" "$RUNNER_TEMP/tampered-update.tar.gz"
+          printf 'tampered' >> "$RUNNER_TEMP/tampered-update.tar.gz"
+          if python3 scripts/orbyx_update.py --root "$root" install --archive "$RUNNER_TEMP/tampered-update.tar.gz" --bundle "$ORBYX_ATTESTATION_BUNDLE" --commit "$GITHUB_SHA"; then
+            echo 'Tampered update accepted'; exit 1
+          fi
+          test "$before" = "$(readlink "$root/application")"
+          echo 'Genuine Sigstore install, rollback and tamper rejection passed' | tee dist/update-verification.txt
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: orbyx-signed-provenance-${{ github.sha }}
+          name: orbyx-signed-provenance-${{ matrix.os }}-${{ github.sha }}
           path: dist/
           if-no-files-found: error
           retention-days: 14
