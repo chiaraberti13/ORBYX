@@ -357,3 +357,16 @@ Importazione manuale senza avvio; opt-in di accodamento con satellite compatibil
 deduplica e fingerprint riconfermato nel batch.10test Python, incluso il rifiuto batch dei dati cambiati dopo importazione, e integrazione Qt
 con processo reale di ispezione, scelta manuale e auto-accodamento passati;
 regressioni batch conservate. Nessun metadato geografico mancante è inventato.
+
+### Correlazione runtime con Ubuntu OSV
+
+Implementata scansione delle versioni sorgenti effettive ricavate da dpkg e
+coerenti con la SBOM. API OSV ufficiale, paginazione completa, snapshot dei
+risultati con digest e replay offline. Mancata risoluzione/errore di rete non
+produce un falso esito pulito.5regressioni, inclusa fixture ottenuta realmente
+dall’API: UBUNTU-CVE-2025-6491 presente per php8.3 vulnerabile e assente per
+la versione corretta. `bash security.sh` usa automaticamente i binari installati,
+con report sotto logs; workflow periodica per il runtime Ubuntu reale.
+Fonte/schema: https://documentation.ubuntu.com/security/security-updates/osv/
+e https://google.github.io/osv.dev/post-v1-querybatch/ . Nessun percorso locale
+viene inviato: solo nomi/versioni dei pacchetti sorgente.

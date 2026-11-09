@@ -1,0 +1,42 @@
+name: Runtime Ubuntu advisory correlation
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["scripts/orbyx_advisories.py", "scripts/orbyx_sbom.py", "tests/test_advisories.py", "tests/fixtures/osv-ubuntu-php8.3.json", ".github/workflows/runtime-advisories.yml"]
+  schedule:
+    - cron: '15 6 * * 1'
+permissions:
+  contents: read
+jobs:
+  advisories:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - run: sudo apt-get update && sudo apt-get install -y cmake ninja-build libopencv-dev libjsoncpp-dev qt6-base-dev libgl-dev
+      - run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF && cmake --build build --parallel 2
+      - name: Query actual runtime source versions against Ubuntu OSV
+        run: |
+          mkdir report
+          python3 scripts/orbyx_sbom.py build/orbyx build/orbyx-gui --output report/inventory.json
+          set +e
+          python3 scripts/orbyx_advisories.py --inventory report/inventory.json --online --output report/advisories.json
+          status=$?
+          set -e
+          # Findings are data, not a transport failure. Incomplete coverage fails.
+          test "$status" -le 1
+          set +e
+          python3 scripts/orbyx_advisories.py --replay report/advisories.json
+          replay=$?
+          set -e
+          test "$replay" -eq "$status"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: ubuntu-runtime-advisories
+          path: report/
+          if-no-files-found: warn
+          retention-days: 14

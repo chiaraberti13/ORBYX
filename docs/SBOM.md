@@ -98,3 +98,31 @@ L'inventario ora comprende anche le librerie transitive e il loader restituiti d
 Verificato su due binari reali con confronto DT_NEEDED/readelf e chiusura ldd, oltre alle fixture dirette/transitive/loader:18test passati. Non inventaria i plugin caricati successivamente tramite dlopen né librerie non caricate nell'avvio ldd. Le librerie senza pacchetto/versione rimangono esplicitamente irrisolte: non equivalgono a componenti sicuri.
 
 The inventory now includes the complete startup ldd closure, including transitive libraries and the loader, with an additive direct flag. Real readelf/ldd integration and synthetic closure fixtures pass; late dlopen plugins remain outside this static startup inventory. Unresolved entries are preserved rather than treated as safe.
+
+## Scansione implementata: Ubuntu OSV
+
+Dopo l’installazione puoi eseguire, dalla cartella ORBYX:
+
+```bash
+bash security.sh
+```
+
+Lo script prepara la SBOM dei binari installati e consulta l’API OSV per le
+versioni **sorgenti Ubuntu** ricavate da dpkg, verificando che le versioni
+installate coincidano con l’inventario. Non confronta versioni upstream ignorando
+le patch della distribuzione. Nomi/versioni vengono inviati al servizio OSV;
+file, immagini e percorsi locali restano sul computer.
+
+Lo snapshot JSON sotto logs conserva richieste, risposte paginate, timestamp e
+digest. `orbyx-advisories --replay SNAPSHOT.json` ripete offline la correlazione
+senza rete; non rende lo snapshot una firma crittografica del fornitore.
+Codici:0 nessuna corrispondenza nel perimetro verificato,1 segnalazioni presenti,
+2 copertura incompleta o errore. Nessun esito garantisce assenza di vulnerabilità:
+plugin caricati dinamicamente e build custom non inventariate restano fuori.
+Altre distribuzioni richiedono un resolver/feed specifico e non sono spacciate
+per Ubuntu. La workflow Runtime Ubuntu advisory correlation archivia una prova
+sui binari effettivamente compilati. Fixture reale OSV vulnerabile/corretta e
+paginazione sono coperte dalle regressioni.
+
+Fonti: [Ubuntu OSV](https://documentation.ubuntu.com/security/security-updates/osv/)
+e [API batch OSV](https://google.github.io/osv.dev/post-v1-querybatch/).
