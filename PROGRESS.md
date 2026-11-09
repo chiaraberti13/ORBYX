@@ -318,3 +318,19 @@ poi cloud-init ha segnalato un errore recuperabile nel tentativo di cambiare
 hostname. La prova non necessita di un hostname specifico: rimossa tale
 richiesta e impostato `preserve_hostname: true`; il controllo stretto dell’esito
 cloud-init resta attivo. In attesa di nuova prova completa della VM.
+
+### Conferma remota finale — b86103f
+
+Tutte le sei workflow applicabili all’ultimo incremento sono verdi: build e
+regressioni42577236764 (tre Ubuntu, sanitizers con leak detection attiva,
+Cppcheck, fuzz), CodeQL42577236733, piattaforme native42577236864,
+AppImage42577236837, VM Fedora completa42577236705 e provenienza42577236585.
+VM: cloud-init `done` senza degradazione, kernel6.19.10-300.fc44.x86_64,
+demo installata validata, CLI/GUI equivalenti e disinstallazione riuscita.
+Nei build GUI20gruppi CTest:19eseguiti, GPU saltata. Il job ASan/UBSan/LSan
+ha passato15gruppi (GPU saltata), incluso image-demo-regression in4,63s.
+
+Verificate separatamente installazione guidata Ubuntu26 e pipeline RDAS/SatDump
+reale sul precedente8103ae6; non toccate dall’ultimo incremento. Riconoscimento
+strutturale provato anche sulla preview SatDump reale, con tutti i9file invariati.
+Limiti residui e funzionalità ancora aperte distinti in `docs/TEST_RESULTS.md`.

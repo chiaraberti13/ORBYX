@@ -55,7 +55,7 @@ Stati: pianificato, in corso, verificato, bloccato. Pubblicare ogni task verific
 - Deliverable: Suite, workflow e Dependabot
 - Test: Build e CTest locali; CI remota
 - Accettazione: Risultati registrati senza inventare compatibilità
-- Stato: verificato — Ubuntu22.04/24.04/26.04, suite core/CLI/GUI con Natural Color, sanitizers/leak detection, Cppcheck, fuzzing e CodeQL verdi su commit9a52e07 (run42517397183 e42517397274). Nei build GUI:16gruppi applicabili eseguiti, gate hardware GPU saltato correttamente; nessun pass GPU implicato.
+- Stato: verificato — Ubuntu22.04/24.04/26.04, suite core/CLI/GUI, JPEG reali, Natural Color, ASan/UBSan/leak detection, Cppcheck, fuzzing e CodeQL verdi su `b86103f`. Nei build GUI:20gruppi,19eseguiti e gate GPU saltato correttamente; nel job sanitizers15gruppi con `detect_leaks=1`. Test di coda/profili/demo visibili EN/IT e decoder JPEG aggiunti. Prove e limiti in [docs/TEST_RESULTS.md](docs/TEST_RESULTS.md). Nessun pass GPU implicato.
 
 ## M2-01 — Desktop bilingue con elaborazione asincrona
 
@@ -99,7 +99,7 @@ Stati: pianificato, in corso, verificato, bloccato. Pubblicare ogni task verific
 - Deliverable: Pacchetti e build riproducibili
 - Test: Ubuntu 22.04/24.04/26.04; smoke pacchetti
 - Accettazione: Solo piattaforme effettivamente testate dichiarate
-- Stato: verificato per la matrice Linux dichiarata — Ubuntu22.04/24.04/26.04 x86_64, ARM64 Ubuntu24.04 nativo, Fedora44 RPM in userspace pulito e VM KVM con kernel proprio6.19.10-300.fc44.x86_64, AppImage x86_64 in userspace Ubuntu22.04 pulito. Installazione/esecuzione CLI/GUI/Natural Color, equivalenza e disinstallazione con input preservati verificate su commit9a52e07: [VM42517397293](https://github.com/chiaraberti13/ORBYX/actions/runs/42517397293), piattaforme42517397266, AppImage42517397247. Non esteso a sessione grafica interattiva/FUSE/macOS o distro non testate (`docs/FEDORA_VM.md`, `docs/PLATFORMS_REAL.md`, `docs/APPIMAGE_REAL.md`).
+- Stato: verificato per la matrice Linux dichiarata — Ubuntu22.04/24.04/26.04 x86_64, ARM64 Ubuntu24.04 nativo, Fedora44 RPM in userspace pulito e VM KVM con kernel proprio6.19.10-300.fc44.x86_64, AppImage x86_64 in userspace Ubuntu22.04 pulito. Installazione/esecuzione CLI/GUI/Natural Color, equivalenza e disinstallazione con input preservati verificate nuovamente su `b86103f`, inclusa demo reale installata: [VM42577236705](https://github.com/chiaraberti13/ORBYX/actions/runs/42577236705), [piattaforme42577236864](https://github.com/chiaraberti13/ORBYX/actions/runs/42577236864), [AppImage42577236837](https://github.com/chiaraberti13/ORBYX/actions/runs/42577236837). Non esteso a sessione grafica interattiva/FUSE/macOS o distro non testate. Riepilogo in [docs/TEST_RESULTS.md](docs/TEST_RESULTS.md).
 
 Installer Ubuntu: `install.sh` con dipendenze complete, attesa APT, stop alla prima failure, installazione utente e launcher senza percorsi manuali. Log/errori locali esclusi da git e archivi. Verifica effettiva Ubuntu26.04: [run42519134799](https://github.com/chiaraberti13/ORBYX/actions/runs/42519134799), successo (`docs/INSTALLATION.md`).
 
@@ -157,7 +157,7 @@ Installer Ubuntu: `install.sh` con dipendenze complete, attesa APT, stop alla pr
 - Deliverable: rilevamento affidabile e import automatico
 - Test: acquisizione incompleta, scritture concorrenti e metadati ambigui
 - Accettazione: nessun job avviato su prodotti incompleti, controllo manuale preservato
-- Stato: verificato in parte (simulazione) — riconoscimento prodotti RDAS `scripts/orbyx_detect.py`: classifica completo/incompleto/instabile/non-prodotto (struttura MSUGS_VIS1/2 + stabilità delle dimensioni), rifiuta symlink/file vuoti, scansione di sola lettura che **elenca** i prodotti pronti senza avviare nulla né toccare i dati (controllo manuale preservato); gruppo CTest `detect-regression` su dataset simulati completi/incompleti/instabili. Import automatico e disambiguazione di metadati SatDump reali/ambigui restano aperti (dipendono da M3-01, dati reali)
+- Stato: verificato in parte — riconoscimento prodotti RDAS `scripts/orbyx_detect.py`: classifica completo/incompleto/instabile/non-prodotto (struttura MSUGS_VIS1/2 + stabilità delle dimensioni), rifiuta symlink/file vuoti, scansione di sola lettura che **elenca** i prodotti pronti senza avviare nulla né toccare i dati (controllo manuale preservato); gruppo CTest `detect-regression` su dataset simulati completi/incompleti/instabili. Verificata anche scansione strutturale/stabilità del campione reale ridotto `assets/sample-elektro-l4`, con9file conservati byte per byte; non valida i metadati né rende la preview un prodotto nativo elaborabile. Import automatico e disambiguazione di metadati SatDump reali/ambigui restano aperti (dipendono da M3-01, dati reali)
 
 ## M3-04 — Natural Color validato
 
