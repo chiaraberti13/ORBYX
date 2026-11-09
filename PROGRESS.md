@@ -263,3 +263,19 @@ Il README principale è ora una guida italiana con comandi progressivi, controll
 Riproduzione end-to-end della pipeline su dati reali in un container separato, per confermare lo stato dichiarato. Il CADU reale Elektro-L4 (`elektro_rdas.cadu`, 769.938.432 byte, sha256 `b92ded3c71f1752d12208ed358e0d392e05d2ddbefe97f2e72b69e3c09498d48`) è stato recuperato dall'issue pubblica, caricato come asset della release `rdas-cadu-l4`, scaricato nel container via API REST GitHub e decodificato con SatDump (`elektro_rdas`, build locale) producendo prodotti autentici MSU-GS: `MSUGS_VIS1`/`MSUGS_VIS2`, tre canali 6004×17200 16-bit + `product.cbor` reali.
 
 ORBYX a piena risoluzione senza scala va in OOM (SIGKILL) — limite reale confermato; la crash-safety ha tenuto (nessun output parziale, rollback pulito, input intatti). Con `calibrate --calibration-scale 0.25` (fix esistente) niente OOM: calibrazione L4 reale con coefficienti sensati (linee ≈ identità; ty ≈ offset 3606/1804 con residui; tx ±10–26 px = disallineamento reale). `generate` ha prodotto prodotti allineati separati VIS1/VIS2 a 6004×13594 16-bit (crop −3606 corretto), CBOR preservati. Conferma indipendente dello stato «verificato in parte su dati reali» di M3-01. Restano aperti, come dichiarato, precisione rispetto a verità a terra, geolocalizzazione assoluta e ROI di merge (il campione non porta proiezione/calibrazione utilizzabili).
+
+## 2026-11-09 — Demo reale nell’app e interazioni coda
+
+Aggiunto il pulsante desktop **Avvia demo immagini** (EN/IT, Ctrl+Maiusc+D).
+Elabora realmente i sei JPEG forniti: registrazione di fase/ECC, Natural Color,
+correzione verticale delle metà adiacenti e immagine unica 1428×1428 mostrata
+nell’anteprima. Risultati intermedi, livelli senza contrasto, report e log
+sono conservati; originali integri, provenienza e SHA256 in assets/demo-jpeg.
+Non è una validazione RDAS/geografica assoluta e la giunzione resta visibile.
+
+`gui-widget-flow` verifica i widget di produzione con click EN/IT, aggiunta e
+rimozione, ripresa da tastiera senza modificare il prodotto, vero errore exec e
+pulsante demo con immagine effettivamente visualizzata (5,46 s, esito positivo).
+Corretti manifest atomico, recupero FailedToStart e rifiuto di stati non
+terminali/malformati. Un errore di avvio non riutilizza più uno stato completato
+vecchio. Restano da verificare dialoghi profili e screen reader fisico.

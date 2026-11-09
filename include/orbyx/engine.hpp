@@ -38,4 +38,9 @@ void composeRgb(const std::array<std::filesystem::path, 3>& channels,
 // true colour. Inputs unchanged; exclusive atomic PNG publication.
 void composeNaturalColor(const std::array<std::filesystem::path, 3>& channels,
                          const std::filesystem::path& destination);
+// Curated six-JPEG desktop demo; measures channel registration and joins adjacent
+// sx/dx halves. Output must be new; source images remain unchanged. Not RDAS input.
+void runImageDemo(const std::filesystem::path& input, const std::filesystem::path& output,
+                  const Log& log = {});
+
 }

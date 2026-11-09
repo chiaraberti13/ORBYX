@@ -68,7 +68,7 @@ Reuse this command on later launches. For updates, close the application, run `g
 bash demo.sh --lang en
 ```
 
-It creates explicitly synthetic images, calibrates, aligns and exports Natural Color automatically. From a desktop session it opens ORBYX with the input/profile preselected; press Start processing to repeat the job. Results stay in demo-output and logs. It downloads no real imagery and needs no manual paths.
+Press **Run image demo** in the app (Ctrl+Shift+D). Six bundled real JPEG previews, three SX and three DX, are registered and composed into one image. No manual paths are needed. The command opens the same built-in demo; `bash demo.sh --no-open` runs it offscreen into demo-output, with logs. These are 8-bit previews, not absolute geometry or radiometrically calibrated true colour. [Source details](assets/demo-jpeg/SOURCE.md).
 
 ### 5. Process your data
 

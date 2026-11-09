@@ -6,6 +6,9 @@
 #include <QApplication>
 #include <QCloseEvent>
 #include <QFile>
+#include <QSaveFile>
+#include <QUuid>
+#include <QDateTime>
 #include <QComboBox>
 #include <QDir>
 #include <QDirIterator>
@@ -99,7 +102,10 @@ const QMap<QString, QString> italian = {
  {"Save duplicated profile", "Salva profilo duplicato"},
  {"Profile duplicated", "Profilo duplicato"}, {"Could not duplicate the profile", "Impossibile duplicare il profilo"},
  {"Export Natural Color…", "Esporta Natural Color…"},
- {"Synthetic demo — no real satellite imagery", "Demo sintetica — nessuna acquisizione satellitare reale"},
+ {"Run image demo", "Avvia demo immagini"},
+ {"Real JPEG demo — six channels, one image", "Demo JPEG reali — sei canali, un’unica immagine"},
+ {"Align the six bundled JPEGs and join the left and right halves.", "Allinea i sei JPEG inclusi e unisce le metà sinistra e destra."},
+ {"Demo image saved", "Immagine demo salvata"},
  {"Choose aligned VIS channels", "Scegli i canali VIS allineati"},
  {"Save Natural Color PNG", "Salva PNG Natural Color"},
  {"Natural Color exported", "Natural Color esportato"},
@@ -114,6 +120,8 @@ class Window final : public QMainWindow {
     bool quitAfterRun = false;
     bool demoMode = false;
     QString lastOutput;
+    QString demoResult;
+    QPushButton *demoButton{};
     QPixmap image;
     double zoom = 1.0;
     QLabel *subtitle{}, *eyebrow{}, *inputLabel{}, *configLabel{}, *outputLabel{}, *satLabel{}, *modeLabel{}, *engineLabel{}, *hint{}, *previewTitle{}, *empty{}, *status{}, *activityTitle{}, *languageLabel{}, *themeLabel{}, *previewNote{};
@@ -140,7 +148,10 @@ class Window final : public QMainWindow {
         return QString::fromStdString(orbyx::translate(message.toStdString(), it ? "it" : "en"));
     }
     void applyText() {
-        subtitle->setText(trText(demoMode?"Synthetic demo — no real satellite imagery":"Satellite imaging workspace")); eyebrow->setText(trText("ALIGN / CALIBRATE / EXPLORE"));
+        subtitle->setText(trText(demoMode?"Real JPEG demo — six channels, one image":"Satellite imaging workspace")); eyebrow->setText(trText("ALIGN / CALIBRATE / EXPLORE"));
+        demoButton->setText(trText("Run image demo"));
+        demoButton->setAccessibleName(trText("Run image demo"));
+        demoButton->setToolTip(trText("Align the six bundled JPEGs and join the left and right halves."));
         setup->setTitle(trText("Processing setup"));
         inputLabel->setText(trText("RDAS input folder")); configLabel->setText(trText("Calibration profile")); outputLabel->setText(trText("New output folder"));
         satLabel->setText(trText("Satellite")); modeLabel->setText(trText("Operation")); engineLabel->setText(trText("Processing engine"));
@@ -173,6 +184,8 @@ class Window final : public QMainWindow {
         queueAdd->setAccessibleName(trText("Add to queue")); queueRemove->setAccessibleName(trText("Remove"));
         queueRun->setAccessibleName(trText("Run queue")); profileDup->setAccessibleName(trText("Duplicate profile…"));
         queue->setAccessibleName(trText("Processing queue"));
+        queue->setObjectName("queueTable"); queueAdd->setObjectName("queueAdd");
+        queueRemove->setObjectName("queueRemove"); queueRun->setObjectName("queueRun");
         if (!busy && progress->value() == 0) status->setText(trText("Ready"));
     }
     void applyTheme() {
@@ -227,6 +240,7 @@ class Window final : public QMainWindow {
             const QStringList paths = {"MSUGS_VIS_Aligned/"+name, "MSUGS_VIS-1_Aligned/"+name, "MSUGS_VIS1/"+name, name};
             for (const auto &p : paths) if (QFileInfo(QDir(folder).filePath(p)).isFile()) { file = QDir(folder).filePath(p); break; }
         }
+        if (source->currentIndex() == 1 && !demoResult.isEmpty() && folder == lastOutput) file = demoResult;
         image = {};
         if (!file.isEmpty()) {
             QImageReader reader(file);
@@ -262,6 +276,48 @@ class Window final : public QMainWindow {
                     QMessageBox box(QMessageBox::Warning,trText("Processing failed"),diagnostic(error),QMessageBox::Ok,this);
                     box.setTextFormat(Qt::PlainText);box.exec();
                 }
+            },Qt::QueuedConnection);
+        });
+        connect(worker,&QThread::finished,worker,&QObject::deleteLater);worker->start();
+    }
+    void executeImageDemo(const QString &requestedOutput = {}) {
+        if (busy) return;
+        QString sample;
+        const QDir appDir(QCoreApplication::applicationDirPath());
+        for (const auto &candidate : {appDir.filePath("../share/orbyx/demo-jpeg"),
+             appDir.filePath("../assets/demo-jpeg"),QDir::current().filePath("assets/demo-jpeg")})
+            if (QFileInfo(QDir(candidate).filePath("sx_MSUGS-VIS-1.jpg")).isFile()) { sample=candidate; break; }
+        const QString base=QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+        const QString token=QDateTime::currentDateTimeUtc().toString("yyyyMMddTHHmmssZ")+"-"+QUuid::createUuid().toString(QUuid::WithoutBraces);
+        QDir().mkpath(base+"/demos"); QDir().mkpath(base+"/logs");
+        const QString destination=requestedOutput.isEmpty()?base+"/demos/"+token:requestedOutput;
+        const QString logPath=base+"/logs/demo-"+token+".log";
+        demoMode=true;setQueueBusy(true);progress->setRange(0,0);applyText();status->setText(trText("Processing…"));
+        auto *worker=QThread::create([this,sample,destination,logPath] {
+            QString error;QStringList entries;
+            try {
+                orbyx::runImageDemo(sample.toStdString(),destination.toStdString(),[this,&entries](const std::string &line) {
+                    const auto text=QString::fromStdString(line);entries.append(text);
+                    QMetaObject::invokeMethod(this,[this,text]{log->append(text.toHtmlEscaped());},Qt::QueuedConnection);
+                });
+            } catch (const std::exception &e) {error=QString::fromUtf8(e.what());}
+            catch (...) {error="Unknown processing exception";}
+            if (!error.isEmpty())entries.append("ERROR: "+error);
+            QFile diagnosticFile(logPath);
+            if (!diagnosticFile.open(QIODevice::WriteOnly|QIODevice::NewOnly) ||
+                diagnosticFile.write(entries.join('\n').toUtf8())<0) {
+                if(error.isEmpty())error="Could not save demo log";
+            }
+            QMetaObject::invokeMethod(this,[this,error,destination,logPath] {
+                setQueueBusy(false);progress->setRange(0,100);progress->setValue(error.isEmpty()?100:0);applyText();
+                status->setText(trText(error.isEmpty()?"Completed":"Processing failed"));
+                if(error.isEmpty()) {
+                    lastOutput=destination;demoResult=QDir(destination).filePath("composite.png");
+                    source->setCurrentIndex(1);loadPreview();
+                    log->append((trText("Demo image saved")+": "+demoResult).toHtmlEscaped());
+                } else log->append(error.toHtmlEscaped());
+                log->append(("Log: "+logPath).toHtmlEscaped());
+                if(quitAfterRun)QApplication::exit(error.isEmpty()?0:2);
             },Qt::QueuedConnection);
         });
         connect(worker,&QThread::finished,worker,&QObject::deleteLater);worker->start();
@@ -349,7 +405,7 @@ class Window final : public QMainWindow {
     void setQueueBusy(bool running) {
         busy = running;
         setup->setEnabled(!running); start->setEnabled(!running);
-        naturalExport->setEnabled(!running);
+        naturalExport->setEnabled(!running); demoButton->setEnabled(!running);
         queueAdd->setEnabled(!running); queueRemove->setEnabled(!running);
         queueRun->setEnabled(!running && queue->rowCount() > 0);
     }
@@ -369,20 +425,23 @@ class Window final : public QMainWindow {
                 entry[key] = job[key].toString();
             entry["cpu"] = job["cpu"].toBool();
             jobs.append(entry);
-            queue->item(row, 2)->setText(trText("Running…"));
         }
         const QString dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
         QDir().mkpath(dir);
         const QString manifestPath = QDir(dir).filePath("queue.json");
         const QString statePath = QDir(dir).filePath("queue.state.json");
         QJsonObject manifest; manifest["jobs"] = jobs;
-        QFile manifestFile(manifestPath);
-        if (!manifestFile.open(QIODevice::WriteOnly | QIODevice::Truncate) ||
-            manifestFile.write(QJsonDocument(manifest).toJson(QJsonDocument::Compact)) < 0) {
-            QMessageBox::warning(this, trText("Processing failed"), trText("The batch runner is not available."));
+        QSaveFile manifestFile(manifestPath);
+        manifestFile.setDirectWriteFallback(false);
+        const QByteArray payload = QJsonDocument(manifest).toJson(QJsonDocument::Compact);
+        if (QFileInfo(manifestPath).isSymLink() || !manifestFile.open(QIODevice::WriteOnly) ||
+            manifestFile.write(payload) != payload.size() || !manifestFile.commit()) {
+            QMessageBox::warning(this, trText("Processing failed"),
+                it ? "Impossibile salvare la coda." : "Queue could not be saved.");
             return;
         }
-        manifestFile.close();
+        for (int row = 0; row < queue->rowCount(); ++row)
+            queue->item(row, 2)->setText(trText("Running…"));
         QStringList command;
         command << manifestPath << "--orbyx" << QDir(QCoreApplication::applicationDirPath()).filePath("orbyx")
                 << "--state" << statePath << "--lang" << (it ? "it" : "en");
@@ -399,27 +458,48 @@ class Window final : public QMainWindow {
         connect(queueProcess, &QProcess::finished, this, [this, statePath](int code, QProcess::ExitStatus st) {
             finishQueue(statePath, st == QProcess::NormalExit ? code : 2);
         });
+        connect(queueProcess, &QProcess::errorOccurred, this, [this, statePath](QProcess::ProcessError error) {
+            if (error == QProcess::FailedToStart && queueProcess) {
+                log->append(queueProcess->errorString().toHtmlEscaped());
+                finishQueue({}, 2);
+            }
+        });
         queueProcess->start(python.isEmpty() ? runner : python, command);
     }
     void finishQueue(const QString &statePath, int code) {
         // Locale-independent: read the durable state the runner persisted.
         QMap<QString, QString> statuses;
         QFile stateFile(statePath);
-        if (stateFile.open(QIODevice::ReadOnly)) {
-            const auto jobs = QJsonDocument::fromJson(stateFile.readAll()).object().value("jobs").toObject();
-            for (auto entry = jobs.begin(); entry != jobs.end(); ++entry)
-                statuses[entry.key()] = entry.value().toObject().value("status").toString();
+        if (!QFileInfo(statePath).isSymLink() && stateFile.open(QIODevice::ReadOnly)) {
+            constexpr qint64 limit = 16 * 1024 * 1024;
+            const auto data = stateFile.read(limit + 1);
+            QJsonParseError error;
+            const auto document = QJsonDocument::fromJson(data, &error);
+            if (data.size() <= limit && error.error == QJsonParseError::NoError && document.isObject() &&
+                document.object().value("version").toInt() == 1 && document.object().value("jobs").isObject()) {
+                const auto jobs = document.object().value("jobs").toObject();
+                for (auto entry = jobs.begin(); entry != jobs.end(); ++entry) {
+                    const auto job = entry.value().toObject();
+                    const auto attempt = job.value("last_attempt").toObject().value("status").toString();
+                    statuses[entry.key()] = (attempt == "failed" || attempt == "interrupted") ? attempt : job.value("status").toString();
+                }
+            }
         }
         for (int row = 0; row < queue->rowCount(); ++row) {
             const QString state = statuses.value(queue->item(row, 0)->text());
             const char *label = state == "completed" ? "Done" : state == "skipped" ? "Skipped"
-                : state == "failed" ? "Error" : state.isEmpty() ? "Error" : "Done";
+                : "Error";
+            if (state != "completed" && state != "skipped") code = 2;
             queue->item(row, 2)->setText(trText(label));
         }
         setQueueBusy(false);
         progress->setRange(0, 100); progress->setValue(code == 0 ? 100 : 0);
         status->setText(trText(code == 0 ? "Completed" : "Processing failed"));
-        queueProcess->deleteLater(); queueProcess = nullptr;
+        if (queueProcess) {
+            const auto remaining = QString::fromUtf8(queueProcess->readAllStandardOutput()).trimmed();
+            if (!remaining.isEmpty()) log->append(remaining.toHtmlEscaped());
+            queueProcess->deleteLater(); queueProcess = nullptr;
+        }
     }
     void duplicateProfileDialog() {
         if (busy) return;
@@ -491,7 +571,10 @@ public:
         if (args.contains("--calibrate")) mode->setCurrentIndex(1);
         if (!value("--input").isEmpty()) loadPreview();
         quitAfterRun=args.contains("--run-and-exit");
-        if (quitAfterRun) {
+        if (demoMode) {
+            const auto destination=value("--output");
+            QTimer::singleShot(0,this,[this,destination]{executeImageDemo(destination);});
+        } else if (quitAfterRun) {
             if(args.contains("--natural-color"))QTimer::singleShot(0,this,[this]{exportNatural(input->text(),output->text());});
             else QTimer::singleShot(0,this,[this]{execute();});
         }
@@ -505,6 +588,9 @@ public:
         titles->addWidget(eyebrow); titles->addWidget(brand); titles->addWidget(subtitle); header->addLayout(titles,1);
         languageLabel=label("muted"); language=new QComboBox; language->addItems({"Italiano","English"}); language->setCurrentIndex(it?0:1);
         themeLabel=label("muted"); theme=new QComboBox; theme->addItems({"Dark","Light"}); theme->setCurrentIndex(dark?0:1);
+        demoButton=new QPushButton;demoButton->setObjectName("demoButton");
+        demoButton->setShortcut(QKeySequence("Ctrl+Shift+D"));header->addWidget(demoButton);
+        connect(demoButton,&QPushButton::clicked,this,[this]{executeImageDemo();});
         header->addWidget(languageLabel); header->addWidget(language); header->addSpacing(12); header->addWidget(themeLabel); header->addWidget(theme); page->addWidget(headerWidget);
         auto *splitter = new QSplitter; page->addWidget(splitter,1);
         auto *left = new QWidget; left->setObjectName("root"); left->setMinimumWidth(360); auto *leftLayout = new QVBoxLayout(left); leftLayout->setContentsMargins(0,0,16,0); leftLayout->setSpacing(8);
@@ -524,7 +610,7 @@ public:
         start=new QPushButton; start->setObjectName("start"); start->setShortcut(QKeySequence("Ctrl+Return")); leftLayout->addWidget(start);
         naturalExport=new QPushButton; naturalExport->setObjectName("naturalExport");
         naturalExport->setShortcut(QKeySequence("Ctrl+Shift+N"));leftLayout->addWidget(naturalExport);
-        status=label("muted"); leftLayout->addWidget(status); progress=new QProgressBar; progress->setTextVisible(false); progress->setValue(0); leftLayout->addWidget(progress);
+        status=label("status"); leftLayout->addWidget(status); progress=new QProgressBar; progress->setTextVisible(false); progress->setValue(0); leftLayout->addWidget(progress);
         queueBox=new QGroupBox; auto *queueLayout=new QVBoxLayout(queueBox); queueLayout->setSpacing(6); queueLayout->setContentsMargins(8,12,8,8);
         queue=new QTableWidget(0,3); queue->verticalHeader()->setVisible(false); queue->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
         queue->setSelectionBehavior(QAbstractItemView::SelectRows); queue->setSelectionMode(QAbstractItemView::SingleSelection); queue->setEditTriggers(QAbstractItemView::NoEditTriggers);

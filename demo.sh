@@ -22,25 +22,16 @@ exec 9> "$orbyx_repo/.orbyx-install.lock"
 if ! flock -n -s 9; then
   orbyx_message 'Installazione in corso: attendi.' 'Installation is running: wait.' >&2;exit 2
 fi
-orbyx_message 'Demo con immagini SINTETICHE: non sono acquisizioni satellitari reali.' \
-  'Demo with SYNTHETIC images: these are not actual satellite acquisitions.'
+orbyx_message 'Demo nell’app: sei JPEG reali diventano un’unica immagine.' \
+  'In-app demo: six real JPEGs become one image.'
 [[ ! -L "$orbyx_repo/demo-output" ]]
 mkdir -p "$orbyx_repo/demo-output"
 work="$orbyx_repo/demo-output/$(date -u +%Y%m%dT%H%M%SZ)-$$"
-orbyx_phase=demo-calibrazione-allineamento
-orbyx_run python3 "$orbyx_repo/scripts/orbyx_simulate.py" --orbyx "$prefix/bin/orbyx" --satellite L4 --out "$work"
-orbyx_phase=demo-natural-color
-channels="$work/aligned/MSUGS_VIS-1_Aligned"
-orbyx_run "$prefix/bin/orbyx" natural-color --ch1 "$channels/MSUGS-VIS-1.png" \
-  --ch2 "$channels/MSUGS-VIS-2.png" --ch3 "$channels/MSUGS-VIS-3.png" \
-  --output "$work/natural-color.png" --lang "$orbyx_lang"
-orbyx_message 'Demo completata. Risultati nella cartella demo-output; diagnostica nella cartella logs.' \
-  'Demo completed. Results are in demo-output; diagnostics are in logs.'
+orbyx_phase=demo-desktop
 if "$open_desktop" && [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]]; then
-  orbyx_phase=demo-desktop
-  orbyx_run "$prefix/bin/orbyx-gui" --demo --lang "$orbyx_lang" --input "$work/acquisition" \
-    --config "$work/calibration/calibration.json" --satellite L4 --output "$work/new-output"
+  orbyx_run "$prefix/bin/orbyx-gui" --demo --lang "$orbyx_lang" --output "$work"
 else
-  orbyx_message 'Nessuna finestra aperta. Su un desktop puoi usare: bash demo.sh' \
-    'No window opened. From a desktop session you can use: bash demo.sh'
+  orbyx_run env QT_QPA_PLATFORM=offscreen "$prefix/bin/orbyx-gui" --demo --run-and-exit --lang "$orbyx_lang" --output "$work"
 fi
+orbyx_message 'Demo completata. Immagine e report nella cartella demo-output; diagnostica nella cartella logs.' \
+  'Demo completed. Image and report are in demo-output; diagnostics are in logs.'

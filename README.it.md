@@ -73,9 +73,9 @@ Si apre la finestra del programma. Puoi avviarlo nuovamente con lo stesso comand
 bash demo.sh
 ```
 
-La demo prepara tutto automaticamente: crea immagini **sintetiche**, calcola una calibrazione, allinea i canali ed esporta Natural Color. Su un desktop apre ORBYX con origine e profilo già selezionati: premi **Avvia elaborazione** per riprovare dalla finestra. I risultati sono in **demo-output**, i log in **logs**. Non scarica acquisizioni reali e non richiede percorsi da sostituire.
+Nell’app premi **Avvia demo immagini** (oppure **Ctrl+Maiusc+D**). La demo usa i sei JPEG inclusi, tre SX e tre DX: allinea i canali, compone i colori e mostra un’unica immagine. Non devi scegliere cartelle o inserire percorsi. I file vengono conservati e il riquadro Attività indica dove trovare risultato e log.
 
-> **Dati reali Elektro‑L4** — lo screenshot qui sopra non è la demo sintetica. Per vedere i dati reali nel programma, apri la cartella `assets/sample-elektro-l4` come cartella RDAS di origine (anteprima ridotta Elektro‑L4; provenienza e licenza in [`assets/sample-elektro-l4/SOURCE.md`](assets/sample-elektro-l4/SOURCE.md)). L'elaborazione completa richiede prodotti a piena risoluzione decodificati con SatDump.
+Il comando qui sopra apre direttamente questa stessa demo; `bash demo.sh --no-open` la esegue senza finestra e salva in **demo-output**, con log in **logs**. I JPEG sono anteprime a 8 bit: la demo non certifica geometria assoluta o colore radiometricamente calibrato. [Provenienza e dettagli](assets/demo-jpeg/SOURCE.md).
 
 ### 5. Elabora le tue immagini
 
