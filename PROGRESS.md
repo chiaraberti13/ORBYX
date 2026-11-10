@@ -787,8 +787,9 @@ build headless pulita; gate funzionale 18/18 passati con la label gpu esclusa;
 diagnostica GPU classificata «skipped → ORBYX usa la CPU», ritorno 0, nessun
 abort (trap ERR non scattata). `generate` sintetico stampa «Backend: CPU» senza
 avviso spurio. La classificazione «divergente» (status `failed`, uscita ctest 8)
-è stata verificata a livello di script: messaggio corretto e ritorno 0,
-l’installazione prosegue. La riproduzione su una GPU realmente divergente non è
+è ora una regressione automatica in `tests/test_install.py`: verifica messaggio,
+prosecuzione dell'installazione, marker di successo e avvio tramite `start.sh`.
+I cinque test dell'installer passano. La riproduzione su una GPU realmente divergente non è
 eseguibile in questo runtime senza hardware: il percorso di fallback del motore
 è coperto dalla logica e dalla sonda identica al verificatore, non da una GPU
 divergente simulata. La verifica remota completa (incluse GUI e CI) è da
