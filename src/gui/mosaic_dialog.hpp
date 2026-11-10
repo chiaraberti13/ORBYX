@@ -227,6 +227,28 @@ class MosaicDialog final:public QDialog {
         persistentNotice=t("Profile ROI restored. The historical geometry is again the editable starting point.","ROI del profilo ripristinata. La geometria storica è di nuovo il punto di partenza modificabile.");
         refreshList();status->setText(persistentNotice);record("Profile ROI baseline restored");
     }
+    // M2-07: compare the historical profile-ROI geometry with the current strategy
+    // (visual/manual) side by side, then keep one explicitly. Nothing is applied or
+    // exported without the user's choice, and the ROI baseline is never altered.
+    void compareStrategies(){
+        if(busy)return;
+        if(profileRoiBaseline.empty()){
+            persistentNotice=t("No profile ROI baseline is available to compare.","Non è disponibile una ROI del profilo da confrontare.");
+            status->setText(persistentNotice);return;
+        }
+        cv::Mat combined;
+        try{combined=strategyComparisonImage(1200);}
+        catch(const std::exception& e){status->setText(QString::fromUtf8(e.what()));return;}
+        QImage image(combined.data,combined.cols,combined.rows,int(combined.step),QImage::Format_BGR888);
+        previewImage=image.copy();outlines.clear();fitPreview();
+        setProperty("strategyComparisonShown",true);record("Strategy comparison shown: profile ROI vs current");
+        QMessageBox box(QMessageBox::Question,t("Compare ROI / current","Confronta ROI / stato attuale"),
+            t("Left: profile ROI. Right: current strategy. Keep which result?","Sinistra: ROI del profilo. Destra: strategia attuale. Quale risultato mantenere?"),QMessageBox::NoButton,this);
+        auto* keepRoi=box.addButton(t("Keep profile ROI","Mantieni ROI del profilo"),QMessageBox::AcceptRole);
+        box.addButton(t("Keep current","Mantieni stato attuale"),QMessageBox::RejectRole);box.setDefaultButton(keepRoi);box.exec();
+        if(box.clickedButton()==keepRoi)restoreProfileRoi();
+        else{status->setText(t("Kept the current strategy; nothing was changed.","Mantenuta la strategia attuale; nulla è stato modificato."));schedule();}
+    }
     void controlPointsDialog(){
         const int moving=list->currentRow();if(busy||moving<0||layers.size()<2){status->setText(t("Select a moving layer and add at least two portions.","Seleziona un livello mobile e aggiungi almeno due porzioni."));return;}
         const int reference=moving>0?moving-1:moving+1;ControlPointsDialog dialog(it,layers[size_t(moving)],layers[size_t(reference)],this);
@@ -260,6 +282,7 @@ public:
         connect(list,&QListWidget::currentRowChanged,this,[this]{if(!updating){readControls();display();}});
         button("mosaicAutoOverlap",t("Automatically align overlaps…","Allinea automaticamente le sovrapposizioni…"),panel,[this]{autoAlign();});
         button("mosaicRestoreRoi",t("Restore profile ROI","Ripristina ROI del profilo"),panel,[this]{restoreProfileRoi();});
+        button("mosaicCompareStrategies",t("Compare ROI / current…","Confronta ROI / stato attuale…"),panel,[this]{compareStrategies();});
         blink=new QCheckBox(t("Blink selected layer (preview only)","Lampeggia livello selezionato (solo anteprima)"));blink->setObjectName("mosaicBlink");blink->setAccessibleName(blink->text());panel->addWidget(blink);
         connect(blink,&QCheckBox::toggled,this,[this](bool enabled){blinkHidden=false;setProperty("blinkHidden",false);if(enabled)blinkTimer.start();else blinkTimer.stop();schedule();});
         inspectionMode=new QComboBox;inspectionMode->setObjectName("mosaicInspection");inspectionMode->addItems({t("Composite preview","Anteprima composita"),t("Difference: selected vs adjacent","Differenza: selezionato e adiacente"),t("Checkerboard: selected vs adjacent","Scacchiera: selezionato e adiacente"),t("Swipe: selected vs adjacent","Tendina: selezionato e adiacente")});inspectionMode->setAccessibleName(t("Seam inspection mode","Modalità ispezione giunzione"));panel->addWidget(inspectionMode);
@@ -314,6 +337,23 @@ public:
     }
     bool isBusy()const{return busy||previewTimer.isActive();}
     const std::vector<orbyx::MosaicLayer>& state()const{return layers;}
+    // Side-by-side comparison image: profile ROI (left) vs current strategy (right).
+    // Pure and bounded; both renders are explicit 8-bit previews. Throws when no ROI
+    // baseline exists. Used by compareStrategies() and exercised directly by tests.
+    cv::Mat strategyComparisonImage(int edge=1200)const{
+        if(profileRoiBaseline.empty())throw std::runtime_error("No profile ROI baseline to compare");
+        if(layers.empty())throw std::runtime_error("No current layers to compare");
+        const cv::Mat roi=orbyx::renderMosaic(profileRoiBaseline,edge).image;
+        const cv::Mat cur=orbyx::renderMosaic(layers,edge).image;
+        const int gap=10,height=std::max(roi.rows,cur.rows);
+        cv::Mat combined=cv::Mat::zeros(height,roi.cols+gap+cur.cols,CV_8UC3);
+        roi.copyTo(combined(cv::Rect(0,0,roi.cols,roi.rows)));
+        cur.copyTo(combined(cv::Rect(roi.cols+gap,0,cur.cols,cur.rows)));
+        cv::line(combined,{roi.cols+gap/2,0},{roi.cols+gap/2,height-1},cv::Scalar(0,212,255),2,cv::LINE_AA);
+        const auto label=[&](const std::string& text,int x){cv::putText(combined,text,{x,24},cv::FONT_HERSHEY_SIMPLEX,0.7,cv::Scalar(0,0,0),3,cv::LINE_AA);cv::putText(combined,text,{x,24},cv::FONT_HERSHEY_SIMPLEX,0.7,cv::Scalar(255,255,255),1,cv::LINE_AA);};
+        label(it?"ROI profilo":"Profile ROI",8);label(it?"Attuale":"Current",roi.cols+gap+8);
+        return combined;
+    }
     void applyControlPoints(const orbyx::ControlPointSolution& solution,int moving,int reference){
         if(busy||moving<0||reference<0||moving>=int(layers.size())||reference>=int(layers.size())||moving==reference)throw std::runtime_error("Invalid control-point layer selection");
         remember();layers[size_t(moving)]=solution.layer;setProperty("mergeStrategy","control-points");setProperty("controlPointInliers",int(solution.inliers.size()));setProperty("controlPointMedian",solution.medianError);setProperty("controlPointMaximum",solution.maxError);setProperty("controlPointConcentrated",solution.spatiallyConcentrated);

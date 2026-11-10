@@ -903,3 +903,32 @@ canali SatDump. Fixture 16 bit, mancata sovrapposizione, sorgenti invariati e
 flusso Annulla sono coperti dai test; core, GUI e oggetti test compilano sul
 commit `2a1daec`. Resta da valutare il blending multibanda e da eseguire la
 suite in un ambiente pulito con tutte le dipendenze runtime.
+
+## 2026-11-10 — Ripresa dopo lavoro utente; M2-07 anteprima comparativa ROI/attuale
+
+All'avvio il lavoro precedente (fix GPU, profilo incluso, simulazione immagini,
+maschere di esclusione) risultava integrato su `main` tramite PR #8, insieme ad
+ampi avanzamenti M2-10 dell'utente (maschere poligonali include/escludi, giunzione
+a costo minimo, compensazione visuale, blend `Seam`). Ho ripreso il branch
+`claude/charming-dijkstra-fl8tw8` dall'ultima `main` (il mio PR era già unito) e
+seguito il gate di roadmap: il prossimo task P0 ancora al primo incremento è
+**M2-07** (coordinatore delle strategie di unione), prima di M2-08.
+
+Incremento M2-07 implementato: **anteprima comparativa affiancata ROI / stato
+attuale**. Nuovo comando GUI «Confronta ROI / stato attuale…»
+(`mosaicCompareStrategies`) e metodo puro `strategyComparisonImage(edge)` che
+rende in un'unica immagine la composizione ROI del profilo (sinistra) e la
+strategia corrente — visuale o manuale — (destra), etichettate EN/IT e separate
+da un divisore. La scelta è esplicita (Mantieni ROI / Mantieni stato attuale);
+nulla viene applicato o esportato senza conferma e la baseline ROI
+(`profileRoiBaseline`) non viene mai modificata. Non tocca il percorso ROI
+storico né la CLI `generate`.
+
+Verifica effettiva (Ubuntu 24.04.5, Qt 6.4.2, OpenCV 4.6, offscreen):
+`mosaic-widget-flow` esteso — il controllo esiste ed è accessibile; dopo una
+modifica del livello corrente, `strategyComparisonImage` produce un'immagine
+8-bit affiancata la cui larghezza contiene entrambe le strategie, con entrambe le
+metà non vuote e i livelli correnti invariati dall'operazione. Suite completa
+24/24 passata con label `gpu` esclusa; immagine di confronto ispezionata
+(etichette «ROI profilo» / «Attuale», divisore). Resta aperto, per M2-07,
+l'assistenza con più di due porzioni dal flusso principale.

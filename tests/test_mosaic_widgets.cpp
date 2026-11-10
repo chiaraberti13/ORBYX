@@ -126,6 +126,20 @@ int main(int argc,char** argv){
             auto editedRoi=profileRoi.state();editedRoi[1].x+=17;profileRoi.setState(editedRoi);
             QTest::mouseClick(profileRoi.findChild<QPushButton*>("mosaicRestoreRoi"),Qt::LeftButton);waitFor(profileRoi);
             check(profileRoi.state()[1].x==60&&profileRoi.property("mergeStrategy").toString()=="profile-roi","Profile ROI could not be restored after a manual edit");
+            // M2-07: a comparable ROI / current preview is available; it renders both
+            // strategies side by side without altering the ROI baseline or the layers.
+            auto* compareButton=profileRoi.findChild<QPushButton*>("mosaicCompareStrategies");
+            check(compareButton&&compareButton->isVisible()&&!compareButton->accessibleName().isEmpty(),"Compare ROI/current control missing");
+            auto forCompare=profileRoi.state();forCompare[1].x+=23;profileRoi.setState(forCompare);waitFor(profileRoi);
+            const auto currentOnly=orbyx::renderMosaic(profileRoi.state(),1200).image;
+            const auto comparison=profileRoi.strategyComparisonImage(1200);
+            check(comparison.type()==CV_8UC3&&comparison.rows>0&&comparison.cols>=currentOnly.cols+10,"Strategy comparison is not a side-by-side of two strategies");
+            const int leftWidth=comparison.cols-10-currentOnly.cols;check(leftWidth>0,"Comparison left (ROI) strategy missing");
+            const int sharedRows=std::min(comparison.rows,currentOnly.rows);
+            cv::Mat leftHalf=comparison(cv::Rect(0,0,leftWidth,sharedRows)),rightHalf=comparison(cv::Rect(comparison.cols-currentOnly.cols,0,currentOnly.cols,sharedRows));
+            check(cv::countNonZero(leftHalf.reshape(1))>0&&cv::countNonZero(rightHalf.reshape(1))>0,"A strategy half of the comparison is blank");
+            check(profileRoi.state()[1].x==83,"Comparison altered the current layers");
+            if(qEnvironmentVariableIsSet("ORBYX_COMPARE_SCREENSHOT"))cv::imwrite(qEnvironmentVariable("ORBYX_COMPARE_SCREENSHOT").toStdString(),comparison);
             profileRoi.saveProject(temp.path()+(it?"/profile-roi-it.json":"/profile-roi-en.json"));
             MosaicDialog automatic(it);automatic.show();automatic.appendFiles({temp.path()+"/auto-a.png",temp.path()+"/auto-b.png"});waitFor(automatic);
             auto* automaticButton=automatic.findChild<QPushButton*>("mosaicAutoOverlap");check(automaticButton&&automaticButton->isEnabled(),"Automatic overlap control missing");

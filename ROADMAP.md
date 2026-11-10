@@ -242,14 +242,19 @@ progettazione, non dipendenze da integrare automaticamente.
 ## M2-07 — Coordinatore delle strategie di unione
 
 - Priorità: P0
-- Stato: in corso — primo incremento implementato e verificato: la GUI conserva
-  il risultato ROI storico e rende disponibili le due porzioni allineate come
-  livelli modificabili, inizializzati con gli stessi ritagli e la stessa
-  posizione. L’editor registra la strategia corrente e può ripristinare in ogni
-  momento la ROI storica dopo modifiche manuali o proposta visuale. Il percorso
-  CLI predefinito e i pixel storici restano invariati. Restano da completare
-  l’anteprima comparativa affiancata ROI/visuale e i casi assistiti con più di
-  due porzioni provenienti direttamente dal flusso principale.
+- Stato: in corso — due incrementi verificati. (1) La GUI conserva il risultato
+  ROI storico e rende disponibili le due porzioni allineate come livelli
+  modificabili, inizializzati con gli stessi ritagli e la stessa posizione;
+  l’editor registra la strategia corrente (`mergeStrategy`) e può ripristinare
+  in ogni momento la ROI storica dopo modifiche manuali o proposta visuale.
+  (2) **Anteprima comparativa affiancata ROI / stato attuale**: il comando
+  «Confronta ROI / stato attuale…» rende un’unica immagine con la composizione
+  ROI del profilo a sinistra e la strategia corrente (visuale/manuale) a destra,
+  etichettate e separate, poi chiede esplicitamente quale mantenere; nessuna
+  scelta è applicata o esportata senza conferma e la baseline ROI non viene mai
+  alterata. Il percorso CLI predefinito e i pixel storici restano invariati.
+  Resta da completare l’assistenza con più di due porzioni provenienti
+  direttamente dal flusso principale.
 - Dipendenze: M2-01, M2-05, M2-06
 - Responsabile: Technical Lead / Computer Vision / Maintainer compatibilità / QA
 - Deliverable: un solo servizio core che espone quattro strategie: **Profilo
