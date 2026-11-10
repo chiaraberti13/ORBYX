@@ -101,6 +101,12 @@ VisualCompensation proposeVisualCompensation(const std::vector<MosaicLayer>&,
                                              std::size_t moving,std::size_t reference);
 std::string mosaicProject(const std::vector<MosaicLayer>&);
 std::vector<MosaicLayer> parseMosaicProject(const std::string&);
+// Portable project (M2-13): images under baseDir are stored relative to it, so the
+// project folder can be moved with its images and reopened. Paths outside baseDir
+// stay absolute. parseMosaicProject resolves relative paths against baseDir and
+// rejects any that escape it (no ".." outside, no absolute-reparenting).
+std::string mosaicProject(const std::vector<MosaicLayer>& layers,const std::filesystem::path& baseDir);
+std::vector<MosaicLayer> parseMosaicProject(const std::string& text,const std::filesystem::path& baseDir);
 // Deterministic export report (M2-11): declares the output bit depth, a colour
 // note (visual rendering, not radiometric calibration) and the full reproducible
 // project of non-destructive steps. bitDepth must be 8 or 16.

@@ -133,6 +133,20 @@ int main(int argc,char** argv){
             auto expected=orbyx::renderMosaic(dialog.state()).image;
             MosaicDialog restored(it);restored.loadProject(project);waitFor(restored);
             check(restored.state().size()==3,"Project reopening lost layers");
+            // M2-13: a project saved into a folder with its image stores a relative
+            // path and reopens from a moved copy of that folder (portable).
+            {
+                const auto src=std::filesystem::path(temp.path().toStdString())/(it?"portable-it":"portable-en");std::filesystem::create_directories(src);
+                cv::imwrite((src/"p.png").string(),cv::Mat(40,50,CV_16UC3,cv::Scalar(1000,2000,3000)));
+                MosaicDialog p(it);p.appendFiles({QString::fromStdString((src/"p.png").string())});waitFor(p);
+                const QString pproj=QString::fromStdString((src/"project.json").string());p.saveProject(pproj);
+                QFile pf(pproj);check(pf.open(QIODevice::ReadOnly),"Portable project unreadable");const auto ptext=QString::fromUtf8(pf.readAll());pf.close();
+                check(ptext.contains("\"p.png\"")&&!ptext.contains(QString::fromStdString(src.string())),"Portable project did not use a relative image path");
+                const auto dst=std::filesystem::path(temp.path().toStdString())/(it?"portable-it-moved":"portable-en-moved");std::filesystem::create_directories(dst);
+                std::filesystem::copy_file(src/"p.png",dst/"p.png");std::filesystem::copy_file(src/"project.json",dst/"project.json");
+                MosaicDialog movedProject(it);movedProject.loadProject(QString::fromStdString((dst/"project.json").string()));waitFor(movedProject);
+                check(movedProject.state().size()==1&&std::filesystem::path(movedProject.state()[0].image).lexically_normal()==(dst/"p.png").lexically_normal(),"Moved portable project did not resolve its image to the new folder");
+            }
             const auto output=temp.path()+(it?"/it.png":"/en.png");restored.exportTo(output);waitFor(restored);
             auto actual=cv::imread(output.toStdString(),cv::IMREAD_UNCHANGED);
             check(!actual.empty()&&actual.type()==CV_16UC3&&cv::norm(actual,expected,cv::NORM_INF)==0,"GUI export differs from shared native-depth renderer");

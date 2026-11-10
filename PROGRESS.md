@@ -1306,3 +1306,29 @@ indicatori, differenza giunzione + raccomandazione, validazione quantitativa).
 Resta fuori dall'ambito automatizzabile la prova di usabilità con utenti reali e
 screen reader (coerente con M4-01). Nel gate resta M2-13 (progetto portabile e
 recupero del lavoro).
+
+## 2026-11-10 — M2-13 primo incremento: progetto portabile (riferimenti relativi)
+
+Avviato M2-13 (progetto portabile e recupero del lavoro). Primo incremento:
+**progetto portabile con riferimenti relativi**. Aggiunte varianti con cartella
+base a `orbyx::mosaicProject`/`parseMosaicProject`: le immagini sotto la cartella
+del progetto sono salvate con percorso **relativo** e risolte rispetto a quella
+cartella alla riapertura; le immagini fuori restano assolute. Sicurezza: i
+percorsi relativi che **escono** dalla cartella (es. `../`) sono rifiutati, e un
+percorso relativo senza cartella base è rifiutato. Le funzioni originali
+delegano alla variante con cartella base vuota, quindi il comportamento assoluto
+è **identico** a prima (back-compat). `MosaicDialog::saveProject`/`loadProject`
+usano ora la cartella del file di progetto come base.
+
+Verifica effettiva (Ubuntu 24.04.5, Qt 6.4.2, OpenCV 4.6, offscreen):
+`mosaic-regression` esteso — un'immagine sotto la cartella è salvata come percorso
+relativo (nessun percorso assoluto nel progetto), riaperta da una **cartella
+spostata** risolve l'immagine nella nuova posizione; serializzazione assoluta
+invariata; percorso relativo senza base e percorso che esce dalla cartella
+rifiutati. `mosaic-widget-flow` esteso — un progetto salvato in una cartella con
+la sua immagine usa un percorso relativo e, copiando cartella+progetto+immagine in
+una nuova posizione, si riapre risolvendo l'immagine nella nuova cartella. Suite
+completa 24/24 passata con label `gpu` esclusa.
+
+Restano aperti, per M2-13: autosave e ripristino dopo arresto anomalo, e l'opzione
+pacchetto esplicito.

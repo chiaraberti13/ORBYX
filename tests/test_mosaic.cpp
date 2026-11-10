@@ -76,6 +76,22 @@ int main(){
         n.blend=orbyx::MosaicBlend::Replace;auto project=orbyx::mosaicProject({l,n});auto loaded=orbyx::parseMosaicProject(project);check(loaded[1].blend==orbyx::MosaicBlend::Replace,"Project lost blend mode");
         auto legacyProject=project;for(auto position=legacyProject.find("\"blend\"");position!=std::string::npos;position=legacyProject.find("\"blend\"")){const auto start=legacyProject.rfind('\n',position),end=legacyProject.find('\n',position);check(start!=std::string::npos&&end!=std::string::npos,"Cannot construct legacy project fixture");legacyProject.erase(start+1,end-start);}auto legacyLoaded=orbyx::parseMosaicProject(legacyProject);check(legacyLoaded[0].blend==orbyx::MosaicBlend::Feather&&legacyLoaded[1].blend==orbyx::MosaicBlend::Feather,"Legacy project did not retain feather semantics");
         check(cv::norm(orbyx::renderMosaic(loaded).image,orbyx::renderMosaic({l,n}).image,cv::NORM_INF)==0,"Project round trip changed pixels");
+        // M2-13: portable project — images under the project folder are stored
+        // relative and resolve against the folder, so the project moves with them.
+        {
+            const auto proj=root/"project-a";fs::create_directories(proj);
+            cv::imwrite((proj/"layer.png").string(),cv::Mat(8,8,CV_16UC3,cv::Scalar(100,200,300)));
+            orbyx::MosaicLayer pl;pl.image=proj/"layer.png";
+            const auto portable=orbyx::mosaicProject({pl},proj);
+            check(portable.find("\"layer.png\"")!=std::string::npos&&portable.find(proj.string())==std::string::npos,"Portable project did not store a relative image path");
+            const auto moved=root/"project-b";fs::create_directories(moved);cv::imwrite((moved/"layer.png").string(),cv::Mat(8,8,CV_16UC3,cv::Scalar(100,200,300)));
+            const auto reopened=orbyx::parseMosaicProject(portable,moved);
+            check(reopened.size()==1&&reopened[0].image==(moved/"layer.png").lexically_normal(),"Portable project did not resolve relative to the moved folder");
+            check(orbyx::mosaicProject({pl})==orbyx::mosaicProject({pl},fs::path()),"Absolute project serialization changed");
+            rejects([&]{orbyx::parseMosaicProject(portable,fs::path());}); // relative path needs a base folder
+            auto escaped=portable;const auto pos=escaped.find("\"layer.png\"");escaped.replace(pos,11,"\"../escape.png\"");
+            rejects([&]{orbyx::parseMosaicProject(escaped,moved);}); // escaping the project folder is rejected
+        }
         // M2-11: the export report declares the bit depth and colour note, embeds the
         // reproducible project, is deterministic and records the exact depth.
         const auto report16=orbyx::mosaicReport({l,n},"mosaic.png",16);

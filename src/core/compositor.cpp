@@ -458,11 +458,19 @@ AutoOverlapResult autoAlignOverlaps(const std::vector<MosaicLayer>& layers,std::
     for(size_t i=0;i<layers.size();++i)if(layers[i].visible&&!placedFlags[i])output.unaligned.push_back(i);
     return output;
 }
-std::string mosaicProject(const std::vector<MosaicLayer>& layers) {
+std::string mosaicProject(const std::vector<MosaicLayer>& layers) { return mosaicProject(layers,std::filesystem::path()); }
+std::string mosaicProject(const std::vector<MosaicLayer>& layers,const std::filesystem::path& baseDir) {
     check(!layers.empty()&&layers.size()<=32,"A mosaic requires 1 to 32 layers");
+    const std::filesystem::path base=baseDir.empty()?std::filesystem::path():std::filesystem::absolute(baseDir).lexically_normal();
     Json::Value root;root["schema"]="orbyx-mosaic/1";root["geometry"]="manual scene pixels; no geographic certification";
     for(const auto& l:layers) {
-        validate(l);Json::Value v;v["image"]=std::filesystem::absolute(l.image).lexically_normal().string();
+        validate(l);Json::Value v;
+        const auto abs=std::filesystem::absolute(l.image).lexically_normal();std::string stored=abs.string();
+        if(!base.empty()){ // Store relative only when the image is under the project folder.
+            const auto rel=abs.lexically_relative(base);const std::string relStr=rel.generic_string();
+            if(!rel.empty()&&!rel.is_absolute()&&relStr!=".."&&relStr.rfind("../",0)==std::string::npos)stored=relStr;
+        }
+        v["image"]=stored;
         v["visible"]=l.visible;v["blend"]=l.blend==MosaicBlend::Replace?"replace":l.blend==MosaicBlend::Seam?"seam":l.blend==MosaicBlend::Multiband?"multiband":"feather";
         const double values[]={l.x,l.y,l.scale,l.angle,l.opacity,l.feather,l.black,l.white,l.gamma,l.exposure,l.saturation,l.red,l.green,l.blue};
         const char* keys[]={"x","y","scale","angle","opacity","feather","black","white","gamma","exposure","saturation","red","green","blue"};
@@ -474,8 +482,10 @@ std::string mosaicProject(const std::vector<MosaicLayer>& layers) {
     }
     Json::StreamWriterBuilder writer;return Json::writeString(writer,root);
 }
-std::vector<MosaicLayer> parseMosaicProject(const std::string& text) {
+std::vector<MosaicLayer> parseMosaicProject(const std::string& text) { return parseMosaicProject(text,std::filesystem::path()); }
+std::vector<MosaicLayer> parseMosaicProject(const std::string& text,const std::filesystem::path& baseDir) {
     check(text.size()<=1024*1024,"Mosaic project exceeds 1 MiB");
+    const std::filesystem::path base=baseDir.empty()?std::filesystem::path():std::filesystem::absolute(baseDir).lexically_normal();
     Json::CharReaderBuilder reader;reader["rejectDupKeys"]=true;reader["failIfExtra"]=true;
     Json::Value root;std::string error;std::istringstream stream(text);
     check(Json::parseFromStream(reader,stream,&root,&error)&&root.isObject()&&root["schema"]=="orbyx-mosaic/1"&&
@@ -483,8 +493,15 @@ std::vector<MosaicLayer> parseMosaicProject(const std::string& text) {
     std::vector<MosaicLayer> layers;
     for(const auto& v:root["layers"]) {
         check(v.isObject()&&v["image"].isString()&&v["visible"].isBool()&&v["crop"].isArray()&&v["crop"].size()==4,"Invalid mosaic layer");
-        const auto path=v["image"].asString();check(path.find('\0')==std::string::npos&&std::filesystem::path(path).is_absolute(),"Mosaic paths must be absolute");
-        MosaicLayer l;l.image=path;l.visible=v["visible"].asBool();
+        const auto path=v["image"].asString();check(path.find('\0')==std::string::npos,"Invalid mosaic path");
+        std::filesystem::path imagePath(path);
+        if(!imagePath.is_absolute()) {
+            check(!base.empty(),"Mosaic paths must be absolute");
+            const auto resolved=(base/imagePath).lexically_normal();const std::string relStr=resolved.lexically_relative(base).generic_string();
+            check(!relStr.empty()&&relStr!=".."&&relStr.rfind("../",0)==std::string::npos,"Mosaic relative path escapes the project folder");
+            imagePath=resolved;
+        }
+        MosaicLayer l;l.image=imagePath;l.visible=v["visible"].asBool();
         if(v.isMember("blend")){check(v["blend"].isString(),"Invalid mosaic blend mode");const auto blend=v["blend"].asString();check(blend=="replace"||blend=="feather"||blend=="seam"||blend=="multiband","Invalid mosaic blend mode");l.blend=blend=="replace"?MosaicBlend::Replace:blend=="seam"?MosaicBlend::Seam:blend=="multiband"?MosaicBlend::Multiband:MosaicBlend::Feather;}
         double* values[]={&l.x,&l.y,&l.scale,&l.angle,&l.opacity,&l.feather,&l.black,&l.white,&l.gamma,&l.exposure,&l.saturation,&l.red,&l.green,&l.blue};
         const char* keys[]={"x","y","scale","angle","opacity","feather","black","white","gamma","exposure","saturation","red","green","blue"};
