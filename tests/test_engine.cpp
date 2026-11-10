@@ -78,6 +78,23 @@ void separate(const fs::path& root,int type,const std::string& name) {
  fails([&]{orbyx::run(options);});check(!fs::exists(options.output),"Invalid ROI leaves no destination");
  fails([&]{orbyx::editableMergeLayout(profile,"L2",{root/(name+"-merged-editable/MSUGS_VIS-1_Aligned/MSUGS-VIS-1.png"),root/(name+"-merged-editable/MSUGS_VIS-2_Aligned/MSUGS-VIS-1.png")});});
 }
+void selectedProducts(const fs::path& root) {
+ const auto input=root/"selected-in",output=root/"selected-out",profile=root/"selected.json";fixture(input,CV_16U);
+ fs::copy(input/"MSUGS_VIS1",input/"MSUGS_VIS3",fs::copy_options::recursive);
+ const auto aligned=input/"MSUGS_VIS-4_Aligned";fs::create_directories(aligned);
+ for(int channel=1;channel<=3;++channel)cv::imwrite((aligned/("MSUGS-VIS-"+std::to_string(channel)+".png")).string(),cv::Mat(27,31,CV_16U,cv::Scalar(channel*4000)));
+ auto config=identity();config["L2VIS3"]=config["L2VIS1"];writeJson(profile,config);
+ orbyx::RunOptions options{"L2",input,output,profile,true,false};options.products={"MSUGS_VIS3","MSUGS_VIS-4_Aligned"};
+ orbyx::run(options);
+ check(fs::is_regular_file(output/"MSUGS_VIS-3_Aligned/MSUGS-VIS-1.png")&&fs::is_regular_file(output/"MSUGS_VIS-4_Aligned/MSUGS-VIS-3.png"),"Selected raw/aligned products were not written");
+ check(cv::imread((output/"MSUGS_VIS-3_Aligned/MSUGS-VIS-2.png").string(),cv::IMREAD_UNCHANGED).rows==16,"Selected raw product was not aligned");
+ check(cv::imread((output/"MSUGS_VIS-4_Aligned/MSUGS-VIS-2.png").string(),cv::IMREAD_UNCHANGED).rows==27,"Already aligned selection was transformed again");
+ check(read(output/"MSUGS_VIS-3_Aligned/product.cbor")=="synthetic-cbor-vis1","Selected product lost CBOR provenance");
+ check(!fs::exists(output/"MSUGS_VIS-4_Aligned/product.cbor"),"Missing source CBOR was invented");
+ options.output=root/"selected-duplicate";options.products={"MSUGS_VIS3","MSUGS_VIS-3_Aligned"};fails([&]{orbyx::run(options);});check(!fs::exists(options.output),"Duplicate selected id left output");
+ options.output=root/"selected-invalid";options.products={"../MSUGS_VIS3"};fails([&]{orbyx::run(options);});check(!fs::exists(options.output),"Invalid selected path left output");
+ options.output=root/"selected-calibrate";options.products={"MSUGS_VIS3"};options.calibrate=true;fails([&]{orbyx::run(options);});check(!fs::exists(options.output),"Selection in calibrate mode left output");
+}
 // Independent double-precision scalar RGB/HSV oracle, without cvtColor.
 cv::Vec3d naturalOracle(cv::Vec3d bgr,double maximum) {
  const double r=bgr[2]/maximum,g=bgr[1]/maximum,b=bgr[0]/maximum;
@@ -289,7 +306,7 @@ int main(int argc,char** argv) {
  try {
   root=fs::temp_directory_path()/("orbyx-tests-"+std::to_string(std::random_device{}()));
   fs::create_directory(root);
-  separate(root,CV_8U,"8bit");separate(root,CV_16U,"16bit");calibration(root);scaledCalibration(root);profiles(root);compose(root);naturalColor(root,CV_8U,"nc8");naturalColor(root,CV_16U,"nc16");
+  separate(root,CV_8U,"8bit");separate(root,CV_16U,"16bit");selectedProducts(root);calibration(root);scaledCalibration(root);profiles(root);compose(root);naturalColor(root,CV_8U,"nc8");naturalColor(root,CV_16U,"nc16");
   auto options=orbyx::RunOptions{"../bad",root,root/"bad",root/"8bit.json",true,false};
   fails([&]{orbyx::run(options);});
   auto config=identity();writeJson(root/"valid.json",config);

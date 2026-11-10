@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <map>
+#include <set>
 #include <cmath>
 #include <fstream>
 #include <future>
@@ -127,12 +128,12 @@ cv::Mat readImage(const fs::path& file, bool rdas=true, bool allowRgb=false) {
           "Invalid RDAS channel dimensions (height must exceed 3606; max 150 Mpx)");
   return image;
 }
-Channels load(const fs::path& directory) {
+Channels load(const fs::path& directory,bool rdas=true) {
   require(!fs::is_symlink(fs::symlink_status(directory)) && fs::is_directory(directory),
           "Expected non-symlink MSUGS_VIS directory");
   Channels channels;
   for (int i=0;i<3;++i) {
-    channels[i] = readImage(directory / ("MSUGS-VIS-"+std::to_string(i+1)+".png"));
+    channels[i] = readImage(directory / ("MSUGS-VIS-"+std::to_string(i+1)+".png"),rdas);
     if (i) require(channels[i].size()==channels[0].size() && channels[i].type()==channels[0].type(),
                    "All channels in a VIS product must have equal dimensions and depth");
   }
@@ -242,6 +243,16 @@ void writeProduct(const fs::path& directory,const Channels& channels,const fs::p
   regular(sourceCbor);
   fs::copy_file(sourceCbor,directory/"product.cbor");
 }
+void writeSelectedProduct(const fs::path& directory,const Channels& channels,const fs::path& sourceCbor) {
+  fs::create_directory(directory);
+  for(int i=0;i<3;++i)
+    require(cv::imwrite((directory/("MSUGS-VIS-"+std::to_string(i+1)+".png")).string(),channels[i]),
+            "Failed to encode output PNG");
+  if(fs::exists(fs::symlink_status(sourceCbor))) {
+    regular(sourceCbor);
+    fs::copy_file(sourceCbor,directory/"product.cbor");
+  }
+}
 class Staging {
  public:
   fs::path path;
@@ -310,6 +321,11 @@ std::string translate(const std::string& message,const std::string& language) {
     {"Failed to encode composed RGB product","Impossibile codificare il prodotto RGB composto"},
     {"Calibration scale must be finite and in (0, 1]","La scala di calibrazione deve essere finita e compresa in (0, 1]"},
     {"Calibration scale is only valid in calibrate mode","La scala di calibrazione è valida solo in modalità calibrate"},
+    {"Product selection is only valid in generate mode","La selezione dei prodotti è valida solo in modalità generate"},
+    {"Too many selected VIS products","Troppi prodotti VIS selezionati"},
+    {"Invalid selected VIS product","Prodotto VIS selezionato non valido"},
+    {"Duplicate selected VIS product","Prodotto VIS selezionato duplicato"},
+    {"Selected VIS products written for the editable compositor","Prodotti VIS selezionati salvati per il compositore modificabile"},
     {"Calibration working image is too small","L'immagine di lavoro per la calibrazione è troppo piccola"},
     {"ECC working scale: ","Scala di lavoro ECC: "},
     {"Failed to encode output PNG","Impossibile codificare il PNG in uscita"},
@@ -402,6 +418,61 @@ void run(const RunOptions& options,const Log& log) {
   const std::array<fs::path,2> dirs{input/"MSUGS_VIS1",input/"MSUGS_VIS2"};
   std::array<Channels,2> products;
   Staging stage(output);
+  if(!options.products.empty()) {
+    require(!options.calibrate,"Product selection is only valid in generate mode");
+    require(options.products.size()<=32,"Too many selected VIS products");
+    struct Selected {std::string folder;int id=0;bool aligned=false;Channels channels;};
+    std::vector<Selected> selected;std::set<int> identifiers;
+    for(const auto& folder:options.products) {
+      require(!folder.empty()&&folder.size()<=64&&fs::path(folder).filename()==folder,
+              "Invalid selected VIS product");
+      const std::string prefix="MSUGS_VIS";bool aligned=false;std::string number;
+      if(folder.rfind(prefix,0)==0) number=folder.substr(prefix.size());
+      if(number.size()>8&&number.front()=='-'&&number.compare(number.size()-8,8,"_Aligned")==0) {
+        aligned=true;number=number.substr(1,number.size()-9);
+      }
+      require(!number.empty()&&number.size()<=3&&number.front()!='0'&&
+              std::all_of(number.begin(),number.end(),[](unsigned char c){return c>='0'&&c<='9';}),
+              "Invalid selected VIS product");
+      const int id=std::stoi(number);require(id>=1&&id<=999&&identifiers.insert(id).second,
+              "Duplicate selected VIS product");
+      const fs::path directory=input/folder;
+      message("Loading "+folder);
+      auto channels=load(directory,!aligned);
+      if(!aligned) {
+        const std::string key=options.satellite+"VIS"+std::to_string(id);
+        require(config[key].isObject(),"No calibration for "+key);
+        channels=align(channels,config[key]);
+      }
+      selected.push_back({folder,id,aligned,std::move(channels)});
+    }
+    for(const auto& product:selected) {
+      const auto source=input/product.folder/"product.cbor";
+      const auto destination=stage.path/("MSUGS_VIS-"+std::to_string(product.id)+"_Aligned");
+      if(product.aligned) writeSelectedProduct(destination,product.channels,source);
+      else writeProduct(destination,product.channels,source);
+    }
+    const auto findId=[&](int id){return std::find_if(selected.begin(),selected.end(),[&](const Selected& p){return p.id==id;});};
+    const auto first=findId(1),second=findId(2);
+    if(first!=selected.end()&&second!=selected.end()&&!first->aligned&&!second->aligned) {
+      const auto key1=options.satellite+"VIS1",key2=options.satellite+"VIS2";
+      if(config[key1].isMember("ROI")&&config[key2].isMember("ROI")) {
+        const auto left=roi(config[key1],first->channels[0].size()),right=roi(config[key2],second->channels[0].size());
+        require(first->channels[0].type()==second->channels[0].type(),"VIS products have different bit depths");
+        require(left.width<=std::numeric_limits<int>::max()-right.width,"Merged dimensions overflow");
+        Channels merged;
+        for(int channel=0;channel<3;++channel) {
+          merged[channel]=cv::Mat::zeros(std::max(left.height,right.height),left.width+right.width,first->channels[channel].type());
+          first->channels[channel](left).copyTo(merged[channel](cv::Rect(0,0,left.width,left.height)));
+          second->channels[channel](right).copyTo(merged[channel](cv::Rect(left.width,0,right.width,right.height)));
+        }
+        message("Writing merged aligned channels");
+        writeProduct(stage.path/"MSUGS_VIS_Aligned",merged,input/first->folder/"product.cbor");
+      }
+    }
+    message("Selected VIS products written for the editable compositor");
+    stage.publish(output);message("Completed: "+output.string());return;
+  }
   for(int vis=0;vis<2;++vis) {
     const std::string key=options.satellite+"VIS"+std::to_string(vis+1);
     message("Loading "+key);

@@ -180,7 +180,7 @@ def load_manifest(path: Path) -> list[dict]:
     identifiers: set[str] = set()
     outputs: list[Path] = []
     normalized = []
-    allowed = {"id", "satellite", "input", "output", "config", "mode", "cpu", "calibration_scale", "acquisition_fingerprint"}
+    allowed = {"id", "satellite", "input", "output", "config", "mode", "cpu", "calibration_scale", "acquisition_fingerprint", "products"}
     required = {"id", "satellite", "input", "output", "config"}
     for job in jobs:
         if not isinstance(job, dict) or not required <= set(job) or set(job) - allowed:
@@ -202,6 +202,14 @@ def load_manifest(path: Path) -> list[dict]:
             scale = job["calibration_scale"]
             if type(scale) not in (int, float) or not math.isfinite(scale) or not 0 < scale <= 1 or mode != "calibrate":
                 raise ValueError("calibration_scale requires calibrate mode and a finite number in (0,1]")
+        if "products" in job:
+            products = job["products"]
+            pattern = re.compile(r"MSUGS_VIS(?:[1-9][0-9]{0,2}|-[1-9][0-9]{0,2}_Aligned)")
+            if (mode != "generate" or not isinstance(products, list) or not products
+                    or len(products) > 32 or len(set(products)) != len(products)
+                    or any(not isinstance(product, str) or not pattern.fullmatch(product)
+                           for product in products)):
+                raise ValueError("Invalid selected VIS products")
         item = dict(job, mode=mode, cpu=job.get("cpu", False))
         for key in ("input", "output", "config"):
             item[key] = str(resolve(path.parent, job[key]))
@@ -301,6 +309,8 @@ def run(manifest: Path, state_path: Path, executable: Path, resume: bool, langua
                        "--config", job["config"], "--lang", language]
             if "calibration_scale" in job:
                 command.extend(["--calibration-scale", str(job["calibration_scale"])])
+            for product in job.get("products", []):
+                command.extend(["--product", product])
             if job["cpu"]:
                 command.append("--cpu")
             process = subprocess.Popen(command, shell=False)

@@ -10,6 +10,7 @@
 #include <QDialogButtonBox>
 #include <QPointer>
 #include <opencv2/imgcodecs.hpp>
+#include <fstream>
 #include <iostream>
 #include <stdexcept>
 
@@ -159,6 +160,15 @@ int main(int argc, char **argv) {
                 requireTest(toExclude,"Generic VIS3 product was not offered for grouping");
                 toExclude->setCheckState(Qt::Unchecked);
                 requireTest(detector.property("selectedProductCount").toInt()==3&&!detector.selectedProducts().contains("MSUGS_VIS3"),"Excluding a product did not update the grouping");
+                const QString savedGrouping=detector.wizardProject();
+                FinalImageWizard restoredGrouping(lang=="it","","","","L2",true);
+                requireTest(restoredGrouping.applyWizardProject(savedGrouping)&&restoredGrouping.selectedProducts()==detector.selectedProducts(),"Saved wizard did not restore the corrected product grouping");
+                requireTest(restoredGrouping.inputsDigest()==detector.inputsDigest(),"Corrected grouping was omitted from the resume digest");
+                const auto groupingProfile=din/("grouping-"+lang.toStdString()+".json");
+                {std::ofstream file(groupingProfile);file<<R"({"L2VIS1":{},"L2VIS2":{},"L2VIS3":{}})";}
+                FinalImageWizard conflicting(lang=="it",QString::fromStdString(din.string()),QString::fromStdString(groupingProfile.string()),temporary.path()+"/grouped-output-"+lang,"L2",true);
+                conflicting.show();QTest::qWait(10);
+                requireTest(!conflicting.validateCurrentPage()&&conflicting.property("validationError").toString().contains(lang=="it"?"sola versione":"one raw or aligned"),"Raw/aligned versions of the same VIS id were not rejected before processing");
                 requireTest(QFileInfo::exists((din/"MSUGS_VIS3"/"MSUGS-VIS-1.png").string().c_str()),"Grouping correction modified the source export");
             }
             // M2-08: finishing the guided wizard with the durable-queue option enqueues

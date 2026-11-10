@@ -19,6 +19,7 @@ void help(const std::string& language) {
       "      --config       JSON di calibrazione (predefinito: config.json)\n"
       "      --output       Nuova cartella di uscita; non deve esistere\n"
       "      --cpu          Disattiva OpenCL e utilizza la CPU\n"
+      "      --product      Prodotto MSUGS_VIS selezionato; ripetibile, solo generate\n"
       "      --calibration-scale  Scala ECC esplicita (0,1], solo calibrate; predefinita 1\n"
       "      --lang         Lingua en oppure it\n"
       "  -h, --help         Mostra questa guida\n"
@@ -36,6 +37,7 @@ void help(const std::string& language) {
     "      --config       Calibration JSON (default: config.json)\n"
     "      --output       New output directory; must not already exist\n"
     "      --cpu          Disable OpenCL (CPU fallback)\n"
+    "      --product      Selected MSUGS_VIS product; repeatable, generate only\n"
     "      --calibration-scale  Explicit ECC scale (0,1], calibrate only; default 1\n"
     "      --lang         Language en or it\n"
     "  -h, --help         Show help\n"
@@ -91,6 +93,12 @@ int main(int argc,char** argv) {
       }
       if(aliases.count(flag)) flag=aliases.at(flag);
       if(seen[flag]) throw std::runtime_error("Duplicate option: "+flag);
+      if(flag=="--product") {
+        if(i+1>=argc) throw std::runtime_error("Missing value for "+flag);
+        const std::string value=argv[++i];
+        if(value.empty()||value.rfind("--",0)==0) throw std::runtime_error("Missing value for "+flag);
+        options.products.push_back(value);continue;
+      }
       seen[flag]=true;
       if(flag=="--cpu") {options.cpu=true;continue;}
       if(flag!="--sat"&&flag!="--directory"&&flag!="--mode"&&flag!="--config"&&flag!="--output"&&flag!="--lang"&&flag!="--calibration-scale")
