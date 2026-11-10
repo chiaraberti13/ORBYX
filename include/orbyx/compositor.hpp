@@ -56,6 +56,12 @@ struct CropProposal {
     cv::Rect proposed; // Absolute source-image coordinates.
     double retainedFraction=1;
 };
+struct VisualCompensation {
+    MosaicLayer layer; // Proposed moving layer; input layers remain unchanged.
+    std::size_t samples=0;
+    double exposureDelta=0;
+    double redMultiplier=1, greenMultiplier=1, blueMultiplier=1;
+};
 // Strict, bounded PNG reader shared with the core. Grayscale or RGB 8/16-bit.
 cv::Mat readCompositePng(const std::filesystem::path&);
 void writeCompositePng(const cv::Mat&,const std::filesystem::path&);
@@ -75,6 +81,11 @@ ControlPointSolution alignFromControlPoints(const MosaicLayer& moving,const Mosa
 // Detect low-detail outer rows/columns and return a reversible crop proposal.
 // No layer or source pixel is modified. Uniform/ambiguous images are rejected.
 CropProposal proposeUniformBorderCrop(const MosaicLayer& layer);
+// Estimate a robust, optional visual match from the genuine overlap. This only
+// proposes exposure/RGB controls already used by the compositor; the caller
+// must explicitly apply it. It is not radiometric calibration.
+VisualCompensation proposeVisualCompensation(const std::vector<MosaicLayer>&,
+                                             std::size_t moving,std::size_t reference);
 std::string mosaicProject(const std::vector<MosaicLayer>&);
 std::vector<MosaicLayer> parseMosaicProject(const std::string&);
 }

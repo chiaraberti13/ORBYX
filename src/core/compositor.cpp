@@ -166,6 +166,21 @@ cv::Mat minimumCostSeam(const cv::Mat& target,const cv::Mat& incomingImage,
     if(transpose)cv::transpose(alpha,alpha);
     return alpha;
 }
+bool acceptsVisualSample(const MosaicLayer& layer,const cv::Point2d& point,const cv::Size& size) {
+    if(point.x<0||point.y<0||point.x>=size.width||point.y>=size.height)return false;
+    if(layer.exclude.width>0&&layer.exclude.height>0&&point.x>=layer.exclude.x&&point.y>=layer.exclude.y&&point.x<layer.exclude.x+layer.exclude.width&&point.y<layer.exclude.y+layer.exclude.height)return false;
+    bool hasInclude=false,included=false;
+    for(const auto& mask:layer.masks){std::vector<cv::Point2f> polygon;polygon.reserve(mask.points.size());for(const auto& value:mask.points)polygon.emplace_back(float(value.x),float(value.y));const bool inside=cv::pointPolygonTest(polygon,point,false)>=0;if(mask.include){hasInclude=true;included=included||inside;}else if(inside)return false;}
+    return !hasInclude||included;
+}
+cv::Vec3d visualPixel(const cv::Mat& image,int x,int y,const MosaicLayer& layer) {
+    cv::Vec3d value;if(image.channels()==1){const double v=image.depth()==CV_16U?image.at<unsigned short>(y,x):image.at<unsigned char>(y,x);value={v,v,v};}
+    else if(image.depth()==CV_16U){const auto v=image.at<cv::Vec3w>(y,x);value={double(v[0]),double(v[1]),double(v[2])};}
+    else {const auto v=image.at<cv::Vec3b>(y,x);value={double(v[0]),double(v[1]),double(v[2])};}
+    const double maximum=image.depth()==CV_16U?65535.:255.,exposure=std::exp2(layer.exposure),gamma=1./layer.gamma;const std::array<double,3> gains{layer.blue*exposure,layer.green*exposure,layer.red*exposure};
+    for(int channel=0;channel<3;++channel){const double normalized=std::clamp((value[channel]/maximum-layer.black)/(layer.white-layer.black),0.,1.);value[channel]=(layer.gamma==1?normalized:std::pow(normalized,gamma))*gains[size_t(channel)];}
+    const double luminance=.0722*value[0]+.7152*value[1]+.2126*value[2];for(int channel=0;channel<3;++channel)value[channel]=std::clamp(luminance+layer.saturation*(value[channel]-luminance),0.,1.);return value;
+}
 }
 MosaicResult renderMosaic(const std::vector<MosaicLayer>& layers,int previewEdge) {
     check(!layers.empty()&&layers.size()<=32,"A mosaic requires 1 to 32 layers");
@@ -332,6 +347,22 @@ CropProposal proposeUniformBorderCrop(const MosaicLayer& layer) {
     cv::Rect local{int(std::floor(left/ratio)),int(std::floor(top/ratio)),int(std::ceil((right-left)/ratio)),int(std::ceil((bottom-top)/ratio))};local&=cv::Rect(0,0,image.cols,image.rows);
     check(local.width>=16&&local.height>=16,"Proposed content crop is too small");const double retained=double(local.area())/selected.area();check(retained>=.01,"Proposed content crop is unreliable");
     CropProposal result;result.original=selected;result.proposed={selected.x+local.x,selected.y+local.y,local.width,local.height};result.retainedFraction=retained;return result;
+}
+VisualCompensation proposeVisualCompensation(const std::vector<MosaicLayer>& layers,std::size_t movingIndex,std::size_t referenceIndex) {
+    check(layers.size()>=2&&layers.size()<=32&&movingIndex<layers.size()&&referenceIndex<layers.size()&&movingIndex!=referenceIndex,"Invalid visual compensation selection");
+    const auto& moving=layers[movingIndex];const auto& reference=layers[referenceIndex];validate(moving);validate(reference);
+    check(moving.visible&&reference.visible,"Visual compensation requires visible layers");
+    check(moving.red>.01&&moving.green>.01&&moving.blue>.01,"Reset zero colour gains before visual compensation");
+    auto movingSource=readCompositePng(moving.image),referenceSource=readCompositePng(reference.image);const auto movingRegion=region(moving,movingSource),referenceRegion=region(reference,referenceSource);
+    cv::Mat movingImage=movingSource(movingRegion),referenceImage=referenceSource(referenceRegion);const auto movingTransform=transform(moving),referenceTransform=transform(reference);
+    auto sceneBounds=[](const cv::Matx23d& matrix,const cv::Size& size){double left=std::numeric_limits<double>::infinity(),top=left,right=-left,bottom=-left;for(double x:{0.,double(size.width)})for(double y:{0.,double(size.height)}){const double px=matrix(0,0)*x+matrix(0,1)*y+matrix(0,2),py=matrix(1,0)*x+matrix(1,1)*y+matrix(1,2);left=std::min(left,px);right=std::max(right,px);top=std::min(top,py);bottom=std::max(bottom,py);}return cv::Rect2d(left,top,right-left,bottom-top);};
+    const auto overlap=sceneBounds(movingTransform,movingImage.size())&sceneBounds(referenceTransform,referenceImage.size());check(overlap.width>=2&&overlap.height>=2,"Selected layers have no visual overlap");
+    cv::Matx23d movingInverse,referenceInverse;cv::invertAffineTransform(movingTransform,movingInverse);cv::invertAffineTransform(referenceTransform,referenceInverse);
+    const double area=overlap.width*overlap.height;const int step=std::max(1,int(std::ceil(std::sqrt(area/150000.))));std::array<std::vector<double>,3> logRatios;
+    for(int y=int(std::floor(overlap.y));y<int(std::ceil(overlap.y+overlap.height));y+=step)for(int x=int(std::floor(overlap.x));x<int(std::ceil(overlap.x+overlap.width));x+=step){const double sceneX=x+.5,sceneY=y+.5;const cv::Point2d mp{movingInverse(0,0)*sceneX+movingInverse(0,1)*sceneY+movingInverse(0,2),movingInverse(1,0)*sceneX+movingInverse(1,1)*sceneY+movingInverse(1,2)},rp{referenceInverse(0,0)*sceneX+referenceInverse(0,1)*sceneY+referenceInverse(0,2),referenceInverse(1,0)*sceneX+referenceInverse(1,1)*sceneY+referenceInverse(1,2)};if(!acceptsVisualSample(moving,mp,movingImage.size())||!acceptsVisualSample(reference,rp,referenceImage.size()))continue;const auto a=visualPixel(movingImage,std::clamp(int(mp.x),0,movingImage.cols-1),std::clamp(int(mp.y),0,movingImage.rows-1),moving),b=visualPixel(referenceImage,std::clamp(int(rp.x),0,referenceImage.cols-1),std::clamp(int(rp.y),0,referenceImage.rows-1),reference);const double lumA=.0722*a[0]+.7152*a[1]+.2126*a[2],lumB=.0722*b[0]+.7152*b[1]+.2126*b[2];if(lumA<.025||lumB<.025||lumA>.975||lumB>.975)continue;for(int channel=0;channel<3;++channel)if(a[channel]>=.015&&b[channel]>=.015&&a[channel]<=.985&&b[channel]<=.985)logRatios[size_t(channel)].push_back(std::log(std::clamp(b[channel]/a[channel],.25,4.)));}
+    const std::size_t samples=std::min({logRatios[0].size(),logRatios[1].size(),logRatios[2].size()});check(samples>=64,"Too few reliable overlap pixels for visual compensation");
+    const std::array<double,3> logs{median(logRatios[0]),median(logRatios[1]),median(logRatios[2])};const double common=.0722*logs[0]+.7152*logs[1]+.2126*logs[2];
+    VisualCompensation result;result.layer=moving;result.samples=samples;result.layer.exposure=std::clamp(moving.exposure+common/std::log(2.),-10.,10.);result.layer.blue=std::clamp(moving.blue*std::exp(logs[0]-common),.01,4.);result.layer.green=std::clamp(moving.green*std::exp(logs[1]-common),.01,4.);result.layer.red=std::clamp(moving.red*std::exp(logs[2]-common),.01,4.);result.exposureDelta=result.layer.exposure-moving.exposure;result.blueMultiplier=result.layer.blue/moving.blue;result.greenMultiplier=result.layer.green/moving.green;result.redMultiplier=result.layer.red/moving.red;validate(result.layer);return result;
 }
 AutoOverlapResult autoAlignOverlaps(const std::vector<MosaicLayer>& layers,std::size_t anchor) {
     check(layers.size()>=2&&layers.size()<=32,"Automatic overlap requires 2 to 32 layers");

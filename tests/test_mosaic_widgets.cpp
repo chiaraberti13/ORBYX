@@ -49,6 +49,8 @@ int main(int argc,char** argv){
             blendMode->setCurrentIndex(1);waitFor(dialog);
             gamma->setValue(1.25);waitFor(dialog);dialog.applyColoursToAll();waitFor(dialog);
             for(const auto& layer:dialog.state())check(layer.gamma==1.25,"Colour application not applied to all portions");
+            check(dialog.findChild<QPushButton*>("mosaicMatchColour"),"Visual colour-match action missing");const auto beforeCompensation=dialog.state()[2];orbyx::VisualCompensation compensation;compensation.layer=beforeCompensation;compensation.layer.exposure+=.25;compensation.layer.red*=1.1;compensation.samples=120;compensation.exposureDelta=.25;compensation.redMultiplier=1.1;
+            dialog.applyVisualCompensation(compensation,2,1);waitFor(dialog);check(dialog.state()[2].exposure==beforeCompensation.exposure+.25&&dialog.property("mergeStrategy").toString()=="visual-compensation"&&dialog.property("compensationSamples").toULongLong()==120,"Visual compensation was not applied explicitly");dialog.undo();waitFor(dialog);check(dialog.state()[2].exposure==beforeCompensation.exposure&&dialog.state()[2].red==beforeCompensation.red,"Visual compensation is not undoable");
             auto* canvas=dynamic_cast<MosaicCanvas*>(dialog.findChild<QLabel*>("mosaicCanvas"));check(canvas&&!canvas->pixmap().isNull(),"Composite preview missing");
             // Non-destructive exclude mask control: editing the spin boxes updates
             // the selected layer, keeps the preview valid and is stored in the project.

@@ -43,6 +43,15 @@ int main(){
         for(int y=0;y<seamResult.rows;++y)for(int x=0;x<seamResult.cols;++x){const auto pixel=seamResult.at<cv::Vec3w>(y,x);check(pixel==seamLower.at<cv::Vec3w>(0,0)||pixel==seamUpper.at<cv::Vec3w>(0,0),"Minimum-cost seam introduced a hole or unrequested blend");}
         const auto seamProject=orbyx::mosaicProject({seamA,seamB});const auto seamLoaded=orbyx::parseMosaicProject(seamProject);
         check(seamLoaded[1].blend==orbyx::MosaicBlend::Seam&&cv::norm(orbyx::renderMosaic(seamLoaded).image,seamResult,cv::NORM_INF)==0,"Minimum-cost seam did not round trip");
+        cv::Mat colourReference(72,96,CV_16UC3,cv::Scalar(20000,24000,28000)),colourMoving(72,96,CV_16UC3,cv::Scalar(10000,16000,14000));
+        check(cv::imwrite((root/"colour-reference.png").string(),colourReference)&&cv::imwrite((root/"colour-moving.png").string(),colourMoving),"Write compensation fixtures");
+        orbyx::MosaicLayer colourA;colourA.image=root/"colour-reference.png";orbyx::MosaicLayer colourB;colourB.image=root/"colour-moving.png";colourB.x=32;
+        const auto compensation=orbyx::proposeVisualCompensation({colourA,colourB},1,0);
+        check(compensation.samples>=64&&compensation.layer.x==colourB.x&&compensation.layer.y==colourB.y&&compensation.exposureDelta>0,"Visual compensation proposal is incomplete or changed geometry");
+        const auto corrected=orbyx::renderMosaic({compensation.layer}).image,referencePixels=orbyx::renderMosaic({colourA}).image;
+        check(cv::norm(corrected,referencePixels,cv::NORM_INF)<350,"Visual compensation did not robustly match the overlap colour");
+        check(cv::norm(cv::imread((root/"colour-moving.png").string(),cv::IMREAD_UNCHANGED),colourMoving,cv::NORM_INF)==0,"Visual compensation altered the source image");
+        colourB.x=200;rejects([&]{orbyx::proposeVisualCompensation({colourA,colourB},1,0);});
         m=l;m.x=-5;m.y=-3;auto negative=orbyx::renderMosaic({m});
         check(negative.originX==-5&&negative.originY==-3&&cv::norm(negative.image,a,cv::NORM_INF)==0,"Negative-origin placement incorrect");
         m=l;m.crop={2,1,4,3};check(orbyx::renderMosaic({m}).image.size()==cv::Size(4,3),"Crop failed");
