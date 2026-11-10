@@ -449,8 +449,13 @@ progettazione, non dipendenze da integrare automaticamente.
   conversione silenziosa») e incorpora l'intero progetto riproducibile dei
   passaggi non distruttivi, così il risultato esatto è riapribile e ogni fase
   rivedibile dal solo report. L'export resta a profondità nativa e rifiuta la
-  sovrascrittura. Restano da implementare i preset con nomi chiari (incluso
-  canale singolo), l'istogramma con clipping alte luci/ombre e prima/dopo, e la
+  sovrascrittura. (2) **Istogramma e clipping della composizione**: l'anteprima
+  composita mostra un istogramma di luminanza dell'area coperta e un indicatore
+  di clipping di alte luci e ombre con percentuali EN/IT
+  (`mosaicHistogram`/`mosaicClipping`), oltre alle proprietà
+  `coveredPixels`/`highlightClippedPixels`/`shadowClippedPixels`; si aggiorna
+  solo nella vista composita (non nelle modalità di confronto). Restano da
+  implementare i preset con nomi chiari (incluso canale singolo) e la
   formalizzazione/test dell'ordine di elaborazione colore.
 - Dipendenze: M2-08, M2-10, M3-04
 - Responsabile: Remote Sensing / Color Science / UX / QA

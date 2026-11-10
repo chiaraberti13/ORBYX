@@ -58,6 +58,16 @@ int main(int argc,char** argv){
             check(dialog.findChild<QPushButton*>("mosaicMatchColour"),"Visual colour-match action missing");const auto beforeCompensation=dialog.state()[2];orbyx::VisualCompensation compensation;compensation.layer=beforeCompensation;compensation.layer.exposure+=.25;compensation.layer.red*=1.1;compensation.samples=120;compensation.exposureDelta=.25;compensation.redMultiplier=1.1;
             dialog.applyVisualCompensation(compensation,2,1);waitFor(dialog);check(dialog.state()[2].exposure==beforeCompensation.exposure+.25&&dialog.property("mergeStrategy").toString()=="visual-compensation"&&dialog.property("compensationSamples").toULongLong()==120,"Visual compensation was not applied explicitly");dialog.undo();waitFor(dialog);check(dialog.state()[2].exposure==beforeCompensation.exposure&&dialog.state()[2].red==beforeCompensation.red,"Visual compensation is not undoable");
             auto* canvas=dynamic_cast<MosaicCanvas*>(dialog.findChild<QLabel*>("mosaicCanvas"));check(canvas&&!canvas->pixmap().isNull(),"Composite preview missing");
+            // M2-11: the composite shows a luminance histogram and highlight/shadow
+            // clipping of the covered area; a very bright exposure clips the highlights.
+            auto* histogram=dialog.findChild<QLabel*>("mosaicHistogram");auto* clipping=dialog.findChild<QLabel*>("mosaicClipping");
+            check(histogram&&!histogram->pixmap().isNull()&&clipping&&clipping->text().contains("%"),"Composite histogram or clipping readout missing");
+            check(dialog.property("coveredPixels").toLongLong()>0,"Clipping diagnostics reported no covered pixels");
+            const auto baselineHighlights=dialog.property("highlightClippedPixels").toLongLong();
+            auto* exposure=dialog.findChild<QDoubleSpinBox*>("mosaic_exposure");check(exposure,"Exposure control missing");
+            exposure->setValue(10);dialog.applyColoursToAll();waitFor(dialog);
+            check(dialog.property("highlightClippedPixels").toLongLong()>baselineHighlights&&dialog.property("highlightClippedPixels").toLongLong()>0,"Highlight clipping was not detected after over-exposure");
+            exposure->setValue(0);dialog.applyColoursToAll();waitFor(dialog);
             // Non-destructive exclude mask control: editing the spin boxes updates
             // the selected layer, keeps the preview valid and is stored in the project.
             auto* excludeX=dialog.findChild<QDoubleSpinBox*>("mosaic_excludeX");auto* excludeY=dialog.findChild<QDoubleSpinBox*>("mosaic_excludeY");

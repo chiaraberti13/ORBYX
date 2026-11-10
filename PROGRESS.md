@@ -1164,3 +1164,26 @@ esclusa.
 M2-11 passa da «proposto» a «in corso». Restano: preset con nomi chiari (incluso
 canale singolo), istogramma con clipping alte luci/ombre e prima/dopo, e
 formalizzazione/test dell'ordine di elaborazione colore.
+
+## 2026-11-10 — M2-11 secondo incremento: istogramma e clipping della composizione
+
+Continuazione M2-11. L'anteprima composita del compositore mostra ora un
+**istogramma di luminanza** dell'area coperta e un **indicatore di clipping** di
+alte luci e ombre. `updateHistogram` calcola, solo nella vista composita
+(inspection 0, non nelle modalità di confronto), la copertura dai contorni dei
+livelli, un istogramma a 256 bin della luminanza e il conteggio dei pixel saturati
+in alto (un canale a 255) e in basso (pixel neri) entro la copertura; disegna le
+barre in un `QLabel` (`mosaicHistogram`) con i bordi 0/255 marcati e mostra le
+percentuali EN/IT in `mosaicClipping`. Espone `coveredPixels`,
+`highlightClippedPixels`, `shadowClippedPixels`.
+
+Verifica effettiva (Ubuntu 24.04.5, Qt 6.4.2, OpenCV 4.6, offscreen):
+`mosaic-widget-flow` esteso — l'istogramma ha un pixmap non nullo, il readout
+clipping contiene «%», `coveredPixels>0`; portando l'esposizione a +10 EV e
+applicandola a tutti i livelli il clipping delle alte luci aumenta oltre la
+baseline (>0), poi ripristinato. Suite completa 24/24 passata con label `gpu`
+esclusa; screenshot del compositore ispezionato (istogramma e readout «alte luci
+0.00% · ombre 14.13%» sulla demo).
+
+Restano aperti, per M2-11: i preset colore con nomi chiari (incluso canale
+singolo) e la formalizzazione/test dell'ordine di elaborazione colore.
