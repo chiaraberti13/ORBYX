@@ -1139,3 +1139,28 @@ giunzione è attenuato. Resta la conferma dell'intero percorso nella CI pulita.
 
 M2-10 passa da «in corso» a «verificato per l'ambito dichiarato» (sette
 incrementi). Prossimo nel gate: M2-11 (colore integrato), poi M2-12/M2-13.
+
+## 2026-11-10 — M2-11 primo incremento: report colore/passaggi all'export
+
+Avviato M2-11 (colore integrato) dopo la chiusura di M2-10. Primo incremento:
+**report colore e dei passaggi all'export** del compositore. Nuova funzione core
+`orbyx::mosaicReport(layers, output, bitDepth)` che produce un report
+deterministico `orbyx-mosaic-report/1`: dichiara la profondità di bit effettiva
+(8/16), una nota colore esplicita (resa visuale, non colore calibrato
+radiometricamente; profondità 8/16 bit preservata senza conversione silenziosa) e
+incorpora l'intero progetto riproducibile (`orbyx-mosaic/1`) di tutti i passaggi
+non distruttivi. `MosaicDialog::exportTo` scrive il report accanto al PNG come
+`<file>.report.json` in modo esclusivo (nessuna sovrascrittura), con la profondità
+presa dal risultato reale (nessuna conversione silenziosa 16→8).
+
+Verifica effettiva (Ubuntu 24.04.5, Qt 6.4.2, OpenCV 4.6, offscreen):
+`mosaic-regression` esteso — il report è deterministico, contiene schema, nota
+colore e progetto incorporato, registra la profondità (report a 8 e 16 bit
+differiscono) e rifiuta profondità non valide. `mosaic-widget-flow` esteso —
+l'export scrive `<file>.report.json` con schema, `bit_depth` e progetto
+incorporato accanto al PNG 16 bit. Suite completa 24/24 passata con label `gpu`
+esclusa.
+
+M2-11 passa da «proposto» a «in corso». Restano: preset con nomi chiari (incluso
+canale singolo), istogramma con clipping alte luci/ombre e prima/dopo, e
+formalizzazione/test dell'ordine di elaborazione colore.

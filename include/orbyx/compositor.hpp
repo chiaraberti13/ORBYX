@@ -88,4 +88,8 @@ VisualCompensation proposeVisualCompensation(const std::vector<MosaicLayer>&,
                                              std::size_t moving,std::size_t reference);
 std::string mosaicProject(const std::vector<MosaicLayer>&);
 std::vector<MosaicLayer> parseMosaicProject(const std::string&);
+// Deterministic export report (M2-11): declares the output bit depth, a colour
+// note (visual rendering, not radiometric calibration) and the full reproducible
+// project of non-destructive steps. bitDepth must be 8 or 16.
+std::string mosaicReport(const std::vector<MosaicLayer>& layers,const std::string& output,int bitDepth);
 }

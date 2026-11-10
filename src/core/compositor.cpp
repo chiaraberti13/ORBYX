@@ -501,4 +501,21 @@ std::vector<MosaicLayer> parseMosaicProject(const std::string& text) {
     }
     return layers;
 }
+std::string mosaicReport(const std::vector<MosaicLayer>& layers,const std::string& output,int bitDepth) {
+    check(bitDepth==8||bitDepth==16,"Report bit depth must be 8 or 16");
+    check(output.find('\0')==std::string::npos&&output.size()<=4096,"Invalid report output name");
+    Json::Value root;
+    root["schema"]="orbyx-mosaic-report/1";
+    root["output"]=output;
+    root["bit_depth"]=bitDepth;
+    root["layers"]=Json::UInt(layers.size());
+    root["colour_note"]="Visual rendering composed from aligned channels with per-layer non-destructive adjustments. Not radiometrically calibrated colour; 8/16-bit depth preserved without silent conversion.";
+    // Embed the reproducible project (every non-destructive step) so the exact
+    // result can be reopened and each stage revisited from the report alone.
+    Json::CharReaderBuilder reader;Json::Value project;std::string error;
+    const std::string projectText=mosaicProject(layers);std::istringstream stream(projectText);
+    check(Json::parseFromStream(reader,stream,&project,&error),"Report project serialization failed");
+    root["project"]=project;
+    Json::StreamWriterBuilder writer;return Json::writeString(writer,root);
+}
 }
