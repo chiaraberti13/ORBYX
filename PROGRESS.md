@@ -986,3 +986,27 @@ e resa colore. Suite completa 24/24 passata con label `gpu` esclusa.
 Restano aperti, per M2-08: coda/ripresa durevole del batch nello stesso wizard,
 riconoscimento di gruppi generici oltre ai due VIS RDAS, e salvataggio del
 risultato per singolo passaggio con verifica del digest.
+
+## 2026-11-10 — Verifica stato e M2-08 terzo incremento: rilevamento prodotti import
+
+Verifica dello stato richiesta dall'utente: su `main` (merge PR #11, `5cd238c`)
+M2-07 è verificato e M2-08 è «in corso» con due incrementi; M2-09 implementato
+(verifica remota), M2-10 in corso (sei incrementi), M2-11/12/13 ancora proposti.
+Nessun ramo remoto oltre `main`. Siamo quindi effettivamente ancora a M2-08.
+
+Terzo incremento M2-08: **rilevamento dei prodotti nel passo «Importa»**. Il
+wizard riconosce e riporta, senza dipendere dai nomi SX/DX, qualunque prodotto
+`MSUGS_VIS*` con i tre canali e i prodotti già allineati presenti nella cartella
+di import, esponendo le proprietà `detectedVisProducts`/`detectedAlignedProducts`
+e un riepilogo EN/IT (`finalImportSummary`). È sola lettura: non modifica mai
+l'esportazione SatDump; scansione limitata (max 64 voci, rifiuto symlink).
+
+Verifica effettiva (Ubuntu 24.04.5, Qt 6.4.2, OpenCV 4.6, offscreen):
+`gui-widget-flow` esteso EN/IT — con una cartella contenente `MSUGS_VIS1/2/3` e
+un prodotto `MSUGS_VIS-1_Aligned`, il rilevamento riporta 3 prodotti VIS e 1 già
+allineato e il riepilogo lo mostra. Suite completa 24/24 passata con label `gpu`
+esclusa.
+
+Restano aperti, per M2-08: coda/ripresa durevole del batch nel wizard, la
+**correzione interattiva** del raggruppamento (oltre al riconoscimento) e il
+salvataggio del risultato per singolo passaggio con verifica del digest.

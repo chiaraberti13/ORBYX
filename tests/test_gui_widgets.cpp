@@ -121,6 +121,19 @@ int main(int argc, char **argv) {
                 requireTest(resumer.resumeFromSaved(),"Guided wizard could not resume the saved project");
                 requireTest(resumer.inputPath()=="/orbyx/in"&&resumer.profilePath()=="/orbyx/profile.json"&&resumer.outputPath()=="/orbyx/out"&&resumer.satelliteId()=="L3"&&resumer.cpuOnly()&&resumer.naturalColour(),"Resumed guided wizard restored the wrong settings");
             }
+            // M2-08: the import step recognizes generic MSUGS_VIS* products and
+            // already-aligned products, without depending on SX/DX names.
+            {
+                const auto din=std::filesystem::path(temporary.path().toStdString())/(lang=="it"?"detect-it":"detect-en");
+                for(const char* product:{"MSUGS_VIS1","MSUGS_VIS2","MSUGS_VIS3","MSUGS_VIS-1_Aligned"}){
+                    std::filesystem::create_directories(din/product);
+                    for(int c=1;c<=3;++c)cv::imwrite((din/product/("MSUGS-VIS-"+std::to_string(c)+".png")).string(),cv::Mat(20,24,CV_16UC1,cv::Scalar(c*1000)));
+                }
+                FinalImageWizard detector(lang=="it",QString::fromStdString(din.string()),"/orbyx/p.json","/orbyx/out","L2",true);
+                requireTest(detector.property("detectedVisProducts").toInt()==3,"Import detection missed generic VIS products beyond VIS1/VIS2");
+                requireTest(detector.property("detectedAlignedProducts").toInt()==1,"Import detection missed already-aligned products");
+                requireTest(detector.findChild<QLabel*>("finalImportSummary")->text().contains("3"),"Import summary did not report what was detected");
+            }
             // Fill the actual source/target/save dialogs and dismiss the success box.
             const auto originalProfile=hashFile(fixture+"/profile.json");
             const QString copied=temporary.path()+"/profile-"+lang+".json";
