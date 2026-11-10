@@ -932,3 +932,33 @@ metà non vuote e i livelli correnti invariati dall'operazione. Suite completa
 24/24 passata con label `gpu` esclusa; immagine di confronto ispezionata
 (etichette «ROI profilo» / «Attuale», divisore). Resta aperto, per M2-07,
 l'assistenza con più di due porzioni dal flusso principale.
+
+## 2026-11-10 — M2-07 completato (ambito GUI): coordinatore strategie e >2 porzioni
+
+Ripreso il branch dall'ultima `main` (il mio PR #10 con l'anteprima comparativa
+era già unito). Completato l'ultimo punto aperto di M2-07: l'assistenza con più
+di due porzioni dal flusso principale.
+
+Aggiunto il coordinatore **«Strategia consigliata…»** (`mosaicRecommend` /
+`recommendStrategy()`): per qualunque numero di porzioni (≥2) sceglie la strategia
+raccomandata. Con una coppia ROI del profilo completa raccomanda la ROI storica
+senza modificare nulla; altrimenti avvia la cascata visuale automatica (conferma
+esplicita). Con **più di due porzioni**, `autoAlign` ora riporta `unalignedCount`
+e, per ogni porzione senza corrispondenza affidabile, instrada esplicitamente ai
+punti di controllo (assistita) o al posizionamento manuale, **senza inventare una
+posizione**. Le quattro strategie (Profilo ROI, Visuale automatica, Assistita,
+Manuale) restano coordinate; il percorso ROI storico e la CLI `generate` non sono
+toccati.
+
+Verifica effettiva (Ubuntu 24.04.5, Qt 6.4.2, OpenCV 4.6, offscreen):
+`mosaic-widget-flow` esteso — (a) con coppia ROI completa il coordinatore
+raccomanda `profile-roi` senza cambiare i livelli; (b) con **quattro porzioni**
+(tre sovrapposte + una da una scena non correlata) e nessuna ROI, il coordinatore
+raccomanda e applica la cascata visuale, allinea almeno le due porzioni
+sovrapposte oltre all'ancora, segnala `unalignedCount≥1` e il messaggio instrada
+la porzione non corrisposta ad «assistita/assisted». Suite completa 24/24 passata
+con label `gpu` esclusa.
+
+M2-07 passa da «in corso» a «verificato per l'ambito GUI dichiarato». Resta
+esterno all'ambito il rifattorizzare le strategie in un unico servizio core
+unificato; lo screen reader reale è in M4-01.

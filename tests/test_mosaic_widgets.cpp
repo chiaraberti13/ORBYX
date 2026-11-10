@@ -25,6 +25,10 @@ int main(int argc,char** argv){
         cv::putText(autoScene,"ORBYX",{230,210},cv::FONT_HERSHEY_SIMPLEX,1.4,{255,255,255},3,cv::LINE_AA);
         cv::imwrite((root/"auto-a.png").string(),autoScene(cv::Rect(0,0,410,340)));
         cv::imwrite((root/"auto-b.png").string(),autoScene(cv::Rect(230,65,410,340)));
+        cv::imwrite((root/"auto-c.png").string(),autoScene(cv::Rect(120,110,410,300))); // Overlaps a and b for the >2-portion coordinator.
+        cv::Mat autoSceneTwo(420,680,CV_8UC3,cv::Scalar(8,8,8));cv::RNG unrelated(0x9911cafe); // Unrelated content: no reliable match.
+        for(int i=0;i<350;++i)cv::circle(autoSceneTwo,{unrelated.uniform(5,675),unrelated.uniform(5,415)},unrelated.uniform(2,8),{double(unrelated.uniform(35,255)),double(unrelated.uniform(35,255)),double(unrelated.uniform(35,255))},-1,cv::LINE_AA);
+        cv::imwrite((root/"auto-d.png").string(),autoSceneTwo(cv::Rect(0,0,410,340)));
         const auto generated=root/"generated";std::filesystem::create_directories(generated/"MSUGS_VIS-1_Aligned");std::filesystem::create_directories(generated/"MSUGS_VIS-2_Aligned");
         for(int vis=1;vis<=2;++vis)for(int channel=1;channel<=3;++channel)
             cv::imwrite((generated/("MSUGS_VIS-"+std::to_string(vis)+"_Aligned")/("MSUGS-VIS-"+std::to_string(channel)+".png")).string(),cv::Mat(80,100,CV_16UC1,cv::Scalar(vis*5000+channel*1000)));
@@ -140,6 +144,12 @@ int main(int argc,char** argv){
             check(cv::countNonZero(leftHalf.reshape(1))>0&&cv::countNonZero(rightHalf.reshape(1))>0,"A strategy half of the comparison is blank");
             check(profileRoi.state()[1].x==83,"Comparison altered the current layers");
             if(qEnvironmentVariableIsSet("ORBYX_COMPARE_SCREENSHOT"))cv::imwrite(qEnvironmentVariable("ORBYX_COMPARE_SCREENSHOT").toStdString(),comparison);
+            // M2-07 coordinator: with a complete profile ROI pair it recommends ROI
+            // without changing anything (no modal, baseline preserved).
+            const auto beforeRecommend=orbyx::mosaicProject(profileRoi.state());
+            profileRoi.recommendStrategy();
+            check(profileRoi.property("recommendedStrategy").toString()=="profile-roi","Coordinator did not recommend the profile ROI when available");
+            check(orbyx::mosaicProject(profileRoi.state())==beforeRecommend,"Strategy recommendation changed the layers");
             profileRoi.saveProject(temp.path()+(it?"/profile-roi-it.json":"/profile-roi-en.json"));
             MosaicDialog automatic(it);automatic.show();automatic.appendFiles({temp.path()+"/auto-a.png",temp.path()+"/auto-b.png"});waitFor(automatic);
             auto* automaticButton=automatic.findChild<QPushButton*>("mosaicAutoOverlap");check(automaticButton&&automaticButton->isEnabled(),"Automatic overlap control missing");
@@ -159,6 +169,21 @@ int main(int argc,char** argv){
             automatic.undo();waitFor(automatic);check(automatic.state()[1].x==0&&automatic.state()[1].y==0,"Automatic overlap is not undoable");
             automatic.redo();waitFor(automatic);check(std::abs(automatic.state()[1].x-230)<=2,"Automatic overlap redo failed");
             automatic.saveProject(temp.path()+(it?"/automatic-it.json":"/automatic-en.json"));
+            // M2-07 coordinator with MORE THAN TWO portions from the main flow and no
+            // profile ROI: it recommends the visual cascade, aligns the overlapping
+            // portions and routes the unmatched one to assisted/manual without inventing
+            // a position.
+            MosaicDialog multi(it);multi.show();multi.appendFiles({temp.path()+"/auto-a.png",temp.path()+"/auto-b.png",temp.path()+"/auto-c.png",temp.path()+"/auto-d.png"});waitFor(multi);
+            check(multi.state().size()==4,"Multi-portion load failed");
+            auto* recommendButton=multi.findChild<QPushButton*>("mosaicRecommend");check(recommendButton&&recommendButton->isEnabled()&&!recommendButton->accessibleName().isEmpty(),"Recommended strategy control missing");
+            multi.findChild<QListWidget*>("mosaicLayers")->setCurrentRow(0);
+            QTimer applyMulti;QObject::connect(&applyMulti,&QTimer::timeout,[&]{for(auto* widget:QApplication::topLevelWidgets())if(auto* box=qobject_cast<QMessageBox*>(widget)){box->button(QMessageBox::Apply)->click();applyMulti.stop();}});applyMulti.start(10);
+            multi.recommendStrategy();waitFor(multi);applyMulti.stop();
+            check(multi.property("recommendedStrategy").toString()=="visual-auto"&&multi.property("mergeStrategy").toString()=="visual-auto"&&multi.property("autoOverlapApplied").toBool(),"Coordinator did not run the visual cascade for >2 portions");
+            int moved=0;for(int i=1;i<4;++i)if(std::abs(multi.state()[size_t(i)].x)>2||std::abs(multi.state()[size_t(i)].y)>2)++moved;
+            check(moved>=2,"Coordinator aligned fewer than the overlapping portions");
+            check(multi.property("unalignedCount").toInt()>=1,"Coordinator did not report an unmatched portion");
+            check(multi.findChild<QLabel*>("mosaicStatus")->text().contains(it?"assistita":"assisted"),"Coordinator did not route the unmatched portion to assisted/manual");
             MosaicDialog cropEditor(it);cropEditor.show();cropEditor.appendFiles({temp.path()+"/bordered.png"});waitFor(cropEditor);
             auto cropState=cropEditor.state();cropState[0].x=13;cropState[0].y=27;cropState[0].scale=1.5;cropState[0].angle=30;cropEditor.setState(cropState);waitFor(cropEditor);
             auto* cropButton=cropEditor.findChild<QPushButton*>("mosaicCropProposal");check(cropButton&&cropButton->isEnabled(),"Uniform-border crop proposal control missing");

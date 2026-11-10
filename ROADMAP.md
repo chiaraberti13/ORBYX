@@ -242,19 +242,23 @@ progettazione, non dipendenze da integrare automaticamente.
 ## M2-07 — Coordinatore delle strategie di unione
 
 - Priorità: P0
-- Stato: in corso — due incrementi verificati. (1) La GUI conserva il risultato
-  ROI storico e rende disponibili le due porzioni allineate come livelli
-  modificabili, inizializzati con gli stessi ritagli e la stessa posizione;
-  l’editor registra la strategia corrente (`mergeStrategy`) e può ripristinare
-  in ogni momento la ROI storica dopo modifiche manuali o proposta visuale.
-  (2) **Anteprima comparativa affiancata ROI / stato attuale**: il comando
-  «Confronta ROI / stato attuale…» rende un’unica immagine con la composizione
-  ROI del profilo a sinistra e la strategia corrente (visuale/manuale) a destra,
-  etichettate e separate, poi chiede esplicitamente quale mantenere; nessuna
-  scelta è applicata o esportata senza conferma e la baseline ROI non viene mai
-  alterata. Il percorso CLI predefinito e i pixel storici restano invariati.
-  Resta da completare l’assistenza con più di due porzioni provenienti
-  direttamente dal flusso principale.
+- Stato: verificato per l’ambito GUI dichiarato — tre incrementi. (1) La GUI
+  conserva il risultato ROI storico e rende disponibili le porzioni allineate
+  come livelli modificabili con gli stessi ritagli/posizione; l’editor registra
+  la strategia corrente (`mergeStrategy`) e ripristina la ROI storica in ogni
+  momento. (2) **Anteprima comparativa affiancata ROI / stato attuale** («Confronta
+  ROI / stato attuale…»): rende ROI del profilo a sinistra e strategia corrente a
+  destra, etichettate e separate, con scelta esplicita; nessuna scelta applicata
+  o esportata senza conferma, baseline ROI mai alterata. (3) **Coordinatore
+  «Strategia consigliata…»** per qualunque numero di porzioni (≥2): con una coppia
+  ROI completa raccomanda la ROI del profilo senza modificare nulla; altrimenti
+  avvia la cascata visuale automatica e, con **più di due porzioni**, instrada ogni
+  porzione senza corrispondenza affidabile ai punti di controllo (assistita) o al
+  posizionamento manuale, senza inventare posizioni. Il percorso CLI predefinito e
+  i pixel storici restano invariati; la regressione byte-per-byte del percorso ROI
+  è preservata. Resta esterno all’ambito GUI il rifattorizzare le quattro strategie
+  in un unico servizio core unificato (le strategie restano esposte come comandi
+  coordinati); l’assistenza interattiva con screen reader reale è in M4-01.
 - Dipendenze: M2-01, M2-05, M2-06
 - Responsabile: Technical Lead / Computer Vision / Maintainer compatibilità / QA
 - Deliverable: un solo servizio core che espone quattro strategie: **Profilo
