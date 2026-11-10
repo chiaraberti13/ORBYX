@@ -111,6 +111,16 @@ int main(int argc, char **argv) {
             });
             driveGuided.start();clickVisible(finalButton);requireTest(until([&]{return guidedEditorOpened;},30000),"Guided final-image action did not hand off to the editable ROI compositor");driveGuided.stop();
             requireTest(QFileInfo::exists(guidedResult+"/MSUGS_VIS_Aligned/MSUGS-VIS-1.png"),"Guided final-image action omitted historical output");
+            // M2-08: the guided wizard persists a resumable project and restores it,
+            // so the flow can be continued later without re-entering every setting.
+            {
+                FinalImageWizard saver(lang=="it","/orbyx/in","/orbyx/profile.json","/orbyx/out","L3",true);
+                saver.saveProject();
+                FinalImageWizard resumer(lang=="it","","","","L9",false);
+                requireTest(resumer.hasSavedProject(),"Guided wizard did not persist a resumable project");
+                requireTest(resumer.resumeFromSaved(),"Guided wizard could not resume the saved project");
+                requireTest(resumer.inputPath()=="/orbyx/in"&&resumer.profilePath()=="/orbyx/profile.json"&&resumer.outputPath()=="/orbyx/out"&&resumer.satelliteId()=="L3"&&resumer.cpuOnly()&&resumer.naturalColour(),"Resumed guided wizard restored the wrong settings");
+            }
             // Fill the actual source/target/save dialogs and dismiss the success box.
             const auto originalProfile=hashFile(fixture+"/profile.json");
             const QString copied=temporary.path()+"/profile-"+lang+".json";

@@ -280,6 +280,7 @@ public:
         button("mosaicChannels",t("Add 3 aligned channels…","Aggiungi 3 canali allineati…"),panel,[this]{colourFolder();});
         list=new QListWidget;list->setObjectName("mosaicLayers");list->setAccessibleName(t("Layers, bottom to top","Livelli, dal basso verso l’alto"));list->setMaximumHeight(140);panel->addWidget(list);
         connect(list,&QListWidget::currentRowChanged,this,[this]{if(!updating){readControls();display();}});
+        button("mosaicRecommend",t("Recommended strategy…","Strategia consigliata…"),panel,[this]{recommendStrategy();});
         button("mosaicAutoOverlap",t("Automatically align overlaps…","Allinea automaticamente le sovrapposizioni…"),panel,[this]{autoAlign();});
         button("mosaicRestoreRoi",t("Restore profile ROI","Ripristina ROI del profilo"),panel,[this]{restoreProfileRoi();});
         button("mosaicCompareStrategies",t("Compare ROI / current…","Confronta ROI / stato attuale…"),panel,[this]{compareStrategies();});
@@ -451,8 +452,35 @@ public:
                 persistentNotice=t("Automatic proposal cancelled; no changes applied.","Proposta automatica annullata; nessuna modifica applicata.");setProperty("autoOverlapApplied",false);setProperty("autoOverlapAccepted",0);status->setText(persistentNotice);record("Automatic overlap proposal cancelled");return;
             }
             remember();layers=proposal->layers;setProperty("mergeStrategy","visual-auto");record(summary);refreshList(int(anchor));
-            persistentNotice=t("Automatic proposal applied. Review every seam and adjust it manually before export.","Proposta automatica applicata. Controlla ogni giunzione e correggila manualmente prima dell’esportazione.");setProperty("autoOverlapApplied",true);setProperty("autoOverlapAccepted",int(proposal->accepted.size()));status->setText(persistentNotice);
+            setProperty("autoOverlapApplied",true);setProperty("autoOverlapAccepted",int(proposal->accepted.size()));setProperty("unalignedCount",int(proposal->unaligned.size()));
+            if(proposal->unaligned.empty())
+                persistentNotice=t("Automatic proposal applied. Review every seam and adjust it manually before export.","Proposta automatica applicata. Controlla ogni giunzione e correggila manualmente prima dell’esportazione.");
+            else {
+                QStringList leftovers;for(const auto index:proposal->unaligned)leftovers<<QString::number(index+1);
+                // >2 portions: the coordinator never invents a position for a portion
+                // without a reliable match; it routes it to assisted/manual control.
+                persistentNotice=t("Automatic proposal applied. Layers without a reliable match were not moved: ","Proposta automatica applicata. I livelli senza corrispondenza affidabile non sono stati spostati: ")+leftovers.join(", ")+
+                    t(". Use control points (assisted) or manual placement for them.",". Usa i punti di controllo (assistita) o il posizionamento manuale per questi.");
+            }
+            status->setText(persistentNotice);
         });
+    }
+    // M2-07 coordinator: recommend one of the four strategies for the current
+    // portions (any count ≥ 2). A complete profile-ROI pair is recommended as the
+    // historical starting point; otherwise the visual automatic cascade runs and,
+    // for more than two portions, every portion left without a reliable match is
+    // routed to assisted (control points) or manual placement — never invented.
+    void recommendStrategy(){
+        if(busy)return;
+        if(layers.size()<2){status->setText(t("Add at least two portions.","Aggiungi almeno due porzioni."));return;}
+        if(!profileRoiBaseline.empty()){
+            setProperty("recommendedStrategy","profile-roi");
+            persistentNotice=t("Recommended: profile ROI (historical geometry). Compare or restore it, or edit manually.","Consigliata: ROI del profilo (geometria storica). Confrontala o ripristinala, oppure modifica manualmente.");
+            status->setText(persistentNotice);record("Recommended strategy: profile ROI");return;
+        }
+        setProperty("recommendedStrategy","visual-auto");
+        record(QString("Recommended strategy: visual automatic for %1 portions (no complete profile ROI pair)").arg(layers.size()));
+        autoAlign(true); // Confirmed visual cascade; handles more than two portions.
     }
     void proposeCrop(bool confirm=true){
         const int row=list->currentRow();if(busy||row<0||row>=int(layers.size())){status->setText(t("Select one layer first.","Seleziona prima un livello."));return;}

@@ -12,6 +12,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QStandardPaths>
 #include <QVBoxLayout>
 #include <QWizard>
 #include <QWizardPage>
@@ -29,6 +30,7 @@ class FinalImageWizard final : public QWizard {
     QComboBox *satellite_{}, *engine_{}, *colour_{};
     QLabel *joinSummary_{}, *reviewSummary_{};
     QCheckBox *confirmed_{};
+    QString projectFile_; // Autosaved resumable wizard state (M2-08).
 
     QString text(const char *en, const char *it) const {
         return QString::fromUtf8(italian_ ? it : en);
@@ -152,7 +154,63 @@ public:
         connect(this, &QWizard::currentIdChanged, this, [this] { updateSummary(); });
         connect(satellite_, &QComboBox::currentTextChanged, this, [this] { updateSummary(); });
         updateSummary();
+
+        // M2-08: persist the wizard state so the guided flow can be resumed. The
+        // initial values were set before these connections, so constructing a wizard
+        // never overwrites a saved session; only later edits and page changes do.
+        projectFile_ = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/final-wizard.json";
+        for (auto *edit : {input_, profile_, output_})
+            connect(edit, &QLineEdit::textChanged, this, [this] { autosave(); });
+        for (auto *combo : {satellite_, engine_, colour_})
+            connect(combo, qOverload<int>(&QComboBox::currentIndexChanged), this, [this] { autosave(); });
+        connect(this, &QWizard::currentIdChanged, this, [this] { autosave(); });
     }
+
+    // Serialized, resumable wizard state. The main window owns execution; this only
+    // records the chosen inputs, options and the reached step.
+    QString wizardProject() const {
+        QJsonObject root;
+        root["schema"] = "orbyx-final-wizard/1";
+        root["input"] = input_->text(); root["profile"] = profile_->text(); root["output"] = output_->text();
+        root["satellite"] = satellite_->currentText(); root["cpu"] = engine_->currentIndex() == 1;
+        root["natural"] = colour_->currentIndex() == 0; root["step"] = currentId();
+        return QString::fromUtf8(QJsonDocument(root).toJson(QJsonDocument::Compact));
+    }
+    bool applyWizardProject(const QString &json) {
+        const auto root = QJsonDocument::fromJson(json.toUtf8()).object();
+        if (root.value("schema").toString() != "orbyx-final-wizard/1") return false;
+        input_->setText(root.value("input").toString());
+        profile_->setText(root.value("profile").toString());
+        output_->setText(root.value("output").toString());
+        const QString sat = root.value("satellite").toString();
+        if (!sat.isEmpty()) { if (satellite_->findText(sat) < 0) satellite_->addItem(sat); satellite_->setCurrentText(sat); }
+        engine_->setCurrentIndex(root.value("cpu").toBool() ? 1 : 0);
+        colour_->setCurrentIndex(root.value("natural").toBool(true) ? 0 : 1);
+        setProperty("resumedStep", root.value("step").toInt());
+        updateSummary();
+        return true;
+    }
+    void saveProject() const { autosave(); }
+    bool hasSavedProject() const {
+        QFile file(projectFile_);
+        if (!file.open(QIODevice::ReadOnly) || file.size() > 65536) return false;
+        return QJsonDocument::fromJson(file.readAll()).object().value("schema").toString() == "orbyx-final-wizard/1";
+    }
+    bool resumeFromSaved() {
+        QFile file(projectFile_);
+        if (!file.open(QIODevice::ReadOnly) || file.size() > 65536) return false;
+        return applyWizardProject(QString::fromUtf8(file.readAll()));
+    }
+
+private:
+    void autosave() const {
+        if (projectFile_.isEmpty()) return;
+        QDir().mkpath(QFileInfo(projectFile_).absolutePath());
+        QFile file(projectFile_);
+        if (file.open(QIODevice::WriteOnly | QIODevice::Truncate)) file.write(wizardProject().toUtf8());
+    }
+
+public:
 
     bool validateCurrentPage() override {
         if (currentId() == 0) {
