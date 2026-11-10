@@ -125,7 +125,7 @@ MosaicLayer placed(const MosaicLayer& source,const MosaicLayer& reference,const 
 // is sampled by the tiled native-depth renderer. An empty result means that the
 // overlap has no continuous path and the caller must use the feather fallback.
 cv::Mat minimumCostSeam(const cv::Mat& target,const cv::Mat& incomingImage,
-                        const cv::Mat& existing,const cv::Mat& incoming) {
+                        const cv::Mat& existing,const cv::Mat& incoming,double transition) {
     check(target.type()==CV_8U&&incomingImage.type()==CV_8U&&existing.type()==CV_8U&&incoming.type()==CV_8U&&
           target.size()==incomingImage.size()&&target.size()==existing.size()&&target.size()==incoming.size(),
           "Invalid optimized seam buffers");
@@ -163,6 +163,7 @@ cv::Mat minimumCostSeam(const cv::Mat& target,const cv::Mat& incomingImage,
     const bool chooseRight=location.m00==0||location.m10/location.m00>=meanPath;
     cv::Mat alpha;newMask.convertTo(alpha,CV_32F,1./255.);
     for(int y=0;y<height;++y){const int cut=bounds.x+path[size_t(y)];auto* values=alpha.ptr<float>(bounds.y+y);const auto* valid=common.ptr<unsigned char>(bounds.y+y);for(int x=bounds.x;x<bounds.x+width;++x)if(valid[x])values[x]=(chooseRight?x>=cut:x<=cut)?1.f:0.f;}
+    if(transition>.5){cv::Mat selected,rejected,inside,outside;cv::compare(alpha,.5,selected,cv::CMP_GT);cv::bitwise_not(selected,rejected);cv::distanceTransform(selected,inside,cv::DIST_L2,cv::DIST_MASK_PRECISE);cv::distanceTransform(rejected,outside,cv::DIST_L2,cv::DIST_MASK_PRECISE);for(int y=0;y<alpha.rows;++y){auto* values=alpha.ptr<float>(y);const auto* overlapValues=common.ptr<unsigned char>(y);const auto* in=inside.ptr<float>(y);const auto* out=outside.ptr<float>(y);for(int x=0;x<alpha.cols;++x)if(overlapValues[x])values[x]=std::clamp(.5f+(in[x]-out[x])/float(2*transition),0.f,1.f);}}
     if(transpose)cv::transpose(alpha,alpha);
     return alpha;
 }
@@ -248,7 +249,7 @@ MosaicResult renderMosaic(const std::vector<MosaicLayer>& layers,int previewEdge
             cv::Matx23d seamTransform=m;for(int r=0;r<2;++r)for(int c=0;c<3;++c)seamTransform(r,c)*=seamScale;
             cv::Mat sourceSmall;cv::warpAffine(sourceGray,sourceSmall,seamTransform,seamSize,cv::INTER_LINEAR,cv::BORDER_REPLICATE);if(sourceSmall.depth()==CV_16U)sourceSmall.convertTo(sourceSmall,CV_8U,1./257.);
             cv::Mat targetSmall;cv::resize(result.image,targetSmall,seamSize,0,0,cv::INTER_AREA);if(targetSmall.channels()==3)cv::cvtColor(targetSmall,targetSmall,cv::COLOR_BGR2GRAY);if(targetSmall.depth()==CV_16U)targetSmall.convertTo(targetSmall,CV_8U,1./257.);
-            seamAlpha=minimumCostSeam(targetSmall,sourceSmall,seamCoverage,layerCoverage);seamReady=!seamAlpha.empty();if(!seamReady)++result.seamFallbacks;
+            seamAlpha=minimumCostSeam(targetSmall,sourceSmall,seamCoverage,layerCoverage,l.feather*l.scale*ratio*seamScale);seamReady=!seamAlpha.empty();if(!seamReady)++result.seamFallbacks;
         }
         cv::Matx23d inverse;cv::invertAffineTransform(m,inverse);
         const double nativeMaximum=source.depth()==CV_16U?65535.:255.,outMaximum=outputDepth==CV_16U?65535.:255.;

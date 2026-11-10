@@ -43,6 +43,7 @@ int main(){
         for(int y=0;y<seamResult.rows;++y)for(int x=0;x<seamResult.cols;++x){const auto pixel=seamResult.at<cv::Vec3w>(y,x);check(pixel==seamLower.at<cv::Vec3w>(0,0)||pixel==seamUpper.at<cv::Vec3w>(0,0),"Minimum-cost seam introduced a hole or unrequested blend");}
         const auto seamProject=orbyx::mosaicProject({seamA,seamB});const auto seamLoaded=orbyx::parseMosaicProject(seamProject);
         check(seamLoaded[1].blend==orbyx::MosaicBlend::Seam&&cv::norm(orbyx::renderMosaic(seamLoaded).image,seamResult,cv::NORM_INF)==0,"Minimum-cost seam did not round trip");
+        seamB.feather=8;const auto softenedSeam=orbyx::renderMosaic({seamA,seamB}).image;bool transitionPixel=false;for(int y=0;y<softenedSeam.rows&&!transitionPixel;++y)for(int x=40;x<96;++x){const auto pixel=softenedSeam.at<cv::Vec3w>(y,x);if(pixel!=seamLower.at<cv::Vec3w>(0,0)&&pixel!=seamUpper.at<cv::Vec3w>(0,0)){transitionPixel=true;break;}}check(transitionPixel&&cv::countNonZero(softenedSeam.reshape(1)==0)==0,"Adjustable seam transition was not applied or introduced holes");
         cv::Mat colourReference(72,96,CV_16UC3,cv::Scalar(20000,24000,28000)),colourMoving(72,96,CV_16UC3,cv::Scalar(10000,16000,14000));
         check(cv::imwrite((root/"colour-reference.png").string(),colourReference)&&cv::imwrite((root/"colour-moving.png").string(),colourMoving),"Write compensation fixtures");
         orbyx::MosaicLayer colourA;colourA.image=root/"colour-reference.png";orbyx::MosaicLayer colourB;colourB.image=root/"colour-moving.png";colourB.x=32;
