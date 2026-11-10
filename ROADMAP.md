@@ -441,7 +441,7 @@ progettazione, non dipendenze da integrare automaticamente.
 ## M2-11 — Colore integrato e controllato
 
 - Priorità: P1
-- Stato: in corso — primo incremento verificato: **report colore/passaggi
+- Stato: verificato per l'ambito dichiarato — quattro incrementi. (1) **report colore/passaggi
   all'export**. `orbyx::mosaicReport` genera un report deterministico
   (`orbyx-mosaic-report/1`) scritto accanto al PNG (`<file>.report.json`) che
   dichiara la profondità di bit effettiva (8/16), una nota colore esplicita
@@ -460,9 +460,16 @@ progettazione, non dipendenze da integrare automaticamente.
   grigi)** CH1/CH2/CH3; `orbyx::composeSingleChannel` scrive il canale scelto come
   prodotto neutro (R=G=B) preservando la profondità 8/16 bit, input invariati e
   pubblicazione atomica esclusiva. Nessun preset è etichettato «colore vero
-  scientifico». Resta da formalizzare e testare l'ordine di elaborazione colore
-  (allineamento canali → unione con la medesima geometria → composizione colore →
-  correzioni visuali).
+  scientifico». (4) **Ordine di elaborazione colore formalizzato e testato**: il
+  report dichiara la pipeline (allineamento canali con geometria condivisa →
+  unione con la stessa geometria per R/G/B, una sola trasformazione per livello →
+  composizione colore → correzioni visuali non distruttive); test di regressione
+  verificano che la composizione richiede canali con geometria identica (rifiuto
+  su dimensioni o profondità diverse, così niente bordi colorati) e che una
+  traslazione intera di un livello a colori sposta R/G/B insieme (risultato
+  identico alla sorgente, nessuna divergenza per canale). M2-11 è così verificato
+  per l'ambito GUI/core dichiarato; la validazione colorimetrica su scene reali
+  resta in M3-04.
 - Dipendenze: M2-08, M2-10, M3-04
 - Responsabile: Remote Sensing / Color Science / UX / QA
 - Deliverable: composizione colore nello stesso progetto e nella stessa

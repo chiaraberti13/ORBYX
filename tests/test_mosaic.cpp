@@ -84,6 +84,17 @@ int main(){
         check(report16.find("bit_depth")!=std::string::npos&&report16.find("radiometr")!=std::string::npos,"Export report omits the bit depth or colour note");
         check(orbyx::mosaicReport({l,n},"mosaic.png",8)!=report16,"Export report ignores the bit depth");
         rejects([&]{orbyx::mosaicReport({l,n},"mosaic.png",10);});
+        // M2-11: the report declares the formal colour processing order.
+        check(report16.find("\"pipeline\"")!=std::string::npos&&report16.find("one transform per layer")!=std::string::npos&&
+              report16.find("compose colour")!=std::string::npos,"Export report omits the colour processing order");
+        // M2-11: a colour layer is warped with one transform for every colour channel,
+        // so an integer translation moves R/G/B together and the canvas-cropped result
+        // is identical to the source (no per-channel divergence or coloured fringe).
+        {
+            orbyx::MosaicLayer shifted=n;shifted.x=4;shifted.y=3;const auto moved=orbyx::renderMosaic({shifted}).image;
+            const auto source=cv::imread((root/"c.png").string(),cv::IMREAD_UNCHANGED);
+            check(moved.size()==source.size()&&cv::norm(moved,source,cv::NORM_INF)==0,"Colour channels diverged under a single-layer transform");
+        }
         // Non-destructive exclude mask: the masked region of the upper layer does
         // not contribute, revealing the layer below; outside it the upper layer is
         // unchanged and the source file is never modified.

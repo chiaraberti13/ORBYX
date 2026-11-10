@@ -510,6 +510,15 @@ std::string mosaicReport(const std::vector<MosaicLayer>& layers,const std::strin
     root["bit_depth"]=bitDepth;
     root["layers"]=Json::UInt(layers.size());
     root["colour_note"]="Visual rendering composed from aligned channels with per-layer non-destructive adjustments. Not radiometrically calibrated colour; 8/16-bit depth preserved without silent conversion.";
+    // Formal colour processing order (M2-11): the three channels are aligned to a
+    // shared geometry first, merged with the same geometry for R/G/B (one affine
+    // per layer, so no per-channel divergence or coloured fringes), composed into a
+    // colour product, and only then adjusted non-destructively for presentation.
+    for(const char* step:{"align channels to a shared geometry",
+                          "merge with identical geometry for R/G/B (one transform per layer)",
+                          "compose colour (Natural Color RGB321 / RGB123 / single channel)",
+                          "non-destructive visual corrections"})
+        root["pipeline"].append(step);
     // Embed the reproducible project (every non-destructive step) so the exact
     // result can be reopened and each stage revisited from the report alone.
     Json::CharReaderBuilder reader;Json::Value project;std::string error;

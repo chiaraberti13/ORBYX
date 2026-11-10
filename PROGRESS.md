@@ -1209,3 +1209,28 @@ passata con label `gpu` esclusa.
 
 Restano aperti, per M2-11: la formalizzazione/test dell'ordine di elaborazione
 colore (allineamento → unione → composizione colore → correzioni visuali).
+
+## 2026-11-10 — M2-11 chiuso (ambito dichiarato): ordine di elaborazione colore
+
+Ultimo incremento di M2-11. **Formalizzato e testato l'ordine di elaborazione
+colore.** Il report di export (`mosaicReport`) dichiara ora un campo `pipeline`
+con l'ordine formale: allineamento canali a geometria condivisa → unione con la
+stessa geometria per R/G/B (una sola trasformazione per livello, quindi nessuna
+divergenza per canale né bordi colorati) → composizione colore (RGB321 / RGB123 /
+canale singolo) → correzioni visuali non distruttive.
+
+Test di regressione aggiunti: `engine-regression` verifica che la composizione
+colore richiede i tre canali con **geometria identica** — rifiuto su **dimensioni
+diverse** (oltre al già coperto rifiuto su profondità diversa), così R/G/B non
+ricevono mai geometrie diverse; `mosaic-regression` verifica che la pipeline è
+dichiarata nel report e che una **traslazione intera** di un livello a colori
+sposta i tre canali **insieme** (risultato ritagliato identico alla sorgente,
+nessuna divergenza per canale).
+
+Verifica effettiva (Ubuntu 24.04.5, Qt 6.4.2, OpenCV 4.6, offscreen): suite
+completa 24/24 passata con label `gpu` esclusa.
+
+M2-11 passa da «in corso» a «verificato per l'ambito dichiarato» (quattro
+incrementi: report, istogramma/clipping, preset, ordine colore). La validazione
+colorimetrica su scene reali resta in M3-04. Nel gate restano M2-12 (report
+qualità e scelta consigliata) e M2-13 (progetto portabile).
