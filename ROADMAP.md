@@ -280,7 +280,7 @@ progettazione, non dipendenze da integrare automaticamente.
 ## M2-08 — Procedura guidata “Da SatDump all’immagine finale”
 
 - Priorità: P0
-- Stato: in corso — cinque incrementi verificati. (1) Una sola azione desktop guida
+- Stato: verificato per l'ambito GUI dichiarato — sei incrementi. (1) Una sola azione desktop guida
   **Importa**, **Allinea canali**, **Unisci porzioni**, **Colore** ed **Esporta**,
   valida origine/profilo/destinazione, avvia il percorso reale e apre
   automaticamente il compositore senza cercare file intermedi. (2) **Ripresa del
@@ -302,9 +302,15 @@ progettazione, non dipendenze da integrare automaticamente.
   selezionati e l'utente può escluderne alcuni dall'elaborazione, senza dipendere
   dai nomi SX/DX e senza toccare l'esportazione; `selectedProducts()` e
   `selectedProductCount` espongono la scelta, conservata fra i cambi pagina.
-  Resta da integrare il salvataggio del risultato per singolo passaggio con
-  verifica del digest (e, a valle, l'uso del raggruppamento corretto nel percorso
-  di esecuzione, oggi limitato ai due VIS RDAS dal motore `generate`).
+  (6) **Verifica digest alla ripresa**: il progetto del wizard salva un digest
+  degli ingressi che determinano i risultati (identità cartella di origine,
+  satellite, motore e contenuto del profilo di calibrazione); alla ripresa il
+  digest viene ricalcolato e confrontato (`resumeDigestMatches`), e se il profilo
+  o la configurazione sono cambiati dal salvataggio un avviso EN/IT dichiara che i
+  risultati precedenti non sono affidabili. Resta esterno all'ambito GUI il riuso
+  effettivo dei risultati per singolo passaggio nel percorso di esecuzione (già
+  governato dai digest del runner batch) e l'uso del raggruppamento corretto nel
+  motore `generate`, oggi vincolato ai due VIS RDAS.
 - Dipendenze: M2-07, M3-04
 - Responsabile: Product Designer / Qt UX / SatDump Specialist / Accessibility / QA
 - Deliverable: procedura EN/IT accessibile dal desktop con percorso base in

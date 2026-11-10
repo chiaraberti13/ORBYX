@@ -3,6 +3,7 @@
 
 #include <QCheckBox>
 #include <QComboBox>
+#include <QCryptographicHash>
 #include <QDir>
 #include <QFile>
 #include <QFileDialog>
@@ -241,15 +242,27 @@ public:
         detectProducts();
     }
 
+    // Digest of the inputs that determine the step results: the input folder
+    // identity, satellite, engine and the calibration profile content. Saved with
+    // the project so a resume can tell whether earlier results are still valid.
+    QString inputsDigest() const {
+        QByteArray material;
+        material += input_->text().toUtf8(); material += '\0';
+        material += satellite_->currentText().toUtf8(); material += '\0';
+        material += (engine_->currentIndex() == 1 ? "cpu" : "auto"); material += '\0';
+        QFile profile(profile_->text());
+        if (profile.open(QIODevice::ReadOnly) && profile.size() <= 1024 * 1024) material += profile.readAll();
+        return QString::fromUtf8(QCryptographicHash::hash(material, QCryptographicHash::Sha256).toHex());
+    }
     // Serialized, resumable wizard state. The main window owns execution; this only
-    // records the chosen inputs, options and the reached step.
+    // records the chosen inputs, options, the reached step and an inputs digest.
     QString wizardProject() const {
         QJsonObject root;
         root["schema"] = "orbyx-final-wizard/1";
         root["input"] = input_->text(); root["profile"] = profile_->text(); root["output"] = output_->text();
         root["satellite"] = satellite_->currentText(); root["cpu"] = engine_->currentIndex() == 1;
         root["natural"] = colour_->currentIndex() == 0; root["step"] = currentId();
-        root["queue"] = queueChoice_->isChecked();
+        root["queue"] = queueChoice_->isChecked(); root["digest"] = inputsDigest();
         return QString::fromUtf8(QJsonDocument(root).toJson(QJsonDocument::Compact));
     }
     bool applyWizardProject(const QString &json) {
@@ -264,9 +277,18 @@ public:
         colour_->setCurrentIndex(root.value("natural").toBool(true) ? 0 : 1);
         queueChoice_->setChecked(root.value("queue").toBool());
         setProperty("resumedStep", root.value("step").toInt());
+        // Per-step trust: if the inputs (notably the calibration profile content)
+        // changed since the project was saved, earlier results are not trusted.
+        const QString savedDigest = root.value("digest").toString();
+        const bool matches = !savedDigest.isEmpty() && inputsDigest() == savedDigest;
+        setProperty("resumeDigestMatches", matches);
         updateSummary();
+        if (!savedDigest.isEmpty() && !matches && importSummary_)
+            importSummary_->setText(text("Inputs changed since this session was saved: earlier results are not trusted; re-run the steps.",
+                                         "Gli ingressi sono cambiati dal salvataggio: i risultati precedenti non sono affidabili; riesegui i passaggi."));
         return true;
     }
+    bool resumeDigestMatches() const { return property("resumeDigestMatches").toBool(); }
     void saveProject() const { autosave(); }
     bool hasSavedProject() const {
         QFile file(projectFile_);
