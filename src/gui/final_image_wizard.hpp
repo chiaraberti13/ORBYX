@@ -334,7 +334,12 @@ public:
                 error = text("Choose a local SatDump export folder.", "Scegli una cartella locale esportata da SatDump.");
             const auto products = selectedProducts();
             if (products.isEmpty()) error = text("Select at least one detected VIS product.", "Seleziona almeno un prodotto VIS rilevato.");
+            QSet<QString> productIds;
             for (const QString &vis : products) {
+                const auto identity=QRegularExpression("^MSUGS_VIS-?([1-9][0-9]{0,2})(?:_Aligned)?$").match(vis);
+                if (!identity.hasMatch() || productIds.contains(identity.captured(1)))
+                    error = text("Select only one raw or aligned version of each VIS product.", "Seleziona una sola versione, grezza o allineata, di ogni prodotto VIS.");
+                else productIds.insert(identity.captured(1));
                 const QFileInfo folder(QDir(input_->text()).filePath(vis));
                 if (!folder.isDir() || folder.isSymLink()) error = text("The selected SatDump product is incomplete.", "Il prodotto SatDump selezionato è incompleto.");
                 for (int channel = 1; channel <= 3; ++channel) {
