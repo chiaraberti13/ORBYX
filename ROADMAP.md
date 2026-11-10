@@ -454,9 +454,15 @@ progettazione, non dipendenze da integrare automaticamente.
   di clipping di alte luci e ombre con percentuali EN/IT
   (`mosaicHistogram`/`mosaicClipping`), oltre alle proprietà
   `coveredPixels`/`highlightClippedPixels`/`shadowClippedPixels`; si aggiorna
-  solo nella vista composita (non nelle modalità di confronto). Restano da
-  implementare i preset con nomi chiari (incluso canale singolo) e la
-  formalizzazione/test dell'ordine di elaborazione colore.
+  solo nella vista composita (non nelle modalità di confronto). (3) **Preset
+  colore con nomi chiari**: il selettore «Aggiungi 3 canali allineati» offre ora
+  **Natural Color (RGB321)**, **RGB123** e tre preset **canale singolo (scala di
+  grigi)** CH1/CH2/CH3; `orbyx::composeSingleChannel` scrive il canale scelto come
+  prodotto neutro (R=G=B) preservando la profondità 8/16 bit, input invariati e
+  pubblicazione atomica esclusiva. Nessun preset è etichettato «colore vero
+  scientifico». Resta da formalizzare e testare l'ordine di elaborazione colore
+  (allineamento canali → unione con la medesima geometria → composizione colore →
+  correzioni visuali).
 - Dipendenze: M2-08, M2-10, M3-04
 - Responsabile: Remote Sensing / Color Science / UX / QA
 - Deliverable: composizione colore nello stesso progetto e nella stessa

@@ -224,7 +224,9 @@ class MosaicDialog final:public QDialog {
     }
     void colourFolder(){
         auto folder=QFileDialog::getExistingDirectory(this,t("Select one aligned VIS product (three channels)","Seleziona un prodotto VIS allineato (tre canali)"));
-        if(!folder.isEmpty())appendChannels(folder,colourMode->currentIndex()==0);
+        if(folder.isEmpty())return;
+        const int mode=colourMode->currentIndex();
+        if(mode<=1)appendChannels(folder,mode==0);else appendSingleChannel(folder,mode-2);
     }
     void saveProjectDialog(){
         if(layers.empty())return;auto name=QFileDialog::getSaveFileName(this,t("Save editable project","Salva progetto modificabile"),"mosaic.orbyx.json","ORBYX (*.json)");if(name.isEmpty())return;
@@ -300,7 +302,7 @@ public:
         auto* note=new QLabel(t("Multiple portions, any direction. First align each portion’s channels. Automatic overlap proposes editable geometry; it is not georeferencing.","Più porzioni, in ogni direzione. Prima allinea i canali di ciascuna porzione. La sovrapposizione automatica propone una geometria modificabile; non è una georeferenziazione."));note->setWordWrap(true);panel->addWidget(note);
         button("mosaicDemo",t("Add editable demo portions","Aggiungi porzioni demo modificabili"),panel,[this]{appendDemo();});
         button("mosaicAdd",t("Add PNG portions…","Aggiungi porzioni PNG…"),panel,[this]{addFiles();});
-        colourMode=new QComboBox;colourMode->addItems({"MSU-GS Natural Color (RGB321)","RGB123"});colourMode->setAccessibleName(t("Channel colour composition","Composizione colore dei canali"));panel->addWidget(colourMode);
+        colourMode=new QComboBox;colourMode->setObjectName("mosaicColourMode");colourMode->addItems({"MSU-GS Natural Color (RGB321)","RGB123",t("Single channel — CH1 (grayscale)","Canale singolo — CH1 (scala di grigi)"),t("Single channel — CH2 (grayscale)","Canale singolo — CH2 (scala di grigi)"),t("Single channel — CH3 (grayscale)","Canale singolo — CH3 (scala di grigi)")});colourMode->setAccessibleName(t("Channel colour composition","Composizione colore dei canali"));panel->addWidget(colourMode);
         button("mosaicChannels",t("Add 3 aligned channels…","Aggiungi 3 canali allineati…"),panel,[this]{colourFolder();});
         list=new QListWidget;list->setObjectName("mosaicLayers");list->setAccessibleName(t("Layers, bottom to top","Livelli, dal basso verso l’alto"));list->setMaximumHeight(140);panel->addWidget(list);
         connect(list,&QListWidget::currentRowChanged,this,[this]{if(!updating){readControls();display();}});
@@ -423,6 +425,12 @@ public:
         if(busy||layers.size()>=32)return;QDir().mkpath(workingFolder);
         const auto file=workingFolder+"/"+QUuid::createUuid().toString(QUuid::WithoutBraces)+".png";
         run([folder,file,natural]{std::array<std::filesystem::path,3> channels;for(int i=0;i<3;++i)channels[size_t(i)]=std::filesystem::path(folder.toStdString())/("MSUGS-VIS-"+std::to_string(i+1)+".png");if(natural)orbyx::composeNaturalColor(channels,file.toStdString());else orbyx::composeRgb(channels,file.toStdString());},[this,file]{remember();orbyx::MosaicLayer l;l.image=file.toStdString();layers.push_back(l);refreshList();});
+    }
+    // M2-11 single-channel preset: the chosen channel as a neutral gray layer.
+    void appendSingleChannel(const QString& folder,int index){
+        if(busy||layers.size()>=32||index<0||index>2)return;QDir().mkpath(workingFolder);
+        const auto file=workingFolder+"/"+QUuid::createUuid().toString(QUuid::WithoutBraces)+".png";
+        run([folder,file,index]{std::array<std::filesystem::path,3> channels;for(int i=0;i<3;++i)channels[size_t(i)]=std::filesystem::path(folder.toStdString())/("MSUGS-VIS-"+std::to_string(i+1)+".png");orbyx::composeSingleChannel(channels,file.toStdString(),index);},[this,file]{remember();orbyx::MosaicLayer l;l.image=file.toStdString();layers.push_back(l);refreshList();});
     }
     void appendGeneratedProducts(const QString& outputRoot,const QString& profile,const QString& satellite,bool natural=true){
         if(busy||layers.size()>30)return;

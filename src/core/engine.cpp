@@ -652,6 +652,12 @@ void writeCompositePng(const cv::Mat& rgb,const fs::path& requested) {
 void composeRgb(const std::array<fs::path,3>& channels,const fs::path& destination) {
   composeProduct(channels,destination,false);
 }
+void composeSingleChannel(const std::array<fs::path,3>& channels,const fs::path& destination,int index) {
+  require(index>=0&&index<3,"Single-channel index must be 0, 1 or 2");
+  const cv::Mat channel=readImage(channels[size_t(index)],false);
+  std::vector<cv::Mat> bgr{channel,channel,channel};cv::Mat gray;cv::merge(bgr,gray);
+  writeCompositePng(gray,destination);
+}
 void composeNaturalColor(const std::array<fs::path,3>& channels,const fs::path& destination) {
   composeProduct(channels,destination,true);
 }

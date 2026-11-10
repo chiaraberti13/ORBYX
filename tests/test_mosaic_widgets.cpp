@@ -139,6 +139,15 @@ int main(int argc,char** argv){
             MosaicDialog channels(it);channels.appendChannels(QString::fromStdString(folder.string()),true);waitFor(channels);
             check(channels.state().size()==1,"GUI colour composition did not create a portion");
             check(orbyx::readCompositePng(channels.state()[0].image).type()==CV_16UC3,"Natural Color in editor lost native depth");
+            // M2-11 colour presets: Natural Color, RGB123 and three single-channel
+            // grayscale presets with clear names (no "true scientific colour").
+            auto* colourCombo=channels.findChild<QComboBox*>("mosaicColourMode");
+            check(colourCombo&&colourCombo->count()==5&&colourCombo->itemText(2).contains("CH1")&&!colourCombo->itemText(0).contains("true scientific",Qt::CaseInsensitive),"Colour presets are missing or mislabelled");
+            MosaicDialog single(it);single.appendSingleChannel(QString::fromStdString(folder.string()),1);waitFor(single);
+            check(single.state().size()==1,"Single-channel preset did not create a portion");
+            const auto grayLayer=orbyx::readCompositePng(single.state()[0].image);
+            check(grayLayer.type()==CV_16UC3,"Single-channel preset lost native depth");
+            const auto gpx=grayLayer.at<cv::Vec3w>(0,0);check(gpx[0]==8002&&gpx[1]==8002&&gpx[2]==8002,"Single-channel preset is not neutral gray from CH2");
             channels.saveProject(temp.path()+(it?"/channels-it.json":"/channels-en.json"));
             MosaicDialog profileRoi(it);profileRoi.show();profileRoi.appendGeneratedProducts(QString::fromStdString(generated.string()),QString::fromStdString(generatedProfile.string()),"L2",true);waitFor(profileRoi);
             check(profileRoi.state().size()==3&&profileRoi.property("loadedProfileRoi").toBool(),"All selected output products were not opened as editable layers");
