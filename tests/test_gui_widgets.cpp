@@ -159,6 +159,10 @@ int main(int argc, char **argv) {
                 requireTest(toExclude,"Generic VIS3 product was not offered for grouping");
                 toExclude->setCheckState(Qt::Unchecked);
                 requireTest(detector.property("selectedProductCount").toInt()==3&&!detector.selectedProducts().contains("MSUGS_VIS3"),"Excluding a product did not update the grouping");
+                const QString savedGrouping=detector.wizardProject();
+                FinalImageWizard restoredGrouping(lang=="it","","","","L2",true);
+                requireTest(restoredGrouping.applyWizardProject(savedGrouping)&&restoredGrouping.selectedProducts()==detector.selectedProducts(),"Saved wizard did not restore the corrected product grouping");
+                requireTest(restoredGrouping.inputsDigest()==detector.inputsDigest(),"Corrected grouping was omitted from the resume digest");
                 requireTest(QFileInfo::exists((din/"MSUGS_VIS3"/"MSUGS-VIS-1.png").string().c_str()),"Grouping correction modified the source export");
             }
             // M2-08: finishing the guided wizard with the durable-queue option enqueues

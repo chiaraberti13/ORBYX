@@ -148,6 +148,7 @@ class Window final : public QMainWindow {
     QPushButton *demoButton{}, *simulateButton{}, *wizardButton{}, *finalImageButton{}, *watchButton{}, *updatesButton{};
     bool openFinalEditor=false;
     bool finalNaturalColour=true;
+    QStringList finalSelectedProducts;
     QString importedFingerprint;
     QPointer<ImportDialog> importWindow;
     QPointer<UpdateDialog> updateWindow;
@@ -448,9 +449,8 @@ class Window final : public QMainWindow {
     void openMosaic(bool natural=true) {
         MosaicDialog dialog(it,this);
         const QDir generated(lastOutput);
-        if(QFileInfo(generated.filePath("MSUGS_VIS-1_Aligned/MSUGS-VIS-1.png")).isFile()&&
-           QFileInfo(generated.filePath("MSUGS_VIS-2_Aligned/MSUGS-VIS-1.png")).isFile())
-            dialog.appendGeneratedProducts(lastOutput,config->text(),satellite->currentText(),natural);
+        bool hasEditable=false;for(const auto& name:generated.entryList({"MSUGS_VIS-*_Aligned"},QDir::Dirs|QDir::NoDotAndDotDot))if(QFileInfo(generated.filePath(name+"/MSUGS-VIS-1.png")).isFile()){hasEditable=true;break;}
+        if(hasEditable)dialog.appendGeneratedProducts(lastOutput,config->text(),satellite->currentText(),natural);
         dialog.exec();
     }
     void execute() {
@@ -468,6 +468,7 @@ class Window final : public QMainWindow {
         options.language = it ? "it" : "en";
         options.satellite = satellite->currentText().toStdString(); options.cpu = engine->currentIndex() == 1; options.calibrate = mode->currentIndex() == 1;
         options.editableParts=!options.calibrate;
+        for(const QString &product:finalSelectedProducts)options.products.push_back(product.toStdString());
         lastOutput = output->text(); setQueueBusy(true);
         progress->setRange(0,0); status->setText(trText("Processing…")); applyText();
         if (!quitAfterRun) { settings.setValue("input", input->text()); settings.setValue("config", config->text()); settings.setValue("satellite", satellite->currentText()); }
@@ -564,13 +565,17 @@ class Window final : public QMainWindow {
             QSet<QString> ids;
             for(const auto& value:jobs) {
                 auto job=value.toObject();const auto id=job["id"].toString();
-                const QSet<QString> allowed{"id","satellite","input","output","config","mode","cpu","calibration_scale","acquisition_fingerprint"};
+                const QSet<QString> allowed{"id","satellite","input","output","config","mode","cpu","calibration_scale","acquisition_fingerprint","products"};
                 for(auto key=job.begin();key!=job.end();++key)if(!allowed.contains(key.key()))throw std::runtime_error("Unknown saved job field");
                 if(!QRegularExpression("^[A-Za-z0-9_.-]{1,128}$").match(id).hasMatch()||ids.contains(id)||!job["cpu"].isBool()||(job["mode"]!="generate"&&job["mode"]!="calibrate"))throw std::runtime_error("Invalid saved job");
                 if(!QRegularExpression("^[A-Z0-9_]{1,32}$").match(job["satellite"].toString()).hasMatch())throw std::runtime_error("Invalid saved satellite");
                 for(const auto& field:{"input","output","config"})if(!job[field].isString()||job[field].toString().isEmpty()||job[field].toString().contains(QChar(0))||job[field].toString().size()>4096)throw std::runtime_error("Invalid saved path");
                 if(job.contains("calibration_scale")&&(!job["calibration_scale"].isDouble()||job["mode"]!="calibrate"||!(job["calibration_scale"].toDouble()>0&&job["calibration_scale"].toDouble()<=1)))throw std::runtime_error("Invalid saved calibration scale");
                 if(job.contains("acquisition_fingerprint")&&!QRegularExpression("^[0-9a-f]{64}$").match(job["acquisition_fingerprint"].toString()).hasMatch())throw std::runtime_error("Invalid saved acquisition fingerprint");
+                if(job.contains("products")){
+                    if(!job["products"].isArray()||job["mode"]!="generate"||job["products"].toArray().isEmpty()||job["products"].toArray().size()>32)throw std::runtime_error("Invalid saved products");
+                    QSet<QString> products;for(const auto& value:job["products"].toArray()){const auto product=value.toString();if(!value.isString()||!QRegularExpression("^MSUGS_VIS(?:[1-9][0-9]{0,2}|-[1-9][0-9]{0,2}_Aligned)$").match(product).hasMatch()||products.contains(product))throw std::runtime_error("Invalid saved products");products.insert(product);}
+                }
                 ids.insert(id);
             }
             for(const auto& value:jobs) {
@@ -597,6 +602,7 @@ class Window final : public QMainWindow {
         job["mode"] = mode->currentIndex() == 1 ? "calibrate" : "generate";
         job["cpu"] = engine->currentIndex() == 1;
         if(mode->currentIndex()==1&&guidedScale!=1.0)job["calibration_scale"]=guidedScale;
+        if(mode->currentIndex()==0&&!finalSelectedProducts.isEmpty())job["products"]=finalSelectedProducts;
         const int row=queue->rowCount();appendQueueJob(job);
         if(!persistQueue()){queue->removeRow(row);return false;}
         queueRun->setEnabled(!busy);return true;
@@ -632,6 +638,7 @@ class Window final : public QMainWindow {
             for (const QString &key : {"id", "satellite", "input", "output", "config", "mode"})
                 entry[key] = job[key].toString();
             if(job.contains("acquisition_fingerprint"))entry["acquisition_fingerprint"]=job["acquisition_fingerprint"].toString();
+            if(job.contains("products")){QJsonArray products;for(const auto& product:job["products"].toList())products.append(product.toString());entry["products"]=products;}
             entry["cpu"] = job["cpu"].toBool();
             if(job.contains("calibration_scale"))entry["calibration_scale"]=job["calibration_scale"].toDouble();
             jobs.append(entry);
@@ -745,6 +752,7 @@ class Window final : public QMainWindow {
     }
     void selectInput(const QString &folder) {
         importedFingerprint.clear();
+        finalSelectedProducts.clear();
         input->setText(folder);
         if (output->text().isEmpty()) output->setText(folder+"-orbyx");
         source->setCurrentIndex(0); loadPreview();
@@ -825,6 +833,7 @@ public:
             CalibrationWizard wizard(it,input->text(),config->text(),output->text(),satellite->currentText(),this);
             if(wizard.exec()!=QDialog::Accepted)return;
             input->setText(wizard.inputPath());config->setText(wizard.profilePath());output->setText(wizard.outputPath());
+            finalSelectedProducts.clear();
             satellite->setCurrentText(wizard.satelliteId());guidedScale=wizard.scale();mode->setCurrentIndex(1);engine->setCurrentIndex(1);loadPreview();
         });
         watchButton=new QPushButton;watchButton->setObjectName("watchButton");form->addWidget(watchButton);
@@ -867,7 +876,7 @@ public:
             input->setText(wizard.inputPath());config->setText(wizard.profilePath());output->setText(wizard.outputPath());
             if(satellite->findText(wizard.satelliteId())<0)satellite->addItem(wizard.satelliteId());
             satellite->setCurrentText(wizard.satelliteId());engine->setCurrentIndex(wizard.cpuOnly()?1:0);mode->setCurrentIndex(0);
-            finalNaturalColour=wizard.naturalColour();loadPreview();
+            finalNaturalColour=wizard.naturalColour();finalSelectedProducts=wizard.selectedProducts();loadPreview();
             // M2-08: the guided job can run now (opening the editor) or join the
             // durable, resumable queue instead of running immediately.
             if(wizard.queueInsteadOfRun()){openFinalEditor=false;addToQueue();}
@@ -898,12 +907,12 @@ public:
         log=new QTextEdit; log->setReadOnly(true); log->setMinimumHeight(70); log->setMaximumHeight(90); page->addWidget(log);
         connect(language,qOverload<int>(&QComboBox::currentIndexChanged),this,[this](int i){it=i==0;settings.setValue("language",it?"it":"en");applyText();});
         connect(theme,qOverload<int>(&QComboBox::currentIndexChanged),this,[this](int i){dark=i==0;settings.setValue("dark",dark);applyTheme();});
-        connect(mode,qOverload<int>(&QComboBox::currentIndexChanged),this,[this]{applyText();});
+        connect(mode,qOverload<int>(&QComboBox::currentIndexChanged),this,[this](int index){if(index==1)finalSelectedProducts.clear();applyText();});
         connect(satellite,qOverload<int>(&QComboBox::currentIndexChanged),this,[this]{applyText();});
         connect(inputBrowse,&QPushButton::clicked,this,[this]{const auto p=QFileDialog::getExistingDirectory(this,trText("Choose RDAS folder"),input->text());if(!p.isEmpty()) selectInput(p);});
         connect(configBrowse,&QPushButton::clicked,this,[this]{const auto p=QFileDialog::getOpenFileName(this,trText("Choose calibration profile"),config->text(),"JSON (*.json)");if(!p.isEmpty())config->setText(p);});
         connect(outputBrowse,&QPushButton::clicked,this,[this]{const auto p=QFileDialog::getExistingDirectory(this,trText("Select output parent folder"),QFileInfo(output->text()).absolutePath());if(!p.isEmpty())output->setText(QDir(p).filePath("orbyx-output"));});
-        connect(input,&QLineEdit::textEdited,this,[this]{importedFingerprint.clear();});
+        connect(input,&QLineEdit::textEdited,this,[this]{importedFingerprint.clear();finalSelectedProducts.clear();});
         connect(input,&QLineEdit::editingFinished,this,[this]{loadPreview();}); connect(source,qOverload<int>(&QComboBox::currentIndexChanged),this,[this]{loadPreview();});
         connect(channel,qOverload<int>(&QComboBox::currentIndexChanged),this,[this](int i){settings.setValue("previewChannel",i);loadPreview();});
         connect(start,&QPushButton::clicked,this,[this]{execute();}); connect(clear,&QPushButton::clicked,log,&QTextEdit::clear);
@@ -914,6 +923,7 @@ public:
             importedFingerprint=job["acquisition_fingerprint"].toString();config->setText(job["config"].toString());output->setText(job["output"].toString());
             if(satellite->findText(job["satellite"].toString())<0)satellite->addItem(job["satellite"].toString());satellite->setCurrentText(job["satellite"].toString());
             mode->setCurrentIndex(job["mode"]=="calibrate"?1:0);engine->setCurrentIndex(job["cpu"].toBool()?1:0);guidedScale=job.value("calibration_scale",1.0).toDouble();
+            finalSelectedProducts.clear();for(const auto& product:job["products"].toList())finalSelectedProducts.append(product.toString());
         });
         connect(queueAdd,&QPushButton::clicked,this,[this]{addToQueue();}); connect(queueRemove,&QPushButton::clicked,this,[this]{removeQueued();});
         connect(queueRun,&QPushButton::clicked,this,[this]{executeQueue();}); connect(profileDup,&QPushButton::clicked,this,[this]{duplicateProfileDialog();});
