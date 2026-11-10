@@ -69,6 +69,7 @@ class MosaicDialog final:public QDialog {
     bool it=false,busy=false,updating=false,dirty=false;
     QWidget* tools{};QListWidget* list{};MosaicCanvas* canvas{};QLabel* status{};
     QScrollArea* previewView{};QComboBox* colourMode{};QComboBox* inspectionMode{};QComboBox* blendMode{};QSlider* swipePosition{};QDoubleSpinBox* zoom{};QCheckBox* visible{};QCheckBox* blink{};
+    QLabel* histogramLabel_{};QLabel* clippingLabel_{}; // Composite histogram and highlight/shadow clipping (M2-11).
     std::vector<QDoubleSpinBox*> controls;
     std::vector<orbyx::MosaicLayer> layers;
     std::vector<orbyx::MosaicLayer> profileRoiBaseline;
@@ -145,6 +146,28 @@ class MosaicDialog final:public QDialog {
         if(row>=0&&row<int(outlines.size())&&layers[size_t(row)].visible&&!(blink&&blink->isChecked()&&blinkHidden)){QPainter painter(&p);painter.setPen(QPen(QColor("#00d4ff"),2,Qt::DashLine));QPolygonF polygon;for(const auto& point:outlines[size_t(row)])polygon<<point*(zoom->value()/100.);painter.drawPolygon(polygon);}
         canvas->setPixmap(p);canvas->resize(p.size());
     }
+    // M2-11: composite luminance histogram and highlight/shadow clipping within the
+    // covered area, so the user can judge exposure/colour before export.
+    void updateHistogram(const orbyx::MosaicResult& rendered){
+        if(!histogramLabel_||!clippingLabel_)return;
+        const cv::Mat& img=rendered.image;
+        if(img.empty()||img.type()!=CV_8UC3){histogramLabel_->clear();clippingLabel_->clear();return;}
+        cv::Mat coverage=cv::Mat::zeros(img.size(),CV_8U);
+        for(const auto& poly:rendered.outlines){std::vector<cv::Point> pts;for(const auto& pt:poly)pts.emplace_back(cvRound(pt.x),cvRound(pt.y));if(pts.size()>=3)cv::fillConvexPoly(coverage,pts,cv::Scalar(255));}
+        const long covered=cv::countNonZero(coverage);
+        long highlight=0,shadow=0;int hist[256]={0};int maxBin=1;
+        cv::Mat gray;cv::cvtColor(img,gray,cv::COLOR_BGR2GRAY);
+        for(int y=0;y<img.rows;++y){const auto* c=coverage.ptr<uchar>(y);const auto* p=img.ptr<cv::Vec3b>(y);const auto* g=gray.ptr<uchar>(y);
+            for(int x=0;x<img.cols;++x)if(c[x]){const auto& v=p[x];if(v[0]>=255||v[1]>=255||v[2]>=255)++highlight;if(v[0]==0&&v[1]==0&&v[2]==0)++shadow;if(++hist[g[x]]>maxBin)maxBin=hist[g[x]];}}
+        setProperty("coveredPixels",qlonglong(covered));setProperty("highlightClippedPixels",qlonglong(highlight));setProperty("shadowClippedPixels",qlonglong(shadow));
+        QImage bars(256,74,QImage::Format_RGB888);bars.fill(QColor(16,20,28));
+        {QPainter painter(&bars);painter.setPen(Qt::NoPen);painter.setBrush(QColor(90,200,160));
+         for(int b=0;b<256;++b){const int h=int(std::lround(70.0*hist[b]/maxBin));if(h>0)painter.drawRect(b,74-h,1,h);}
+         painter.setPen(QColor(120,160,255));painter.drawLine(0,0,0,73);painter.setPen(QColor(255,120,120));painter.drawLine(255,0,255,73);}
+        histogramLabel_->setPixmap(QPixmap::fromImage(bars));
+        const double hp=covered?100.0*highlight/covered:0.,sp=covered?100.0*shadow/covered:0.;
+        clippingLabel_->setText(t("Clipping — highlights %1% · shadows %2%","Clipping — alte luci %1% · ombre %2%").arg(hp,0,'f',2).arg(sp,0,'f',2));
+    }
     void preview(){
         if(layers.empty()){canvas->clear();previewImage={};status->setText(t("Add portions or aligned channels to begin.","Aggiungi porzioni o canali allineati per iniziare."));return;}
         auto state=layers;const int selected=list->currentRow();
@@ -190,6 +213,7 @@ class MosaicDialog final:public QDialog {
             setProperty("inspectionRendered",result->inspection);
             setProperty("swipeRendered",swipePosition?swipePosition->value():50);
             setProperty("seamFallbacks",rendered.seamFallbacks);
+            if(result->inspection==0)updateHistogram(rendered); // Composite view only.
             if(rendered.seamFallbacks>0)status->setText(t("No continuous optimized seam was found for one or more layers; the saved feather settings were used.","Non è stata trovata una giunzione ottimizzata continua per uno o più livelli; sono state usate le impostazioni di sfumatura salvate."));
             else status->setText(persistentNotice.isEmpty()?t("Preview only: export uses original resolution and 8/16-bit depth. Drag to move the selected layer.","Solo anteprima: l’esportazione usa risoluzione originale e profondità 8/16 bit. Trascina per spostare il livello selezionato."):persistentNotice);
         });
@@ -326,6 +350,8 @@ public:
         auto* right=new QVBoxLayout;body->addLayout(right,1);
         auto* zoomRow=new QHBoxLayout;right->addLayout(zoomRow);zoomRow->addWidget(new QLabel(t("Preview zoom (%)","Zoom anteprima (%)")));
         zoom=new QDoubleSpinBox;zoom->setRange(25,400);zoom->setValue(100);zoom->setAccessibleName(t("Preview zoom","Zoom anteprima"));zoomRow->addWidget(zoom);connect(zoom,qOverload<double>(&QDoubleSpinBox::valueChanged),this,[this]{display();});button("mosaicFit",t("Fit","Adatta"),zoomRow,[this]{fitPreview();});zoomRow->addStretch();
+        histogramLabel_=new QLabel;histogramLabel_->setObjectName("mosaicHistogram");histogramLabel_->setFixedHeight(82);histogramLabel_->setAccessibleName(t("Composite luminance histogram","Istogramma di luminanza della composizione"));right->addWidget(histogramLabel_);
+        clippingLabel_=new QLabel;clippingLabel_->setObjectName("mosaicClipping");clippingLabel_->setTextFormat(Qt::PlainText);clippingLabel_->setAccessibleName(t("Highlight and shadow clipping","Clipping alte luci e ombre"));right->addWidget(clippingLabel_);
         auto* view=new QScrollArea;previewView=view;canvas=new MosaicCanvas;canvas->setObjectName("mosaicCanvas");canvas->setAlignment(Qt::AlignTop|Qt::AlignLeft);canvas->setFocusPolicy(Qt::StrongFocus);canvas->setAccessibleName(t("Composite preview; drag or use arrow keys to move the selected layer","Anteprima composizione; trascina o usa le frecce per spostare il livello selezionato"));view->setWidget(canvas);right->addWidget(view,1);
         canvas->moved=[this](QPointF delta){int row=list->currentRow();if(busy||row<0||previewImage.isNull())return;remember();auto& l=layers[size_t(row)];l.x+=delta.x()/(previewRatio*zoom->value()/100.);l.y+=delta.y()/(previewRatio*zoom->value()/100.);readControls();schedule();};
         canvas->nudged=[this](QPointF delta){int row=list->currentRow();if(busy||row<0)return;remember();auto& l=layers[size_t(row)];l.x+=delta.x();l.y+=delta.y();setProperty("mergeStrategy","manual");readControls();schedule();};
