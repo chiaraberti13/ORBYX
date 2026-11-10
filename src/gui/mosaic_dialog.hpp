@@ -589,7 +589,10 @@ public:
     void saveProject(const QString& name){
         if(!name.endsWith(".json")||QFileInfo(name).isSymLink())throw std::runtime_error("Project must be a regular JSON file");
         for(const auto& layer:layers)if(QFileInfo(name).absoluteFilePath()==QFileInfo(QString::fromStdString(layer.image.string())).absoluteFilePath())throw std::runtime_error("Project cannot replace a source image");
-        auto text=QByteArray::fromStdString(orbyx::mosaicProject(layers));QSaveFile file(name);file.setDirectWriteFallback(false);
+        // M2-13: images under the project folder are stored relative, so the project
+        // can be moved with its images and reopened.
+        const std::filesystem::path projectDir=QFileInfo(name).absolutePath().toStdString();
+        auto text=QByteArray::fromStdString(orbyx::mosaicProject(layers,projectDir));QSaveFile file(name);file.setDirectWriteFallback(false);
         if(!file.open(QIODevice::WriteOnly))throw std::runtime_error("Cannot create project file");file.setPermissions(QFileDevice::ReadOwner|QFileDevice::WriteOwner);
         if(file.write(text)!=text.size()||!file.commit())throw std::runtime_error("Cannot save project atomically");
         dirty=false;
@@ -597,7 +600,8 @@ public:
     void loadProject(const QString& name){
         if(busy)return;QFileInfo info(name);if(!info.isFile()||info.isSymLink()||info.size()>1024*1024)throw std::runtime_error("Invalid project file");
         QFile file(name);if(!file.open(QIODevice::ReadOnly))throw std::runtime_error("Cannot read project");auto text=file.read(1024*1024+1);
-        auto loaded=orbyx::parseMosaicProject(text.toStdString());remember();layers=std::move(loaded);dirty=false;refreshList();
+        const std::filesystem::path projectDir=QFileInfo(name).absolutePath().toStdString();
+        auto loaded=orbyx::parseMosaicProject(text.toStdString(),projectDir);remember();layers=std::move(loaded);dirty=false;refreshList();
     }
     void exportTo(const QString& file){
         if(busy||layers.empty())return;auto state=layers;
