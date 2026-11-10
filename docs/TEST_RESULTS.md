@@ -132,6 +132,20 @@ rimozione annullabili. Gli oggetti C++ del test widget e della GUI sono stati
 compilati localmente con Qt 6.4.2 e OpenCV 4.6.0; la suite eseguibile completa
 non viene dichiarata verde finché non termina la CI pulita del commit.
 
+### M2-10: giunzione a costo minimo
+
+Il commit `53732bb` aggiunge la terza modalità visuale. La seam è scelta con
+programmazione dinamica sulla differenza di intensità e gradiente in una working
+image limitata a 2048 pixel; l'export continua nel renderer a tile e alla
+profondità nativa. Se l'overlap non offre un percorso continuo, il risultato
+riporta il fallback e usa i parametri della sfumatura esistente. La persistenza
+accetta `seam` senza cambiare i progetti precedenti. I test sintetici coprono
+16 bit, determinismo, zone non sovrapposte, assenza di buchi o blending non
+richiesto e round-trip; gli oggetti core, GUI e test compilano localmente. Il
+link del test non è eseguibile nel container di lavoro per dipendenze isolate
+esterne obsolete, quindi l'esecuzione completa resta attribuita soltanto alla CI
+pulita quando disponibile.
+
 ## Funzioni completate
 
 - **Calibrazione guidata EN/IT**: tre passaggi, controllo degli input nativi,

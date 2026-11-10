@@ -872,4 +872,19 @@ l'ultimo punto o cancellare il disegno. Applicazione e cancellazione delle
 maschere entrano nella cronologia Annulla/Ripeti. Compilati con successo il
 core, l'oggetto del test widget e l'oggetto della GUI; l'esecuzione pulita della
 suite completa resta da confermare nella CI dei commit `655c6a4` e `f134146`.
-Per M2-10 restano seam ottimizzata e compensazione visuale.
+A questo punto restavano seam ottimizzata e compensazione visuale.
+
+### M2-10 — Quinto incremento: giunzione a costo minimo
+
+Aggiunta una terza modalità esplicita per livello, distinta da sostituzione e
+sfumatura. ORBYX calcola una cucitura deterministica nella sovrapposizione
+minimizzando differenze di intensità e gradiente; la working image ha lato
+massimo 2048 pixel, mentre il renderer finale resta a tile e 8/16 bit nativi.
+Le maschere include/escludi partecipano alla copertura. Se non esiste un
+percorso continuo, il risultato registra il fallback e la GUI avvisa che sono
+stati usati i parametri di sfumatura salvati. La modalità viene persistita nel
+progetto e i file precedenti mantengono la semantica storica. Compilati senza
+warning core, GUI e oggetti dei test sul commit `53732bb`; il link finale locale
+resta bloccato dalle librerie esterne isolate già note, quindi la suite completa
+non viene dichiarata superata fino alla CI pulita. Per M2-10 restano blending
+multibanda e compensazione visuale automatica.

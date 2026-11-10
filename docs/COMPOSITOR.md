@@ -129,6 +129,13 @@ in M2-08.
    poligonali selezionate**. Le esclusioni hanno precedenza sulle inclusioni;
    maschere, ordine e coordinate sono salvati nel progetto e restano
    annullabili con **Annulla/Ripeti**. Il PNG sorgente non viene modificato.
+   **Giunzione a costo minimo (visuale)** cerca invece un percorso continuo
+   nella sovrapposizione privilegiando le zone con minore differenza di
+   intensità e gradiente. Conserva la profondità 8/16 bit nell'export e non
+   modifica la geometria. Se la sovrapposizione non contiene un percorso
+   continuo, l'app lo segnala e usa le impostazioni di sfumatura già salvate.
+   È un aiuto visuale, non corregge un allineamento sbagliato e non costituisce
+   una georeferenziazione.
 9. **Alza/Abbassa** cambia l’ordine di sovrapposizione. La lista va dal fondo alla
    cima. La sfumatura attenua tutti i bordi del livello, non soltanto una giunzione:
    serve sovrapposizione reale per una transizione continua. Non ricostruisce

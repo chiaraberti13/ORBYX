@@ -338,7 +338,7 @@ progettazione, non dipendenze da integrare automaticamente.
 ## M2-10 — Seam, maschere e blending per l’immagine visuale
 
 - Priorità: P1
-- Stato: in corso — quattro incrementi implementati. (1) Modalità esplicite
+- Stato: in corso — cinque incrementi implementati. (1) Modalità esplicite
   per livello **Nessun blending** e **Sfumatura**, persistite nel progetto con
   compatibilità dei progetti precedenti; senza blending il livello superiore
   sostituisce quello inferiore senza opacità/sfumatura e la modalità storica
@@ -356,14 +356,21 @@ progettazione, non dipendenze da integrare automaticamente.
   livello; tutte le operazioni sono annullabili e non alterano la sorgente. Il
   core e gli oggetti GUI/test sono stati compilati localmente; l'esecuzione
   pulita completa è demandata alla CI dei commit `655c6a4` e `f134146`.
-  Restano da implementare la seam ottimizzata e la compensazione visuale.
+  (5) **Giunzione a costo minimo**: nella sovrapposizione calcola in modo
+  deterministico un percorso su differenza di intensità e gradiente, con
+  working image limitata a 2048 pixel, rendering finale a profondità nativa e
+  fallback esplicito alla sfumatura salvata se non esiste un percorso continuo.
+  Core, GUI e oggetti dei test compilano sul commit `53732bb`; la suite pulita
+  deve ancora concludersi in CI. Restano da valutare blending multibanda e
+  compensazione visuale automatica.
 - Dipendenze: M2-09
 - Responsabile: Computer Vision / Imaging / Performance / AppSec / QA
 - Deliverable: tre modalità dichiarate: **Nessun blending** per dati scientifici,
   **Sfumatura** compatibile con l’editor attuale e **Seam ottimizzata** per la
   presentazione finale
-- Seam: valutare graph-cut su colore/gradiente e blending multibanda usando i
-  componenti OpenCV, con fallback deterministico alla sfumatura esistente
+- Seam: implementato il primo percorso a costo minimo su intensità/gradiente;
+  resta da valutare il blending multibanda senza introdurre dipendenze o memoria
+  non controllate. Il fallback deterministico usa la sfumatura esistente
 - Maschere: poligoni include/escludi non distruttivi per artefatti, bordi o zone
   da preferire; salvataggio nel progetto e anteprima della seam scelta
 - Aspetto: compensazione opzionale di luminosità/colore soltanto sull’output
