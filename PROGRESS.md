@@ -1401,3 +1401,12 @@ riproducibile). Sezione «Verifica» estesa con le nuove prove `mosaic-regressio
 e `mosaic-widget-flow`. In `README.md` aggiornato il riassunto del compositore.
 Onestà mantenuta: rese visive e non calibrazioni radiometriche, nessuna
 georeferenziazione, nessun verdetto di «perfezione».
+
+README reso più chiaro sull'uso: aggiunta la guida «Quale pulsante premo?» (tabella
+situazione→pulsante) in `README.md` (IT) e `README.en.md` (EN), con avviso esplicito
+sull'errore più comune — **Crea immagine finale…** accetta solo dati veri di SatDump
+(cartelle `MSUGS_VIS*`), non le foto demo, per cui mostra il messaggio rosso «non è
+un'esportazione VIS»; per le foto demo si usano **Generazione automatica** o
+**Simulazione immagini…**. Chiarita la differenza cartelle-SatDump vs sei JPEG e
+aggiornato il pulsante demo EN al nome reale «Automatic generation». Solo
+documentazione, nessuna modifica al codice o al comportamento.
