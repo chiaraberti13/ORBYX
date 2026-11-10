@@ -120,6 +120,15 @@ in M2-08.
    pixel. **Sfumatura (transizione visuale)** usa opacità e distanza dai bordi
    come nell’editor storico. La modalità viene salvata nel progetto; i progetti
    creati prima di questa opzione mantengono automaticamente la sfumatura.
+   Per eliminare una fascia, un'intestazione o un artefatto irregolare senza
+   cancellare pixel, premi **Disegna maschera poligonale…**. Scegli
+   **Escludi area** per mostrare i livelli sottostanti oppure **Includi area**
+   per conservare soltanto l'unione delle zone incluse, quindi fai clic su
+   almeno tre vertici nell'anteprima e premi **Applica**. Puoi annullare
+   l'ultimo vertice, cancellare il disegno o usare **Cancella maschere
+   poligonali selezionate**. Le esclusioni hanno precedenza sulle inclusioni;
+   maschere, ordine e coordinate sono salvati nel progetto e restano
+   annullabili con **Annulla/Ripeti**. Il PNG sorgente non viene modificato.
 9. **Alza/Abbassa** cambia l’ordine di sovrapposizione. La lista va dal fondo alla
    cima. La sfumatura attenua tutti i bordi del livello, non soltanto una giunzione:
    serve sovrapposizione reale per una transizione continua. Non ricostruisce

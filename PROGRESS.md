@@ -852,5 +852,23 @@ e rifiuto di valori negativi/oltre i limiti e di maschera fuori regione.
 `mosaic-widget-flow` esteso EN/IT — i quattro controlli esistono, l'edit aggiorna
 il livello selezionato, l'anteprima resta valida, la maschera è registrata nel
 progetto e azzerabile. Suite completa 24/24 passata con label `gpu` esclusa;
-screenshot del compositore ispezionato. Restano aperti, per M2-10, seam
-ottimizzata, maschere poligonali e compensazione visuale.
+screenshot del compositore ispezionato. In questa fase restavano aperti, per
+M2-10, seam ottimizzata, maschere poligonali e compensazione visuale.
+
+### M2-10 — Terzo e quarto incremento: maschere poligonali
+
+Il core ora applica per ogni livello più poligoni non distruttivi nelle
+coordinate del ritaglio. Le aree **includi** formano un'unione, le aree
+**escludi** hanno precedenza e rivelano i livelli inferiori. La maschera viene
+calcolata per tile, senza creare una bitmap grande quanto l'intera scena; sono
+imposti limiti a numero di maschere e vertici. Progetti precedenti senza il
+campo opzionale `masks` conservano lo stesso risultato. Le regressioni coprono
+16 bit, precedenza, persistenza, sorgenti invariate e input invalidi.
+
+Nell'interfaccia, **Disegna maschera poligonale…** apre il livello ritagliato e
+permette di aggiungere almeno tre vertici, scegliere includi/escludi, annullare
+l'ultimo punto o cancellare il disegno. Applicazione e cancellazione delle
+maschere entrano nella cronologia Annulla/Ripeti. Compilati con successo il
+core, l'oggetto del test widget e l'oggetto della GUI; l'esecuzione pulita della
+suite completa resta da confermare nella CI dei commit `655c6a4` e `f134146`.
+Per M2-10 restano seam ottimizzata e compensazione visuale.

@@ -116,7 +116,21 @@ livello superiore in modalità sostituzione anche con opacità/feather non neutr
 Sono coperti persistenza, modo non valido, apertura di un progetto legacy e
 controlli EN/IT. `mosaic-regression` e `mosaic-widget-flow` sono passati
 localmente. Questo incremento non viene presentato come seam ottimizzata:
-graph-cut, multibanda e maschere restano successivi.
+graph-cut e multibanda restano successivi; le maschere sono documentate sotto.
+
+### M2-10: maschere non distruttive
+
+Il commit `a09666e` aggiunge l'esclusione rettangolare per livello. Il commit
+`655c6a4` estende il renderer con poligoni include/escludi: più inclusioni sono
+unite, le esclusioni prevalgono, il calcolo resta a tile e il progetto mantiene
+la compatibilità con i file precedenti. Le regressioni core coprono scene 16 bit,
+precedenza, round-trip, input sorgente invariato e rifiuto di geometrie invalide.
+
+Il commit `f134146` aggiunge l'editor visuale dei poligoni sul livello ritagliato,
+la scelta includi/escludi, annullamento/cancellazione dei vertici, applicazione e
+rimozione annullabili. Gli oggetti C++ del test widget e della GUI sono stati
+compilati localmente con Qt 6.4.2 e OpenCV 4.6.0; la suite eseguibile completa
+non viene dichiarata verde finché non termina la CI pulita del commit.
 
 ## Funzioni completate
 
