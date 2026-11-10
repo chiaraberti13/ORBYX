@@ -256,6 +256,30 @@ class MosaicDialog final:public QDialog {
     // M2-07: compare the historical profile-ROI geometry with the current strategy
     // (visual/manual) side by side, then keep one explicitly. Nothing is applied or
     // exported without the user's choice, and the ROI baseline is never altered.
+    // M2-12: quality indicators for the current composition. Sets properties only;
+    // qualityDialog() shows them. Evidence only — never declares an image perfect.
+    orbyx::MosaicQuality computeQuality(){
+        const orbyx::MosaicQuality q=orbyx::mosaicQuality(layers);
+        setProperty("qualityCovered",qulonglong(q.coveredPixels));
+        setProperty("qualityEmptyFraction",q.emptyFraction);
+        setProperty("qualityOverlapFraction",q.overlapFraction);
+        setProperty("qualityHighlightClipped",q.highlightClipped);
+        setProperty("qualityShadowClipped",q.shadowClipped);
+        setProperty("qualityExtremeTransforms",q.extremeTransforms);
+        return q;
+    }
+    void qualityDialog(){
+        if(busy||layers.empty())return;
+        orbyx::MosaicQuality q;
+        try{q=computeQuality();}catch(const std::exception& e){status->setText(QString::fromUtf8(e.what()));return;}
+        const QString strategy=property("mergeStrategy").toString();
+        const QString body=t("Strategy: %1\nEmpty/gap area: %2%\nOverlap coverage: %3%\nHighlight clipping: %4%\nShadow clipping: %5%\nExtreme transforms: %6\n\nEvidence only — ORBYX does not declare an image perfect and does not change your project. Review and choose.",
+                             "Strategia: %1\nAree vuote/mancanti: %2%\nCopertura sovrapposizione: %3%\nClipping alte luci: %4%\nClipping ombre: %5%\nTrasformazioni estreme: %6\n\nSolo evidenze — ORBYX non dichiara perfetta un'immagine e non modifica il progetto. Controlla e scegli.")
+            .arg(strategy.isEmpty()?t("manual","manuale"):strategy)
+            .arg(q.emptyFraction*100,0,'f',2).arg(q.overlapFraction*100,0,'f',1).arg(q.highlightClipped*100,0,'f',2).arg(q.shadowClipped*100,0,'f',2).arg(q.extremeTransforms);
+        record(QString("Quality assessment: empty=%1 overlap=%2 highlightClip=%3 shadowClip=%4 extreme=%5 (fractions 0..1)").arg(q.emptyFraction).arg(q.overlapFraction).arg(q.highlightClipped).arg(q.shadowClipped).arg(q.extremeTransforms));
+        QMessageBox::information(this,t("Quality assessment","Valutazione qualità"),body);
+    }
     void compareStrategies(){
         if(busy)return;
         if(profileRoiBaseline.empty()){
@@ -348,6 +372,7 @@ public:
         button("mosaicMatchColour",t("Match selected layer to adjacent…","Uniforma il livello selezionato all’adiacente…"),panel,[this]{visualCompensationDialog();});
         button("mosaicSave",t("Save editable project…","Salva progetto modificabile…"),panel,[this]{saveProjectDialog();});
         button("mosaicOpen",t("Open project…","Apri progetto…"),panel,[this]{loadProjectDialog();});
+        button("mosaicQuality",t("Quality assessment…","Valutazione qualità…"),panel,[this]{qualityDialog();});
         button("mosaicExport",t("Export single image…","Esporta immagine unica…"),panel,[this]{exportDialog();});
         auto* right=new QVBoxLayout;body->addLayout(right,1);
         auto* zoomRow=new QHBoxLayout;right->addLayout(zoomRow);zoomRow->addWidget(new QLabel(t("Preview zoom (%)","Zoom anteprima (%)")));

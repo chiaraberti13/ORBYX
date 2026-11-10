@@ -527,4 +527,27 @@ std::string mosaicReport(const std::vector<MosaicLayer>& layers,const std::strin
     root["project"]=project;
     Json::StreamWriterBuilder writer;return Json::writeString(writer,root);
 }
+MosaicQuality mosaicQuality(const std::vector<MosaicLayer>& layers,int previewEdge) {
+    check(!layers.empty()&&layers.size()<=32,"Quality assessment needs 1 to 32 layers");
+    const int edge=std::clamp(previewEdge,64,2048);
+    const MosaicResult whole=renderMosaic(layers,edge);
+    const cv::Mat& img=whole.image;MosaicQuality q;
+    if(img.empty()||img.type()!=CV_8UC3)return q;
+    cv::Mat count=cv::Mat::zeros(img.size(),CV_8U);
+    for(const auto& poly:whole.outlines){std::vector<cv::Point> pts;for(const auto& pt:poly)pts.emplace_back(cvRound(pt.x),cvRound(pt.y));if(pts.size()>=3){cv::Mat one=cv::Mat::zeros(img.size(),CV_8U);cv::fillConvexPoly(one,pts,cv::Scalar(1));count+=one;}}
+    const cv::Mat covered=count>=1;const long coveredCount=cv::countNonZero(covered);
+    q.coveredPixels=std::size_t(coveredCount);
+    std::vector<cv::Point> cov;cv::findNonZero(covered,cov);
+    const cv::Rect bbox=cov.empty()?cv::Rect():cv::boundingRect(cov);
+    const long bboxArea=long(bbox.width)*bbox.height;
+    q.emptyFraction=bboxArea>0?double(std::max<long>(0,bboxArea-coveredCount))/double(bboxArea):0.;
+    q.overlapFraction=coveredCount>0?double(cv::countNonZero(count>=2))/double(coveredCount):0.;
+    long highlight=0,shadow=0;
+    for(int y=0;y<img.rows;++y){const auto* c=covered.ptr<unsigned char>(y);const auto* p=img.ptr<cv::Vec3b>(y);
+        for(int x=0;x<img.cols;++x)if(c[x]){const auto& v=p[x];if(v[0]>=255||v[1]>=255||v[2]>=255)++highlight;if(v[0]==0&&v[1]==0&&v[2]==0)++shadow;}}
+    q.highlightClipped=coveredCount>0?double(highlight)/double(coveredCount):0.;
+    q.shadowClipped=coveredCount>0?double(shadow)/double(coveredCount):0.;
+    for(const auto& l:layers){if(!l.visible)continue;if(std::abs(l.angle)>=45.||l.scale<.5||l.scale>2.)++q.extremeTransforms;}
+    return q;
+}
 }

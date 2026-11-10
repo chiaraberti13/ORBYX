@@ -1234,3 +1234,29 @@ M2-11 passa da «in corso» a «verificato per l'ambito dichiarato» (quattro
 incrementi: report, istogramma/clipping, preset, ordine colore). La validazione
 colorimetrica su scene reali resta in M3-04. Nel gate restano M2-12 (report
 qualità e scelta consigliata) e M2-13 (progetto portabile).
+
+## 2026-11-10 — M2-12 primo incremento: indicatori di qualità della composizione
+
+Avviato M2-12 (valutazione qualità). Primo incremento: **indicatori di qualità**
+della composizione nel compositore. Nuova funzione core `orbyx::mosaicQuality`
+(deterministica, resa a risoluzione ridotta bounded) che calcola: aree
+vuote/mancanti entro il riquadro di copertura (`emptyFraction`), copertura della
+sovrapposizione con ≥2 livelli (`overlapFraction`), clipping di alte luci e ombre
+(`highlightClipped`/`shadowClipped`) e numero di trasformazioni estreme
+(`extremeTransforms`: rotazione ≥45° o scala fuori [0.5, 2]). Il desktop espone il
+comando «Valutazione qualità…» (`mosaicQuality`) che mostra le evidenze EN/IT e le
+proprietà corrispondenti; **non dichiara mai «perfetta» un'immagine e non modifica
+il progetto** (solo evidenze, scelta all'utente).
+
+Verifica effettiva (Ubuntu 24.04.5, Qt 6.4.2, OpenCV 4.6, offscreen):
+`mosaic-regression` esteso — singolo livello pieno (nessuna area vuota, nessuna
+sovrapposizione), due livelli sovrapposti (overlapFraction>0), due separati
+(emptyFraction>0, overlap 0), esposizione estrema (highlightClipped>0.5),
+rotazione 90° (una trasformazione estrema), e determinismo. `mosaic-widget-flow`
+esteso — il comando è presente/accessibile, il report dichiara esplicitamente che
+non considera perfetta un'immagine, espone le proprietà (`qualityCovered>0`) e non
+modifica il progetto. Suite completa 24/24 passata con label `gpu` esclusa.
+
+Restano aperti, per M2-12: differenza/continuità lungo la seam, report comparativo
+ROI/visuale/manuale con raccomandazione e casi ambigui, validazione su dataset con
+verità nota e prova di usabilità.

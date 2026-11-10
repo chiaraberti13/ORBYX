@@ -29,6 +29,18 @@ struct MosaicResult {
     double originX=0, originY=0, pixelsPerSourcePixel=1;
     int seamFallbacks=0; // Seam layers that used the deterministic feather fallback.
 };
+// Quality indicators for the current composition (M2-12). Evidence only: it never
+// declares an image "perfect" and the caller decides. All fractions are 0..1.
+struct MosaicQuality {
+    std::size_t coveredPixels=0;   // Pixels covered by at least one layer (preview).
+    double emptyFraction=0;        // Uncovered pixels inside the coverage bounding box (gaps/holes).
+    double overlapFraction=0;      // Covered pixels under two or more layers.
+    double highlightClipped=0;     // Covered pixels with a channel at the maximum.
+    double shadowClipped=0;        // Covered pixels that are pure black.
+    int extremeTransforms=0;       // Visible layers rotated >=45 deg or scaled outside [0.5, 2].
+};
+// Bounded, deterministic quality assessment rendered at a preview edge (64..2048).
+MosaicQuality mosaicQuality(const std::vector<MosaicLayer>& layers,int previewEdge=1024);
 struct OverlapMatch {
     std::size_t moving=0, reference=0;
     int candidateMatches=0, inliers=0;
