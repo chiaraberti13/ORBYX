@@ -22,6 +22,9 @@ void validate(const MosaicLayer& l) {
           l.red>=0&&l.red<=4&&l.green>=0&&l.green<=4&&l.blue>=0&&l.blue<=4,"Invalid mosaic colour or blend parameter");
     check(l.crop.x>=0&&l.crop.y>=0&&l.crop.width>=0&&l.crop.height>=0&&
           ((l.crop.width>0&&l.crop.height>0)||(l.crop.width==0&&l.crop.height==0&&l.crop.x==0&&l.crop.y==0)),"Invalid mosaic crop");
+    // A zero width or height simply means "no mask", so partial spin-box edits stay valid.
+    check(l.exclude.x>=0&&l.exclude.y>=0&&l.exclude.width>=0&&l.exclude.height>=0&&l.exclude.x<=100000&&l.exclude.y<=100000&&
+          l.exclude.width<=100000&&l.exclude.height<=100000,"Invalid mosaic exclude mask");
     check(l.blend==MosaicBlend::Replace||l.blend==MosaicBlend::Feather,"Invalid mosaic blend mode");
     check(!l.image.empty()&&l.image.string().size()<=4096,"Invalid mosaic input path");
 }
@@ -157,6 +160,9 @@ MosaicResult renderMosaic(const std::vector<MosaicLayer>& layers,int previewEdge
         auto source=readCompositePng(l.image);
         check(source.size()==sources[i].size&&source.type()==sources[i].type,"Mosaic source changed dimensions or depth");
         auto image=source(sources[i].crop);
+        const cv::Rect exclude=l.exclude;
+        const bool masked=exclude.width>0&&exclude.height>0;
+        if(masked)check(exclude.x+exclude.width<=image.cols&&exclude.y+exclude.height<=image.rows,"Mosaic exclude mask outside layer region");
         auto m=transform(l);for(int r=0;r<2;++r)for(int c=0;c<3;++c)m(r,c)*=ratio;
         m(0,2)-=minX*ratio;m(1,2)-=minY*ratio;
         cv::Matx23d inverse;cv::invertAffineTransform(m,inverse);
@@ -183,6 +189,8 @@ MosaicResult renderMosaic(const std::vector<MosaicLayer>& layers,int previewEdge
                     double sx=inverse(0,0)*(x+xx)+inverse(0,1)*(y+yy)+inverse(0,2);
                     double sy=inverse(1,0)*(x+xx)+inverse(1,1)*(y+yy)+inverse(1,2);
                     if(sx<0||sy<0||sx>=image.cols||sy>=image.rows)continue;
+                    // Non-destructive exclude mask: this region does not contribute, revealing layers below.
+                    if(masked&&sx>=exclude.x&&sx<exclude.x+exclude.width&&sy>=exclude.y&&sy<exclude.y+exclude.height)continue;
                     double alpha=l.blend==MosaicBlend::Replace?1.:l.opacity;
                     if(l.blend==MosaicBlend::Feather&&l.feather>0)alpha*=std::clamp(std::min({sx+.5,sy+.5,image.cols-.5-sx,image.rows-.5-sy})*l.scale/l.feather,0.,1.);
                     auto v=values[xx];
@@ -282,6 +290,7 @@ std::string mosaicProject(const std::vector<MosaicLayer>& layers) {
         const char* keys[]={"x","y","scale","angle","opacity","feather","black","white","gamma","exposure","saturation","red","green","blue"};
         for(int i=0;i<14;++i)v[keys[i]]=values[i];
         for(int n:{l.crop.x,l.crop.y,l.crop.width,l.crop.height})v["crop"].append(n);
+        if(l.exclude.width>0&&l.exclude.height>0)for(int n:{l.exclude.x,l.exclude.y,l.exclude.width,l.exclude.height})v["exclude"].append(n);
         root["layers"].append(v);
     }
     Json::StreamWriterBuilder writer;return Json::writeString(writer,root);
@@ -303,6 +312,11 @@ std::vector<MosaicLayer> parseMosaicProject(const std::string& text) {
         for(int i=0;i<14;++i){check(v[keys[i]].isNumeric(),"Missing mosaic numeric parameter");*values[i]=v[keys[i]].asDouble();}
         for(const auto& n:v["crop"])check(n.isInt(),"Invalid mosaic crop integer");
         l.crop={v["crop"][0].asInt(),v["crop"][1].asInt(),v["crop"][2].asInt(),v["crop"][3].asInt()};
+        if(v.isMember("exclude")){ // Optional: older projects omit it and keep no mask.
+            check(v["exclude"].isArray()&&v["exclude"].size()==4,"Invalid mosaic exclude mask");
+            for(const auto& n:v["exclude"])check(n.isInt(),"Invalid mosaic exclude integer");
+            l.exclude={v["exclude"][0].asInt(),v["exclude"][1].asInt(),v["exclude"][2].asInt(),v["exclude"][3].asInt()};
+        }
         validate(l);layers.push_back(l);
     }
     return layers;

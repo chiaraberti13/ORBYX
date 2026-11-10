@@ -93,7 +93,7 @@ class MosaicDialog final:public QDialog {
     void readControls(){
         int row=list->currentRow();if(row<0||row>=int(layers.size()))return;
         updating=true;const auto& l=layers[size_t(row)];
-        double values[]={l.x,l.y,l.scale,l.angle,l.opacity,l.feather,double(l.crop.x),double(l.crop.y),double(l.crop.width),double(l.crop.height),l.black,l.white,l.gamma,l.exposure,l.saturation,l.red,l.green,l.blue};
+        double values[]={l.x,l.y,l.scale,l.angle,l.opacity,l.feather,double(l.crop.x),double(l.crop.y),double(l.crop.width),double(l.crop.height),l.black,l.white,l.gamma,l.exposure,l.saturation,l.red,l.green,l.blue,double(l.exclude.x),double(l.exclude.y),double(l.exclude.width),double(l.exclude.height)};
         for(size_t i=0;i<controls.size();++i)controls[i]->setValue(values[i]);
         visible->setChecked(l.visible);blendMode->setCurrentIndex(l.blend==orbyx::MosaicBlend::Replace?0:1);controls[4]->setEnabled(l.blend==orbyx::MosaicBlend::Feather);controls[5]->setEnabled(l.blend==orbyx::MosaicBlend::Feather);updating=false;
     }
@@ -105,6 +105,7 @@ class MosaicDialog final:public QDialog {
         l.crop={int(controls[6]->value()),int(controls[7]->value()),int(controls[8]->value()),int(controls[9]->value())};
         double* colours[]={&l.black,&l.white,&l.gamma,&l.exposure,&l.saturation,&l.red,&l.green,&l.blue};
         for(int i=0;i<8;++i)*colours[i]=controls[size_t(i+10)]->value();
+        l.exclude={int(controls[18]->value()),int(controls[19]->value()),int(controls[20]->value()),int(controls[21]->value())};
         l.visible=visible->isChecked();l.blend=blendMode->currentIndex()==0?orbyx::MosaicBlend::Replace:orbyx::MosaicBlend::Feather;controls[4]->setEnabled(l.blend==orbyx::MosaicBlend::Feather);controls[5]->setEnabled(l.blend==orbyx::MosaicBlend::Feather);schedule();
     }
     void record(const QString& text){
@@ -278,7 +279,9 @@ public:
             {"black","Black level (0–1)","Livello nero (0–1)",0,.999,.001,4},{"white","White level (0–1)","Livello bianco (0–1)",.001,1,.001,4},
             {"gamma","Gamma","Gamma",.1,10,.05,3},{"exposure","Exposure (EV)","Esposizione (EV)",-10,10,.1,3},
             {"saturation","Saturation","Saturazione",0,4,.05,3},{"red","Red gain","Guadagno rosso",0,4,.05,3},
-            {"green","Green gain","Guadagno verde",0,4,.05,3},{"blue","Blue gain","Guadagno blu",0,4,.05,3}};
+            {"green","Green gain","Guadagno verde",0,4,.05,3},{"blue","Blue gain","Guadagno blu",0,4,.05,3},
+            {"excludeX","Exclude mask X","Maschera esclusa X",0,100000,1,0},{"excludeY","Exclude mask Y","Maschera esclusa Y",0,100000,1,0},
+            {"excludeW","Exclude mask width (0 = none)","Larghezza maschera esclusa (0 = nessuna)",0,100000,1,0},{"excludeH","Exclude mask height (0 = none)","Altezza maschera esclusa (0 = nessuna)",0,100000,1,0}};
         for(const auto& field:fields){auto* spin=new QDoubleSpinBox;spin->setObjectName(QString("mosaic_")+field.id);spin->setRange(field.min,field.max);spin->setSingleStep(field.step);spin->setDecimals(field.decimals);spin->setKeyboardTracking(false);spin->setAccessibleName(t(field.en,field.italian));form->addRow(t(field.en,field.italian),spin);controls.push_back(spin);connect(spin,qOverload<double>(&QDoubleSpinBox::valueChanged),this,[this]{edit();});}
         button("mosaicResetColour",t("Reset selected colours","Ripristina colori selezionati"),panel,[this]{resetColour();});
         button("mosaicAllColour",t("Apply selected colours to all","Applica colori selezionati a tutti"),panel,[this]{applyColoursToAll();});

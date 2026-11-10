@@ -12,6 +12,7 @@ struct MosaicLayer {
     std::filesystem::path image;
     double x=0, y=0, scale=1, angle=0, opacity=1, feather=0;
     cv::Rect crop; // empty means the full source
+    cv::Rect exclude; // empty means no mask; otherwise this region of the (cropped) layer does not contribute, revealing layers below. Non-destructive: source pixels are untouched.
     double black=0, white=1, gamma=1, exposure=0, saturation=1;
     double red=1, green=1, blue=1;
     MosaicBlend blend=MosaicBlend::Feather;
