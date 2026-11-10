@@ -1382,3 +1382,22 @@ relativi, autosave/ripristino crash, pacchetto esplicito). Con M2-13 si conclude
 la serie M2 del compositore (M2-07…M2-13) per l'ambito dichiarato. Restano aperti,
 come già dichiarato, i punti che richiedono hardware o prove manuali reali (GPU,
 verità a terra, screen reader/utenti reali, firma GPG personale).
+
+## 2026-11-10
+
+Documentazione utente aggiornata con le funzioni della serie M2 (nessuna modifica
+al codice). In `docs/COMPOSITOR.md`: preset di canale singolo (CH1/2/3 in scala di
+grigi, R=G=B, 8/16 bit preservati); comandi **Strategia consigliata…** e
+**Confronta ROI / stato attuale…**; **Blending multibanda (visuale)** con maschera
+sulla sovrapposizione reale e fallback deterministico alla sfumatura oltre il limite
+di dimensione; istogramma di luminanza e riga di clipping; **Valutazione qualità…**
+dichiarata esplicitamente come «solo evidenze», che non definisce mai perfetta
+un'immagine e non modifica il progetto; correzione del testo obsoleto sui
+«riferimenti assoluti» → progetto portabile con percorsi relativi sotto la cartella
+e rifiuto dei percorsi che ne escono; autosalvataggio e **Recupera lavoro
+autosalvato…**; **Esporta pacchetto progetto…** autonomo con dedup e rifiuti di
+sicurezza; report di export `<nome>.report.json` (profondità, nota colore, progetto
+riproducibile). Sezione «Verifica» estesa con le nuove prove `mosaic-regression`
+e `mosaic-widget-flow`. In `README.md` aggiornato il riassunto del compositore.
+Onestà mantenuta: rese visive e non calibrazioni radiometriche, nessuna
+georeferenziazione, nessun verdetto di «perfezione».

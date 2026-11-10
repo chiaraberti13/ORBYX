@@ -47,7 +47,10 @@ in M2-08.
 2. Nel compositore scegli **MSU-GS Natural Color (RGB321)** per il relativo
    strumento, oppure **RGB123** per la composizione generica già prevista dal
    core. Natural Color non è una calibrazione radiometrica e non è applicabile
-   automaticamente a qualsiasi sensore.
+   automaticamente a qualsiasi sensore. Per ispezionare un singolo canale scegli
+   **Canale singolo — CH1/CH2/CH3 (scala di grigi)**: ORBYX usa quel canale come
+   livello neutro in scala di grigi (R=G=B) preservando 8/16 bit, senza falsi
+   colori. È una vista di lavoro, non una calibrazione.
 3. Premi **Aggiungi 3 canali allineati…** e scegli una cartella con
    `MSUGS-VIS-1.png`, `MSUGS-VIS-2.png`, `MSUGS-VIS-3.png`. Ripeti per le altre
    porzioni. L’app crea una porzione a colori preservando 8/16 bit.
@@ -65,6 +68,12 @@ in M2-08.
    **Ripristina ROI del profilo** per tornare in qualunque momento alla geometria
    storica esatta. Puoi quindi provare la proposta visuale e recuperare il punto
    di partenza senza rielaborare i canali.
+   Per orientarti premi **Strategia consigliata…**: ORBYX indica la ROI del
+   profilo (geometria storica) quando il progetto ne ha una coppia completa,
+   altrimenti suggerisce l’allineamento visuale automatico. È solo un suggerimento,
+   non applica nulla. Con **Confronta ROI / stato attuale…** affianchi la geometria
+   delle ROI del profilo allo stato corrente del progetto per scegliere con una
+   prova visiva; nessuna delle due opzioni modifica i livelli finché non la applichi.
 6. Controlla sempre ogni giunzione. Seleziona un livello: il suo contorno azzurro
    appare nell’anteprima. Trascina per spostarlo oppure imposta **X/Y**. Se
    l’automatismo non trova abbastanza dettagli, ritaglia intestazioni e grandi
@@ -136,6 +145,13 @@ in M2-08.
    continuo, l'app lo segnala e usa le impostazioni di sfumatura già salvate.
    È un aiuto visuale, non corregge un allineamento sbagliato e non costituisce
    una georeferenziazione.
+   **Blending multibanda (visuale)** fonde invece la coppia su più scale con una
+   piramide laplaciana, attenuando le transizioni di intensità e colore senza
+   spostare i dettagli fini. La maschera segue la sovrapposizione reale e la
+   profondità 8/16 bit è conservata nell'export. Oltre un limite di dimensione
+   l'app ricade in modo deterministico sulla sfumatura già salvata e lo registra
+   nel log. Anche questo è un aiuto visuale: non ricostruisce parti mancanti, non
+   corregge un allineamento sbagliato e non è una georeferenziazione.
 9. **Alza/Abbassa** cambia l’ordine di sovrapposizione. La lista va dal fondo alla
    cima. La sfumatura attenua tutti i bordi del livello, non soltanto una giunzione:
    serve sovrapposizione reale per una transizione continua. Non ricostruisce
@@ -153,16 +169,45 @@ in M2-08.
    tutto invariato; **Applica** modifica soltanto i controlli visuali del
    progetto ed entra in **Annulla/Ripeti**. Non è una calibrazione radiometrica,
    non modifica gli originali e non corregge una geometria errata.
+   Mentre lavori il pannello mostra un **istogramma di luminanza della
+   composizione** e la riga **Clipping — alte luci … · ombre …**, aggiornati sulla
+   vista composita. Servono a riconoscere esposizioni tagliate prima dell’export;
+   sono indicatori, non una misura radiometrica.
+   Con **Valutazione qualità…** ORBYX raccoglie evidenze sulla composizione
+   corrente: aree vuote o mancanti, copertura della sovrapposizione, differenza
+   lungo la giunzione, clipping di alte luci e ombre e numero di trasformazioni
+   estreme, con un suggerimento di strategia. La valutazione è deterministica,
+   calcolata su un’anteprima limitata; **non dichiara mai perfetta un’immagine e
+   non modifica il progetto**. La decisione resta all’operatore.
 11. **Annulla/Ripeti** conserva fino a 50 stati modificabili. **Salva progetto
    modificabile…** conserva livelli e parametri in JSON; **Apri progetto…** li
-   ricarica. Il progetto usa riferimenti assoluti, non incorpora le immagini:
-   conserva originali e porzioni generate nelle loro posizioni. Le porzioni
+   ricarica. Il progetto è portabile: le immagini sotto la cartella del progetto
+   sono memorizzate con percorso relativo, così puoi spostare la cartella con le
+   sue immagini e riaprirla altrove; i percorsi esterni alla cartella restano
+   assoluti. In riapertura i percorsi relativi sono risolti rispetto alla cartella
+   del progetto e qualunque percorso che tenti di uscirne (`..`, reindirizzamento
+   assoluto) viene rifiutato. Il progetto non incorpora le immagini. Le porzioni
    colore generate sono conservate nell’area dati dell’app, senza cancellazione
    automatica che renderebbe inutilizzabili i progetti salvati.
+   Mentre modifichi, ORBYX salva automaticamente una copia di recupero nell’area
+   dati dell’app. Se una sessione precedente si è chiusa senza salvare, premi
+   **Recupera lavoro autosalvato…** per ricaricarla; il recupero sostituisce i
+   livelli correnti (con conferma se stai già lavorando) e va poi salvato per
+   conservarlo. Dopo un salvataggio esplicito la copia di recupero viene rimossa.
+   Per condividere o archiviare un progetto completo usa **Esporta pacchetto
+   progetto…**: ORBYX crea una cartella nuova e vuota che contiene il JSON e una
+   copia di tutte le immagini usate (deduplicate, con nomi relativi `image-NNN`),
+   così il pacchetto è autonomo e riapribile. Rifiuta destinazioni non vuote,
+   collegamenti simbolici, immagini mancanti o vuote e sorgenti oltre il limite di
+   dimensione, senza modificare gli originali.
 12. Premi **Esporta immagine unica…** e scegli un nuovo PNG. Gli originali non
     vengono modificati e un file di destinazione esistente viene rifiutato.
     Il PNG è il risultato appiattito; salva anche il progetto per conservare
     l’editabilità. Alla chiusura l’app chiede come gestire modifiche non salvate.
+    Accanto al PNG ORBYX scrive un report `<nome>.report.json`: dichiara la
+    profondità di uscita (8 o 16 bit), una nota sul colore (resa visiva, non una
+    calibrazione radiometrica) e l’intero progetto riproducibile dei passaggi non
+    distruttivi. Documenta l’esportazione senza alterarla.
 
 Tutto questo avviene nell’interfaccia ORBYX, senza passare a GIMP o tornare in
 SatDump per la composizione colore supportata. Rimane possibile esportare
@@ -209,6 +254,12 @@ superiore, che la modalità venga salvata/ripristinata, che valori sconosciuti
 siano rifiutati e che i vecchi progetti mantengano la semantica di sfumatura.
 Verifica inoltre sovrapposizioni automatiche su tre ritagli concatenati, recupero
 di rotazione/scala e rifiuto di una porzione uniforme o priva di corrispondenza.
+Verifica che il blending multibanda produca una transizione reale sulla
+sovrapposizione e ricada sulla sfumatura oltre il limite di dimensione; che il
+report di export dichiari profondità, nota colore e progetto riproducibile; che
+gli indicatori di qualità misurino la differenza lungo la giunzione su casi noti
+(allineato basso, disallineato alto); e che il progetto portabile memorizzi
+percorsi relativi sotto la cartella e rifiuti quelli che ne escono.
 
 `mosaic-widget-flow`: widget reali EN/IT, tre livelli, modifica numerica e drag,
 annulla/ripeti, colore comune, progetto riaperto, composizione Natural Color
@@ -224,6 +275,12 @@ concentrati e applicazione/annulla/ripeti.
 Verifica inoltre la proposta di ritaglio su un bordo sintetico noto, il rifiuto
 di un’immagine uniforme, il rispetto di un ritaglio esistente, conferma e
 annullamento EN/IT, compensazione di posizione con scala/rotazione e annulla.
+Verifica anche la selezione della modalità multibanda, i preset di canale singolo,
+l’istogramma e la riga di clipping, i comandi **Strategia consigliata…** e
+**Confronta ROI / stato attuale…**, la finestra **Valutazione qualità…** (che non
+dichiara mai perfetta un’immagine), l’autosalvataggio con **Recupera lavoro
+autosalvato…** e l’**Esporta pacchetto progetto…** con rifiuto di destinazioni non
+vuote, collegamenti simbolici e immagini mancanti.
 
 `engine-regression` verifica che l’attivazione delle porzioni modificabili non
 cambi neppure un pixel del prodotto ROI storico, che il comportamento
