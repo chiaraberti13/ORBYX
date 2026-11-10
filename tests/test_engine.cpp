@@ -295,6 +295,11 @@ void compose(const fs::path& root) {
   }
   check(cv::imread(paths[1].string(),cv::IMREAD_UNCHANGED).channels()==1,"Single channel inputs unchanged");
   fails([&]{orbyx::composeSingleChannel(paths,dir/"bad.png",3);}); // invalid index
+  // M2-11 colour order: the three channels must share geometry (same size) before
+  // colour composition, so R/G/B never get different geometry (no coloured fringe).
+  cv::imwrite(paths[0].string(),cv::Mat(18,24,type,cv::Scalar(5)));
+  fails([&]{orbyx::composeRgb(paths,dir/"size-mismatch.png");});
+  check(!fs::exists(dir/"size-mismatch.png"),"No RGB product on channel size mismatch");
   cv::imwrite(paths[0].string(),cv::Mat(16,24,type==CV_8U?CV_16U:CV_8U,cv::Scalar(5)));
   fails([&]{orbyx::composeRgb(paths,dir/"mismatch.png");});
   check(!fs::exists(dir/"mismatch.png"),"No RGB product on depth mismatch");
