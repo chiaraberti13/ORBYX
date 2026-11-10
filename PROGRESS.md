@@ -1106,3 +1106,29 @@ singolo passaggio in esecuzione (già governato dai digest del runner batch già
 verificato) e l'uso del raggruppamento corretto nel motore `generate`, oggi
 vincolato ai due VIS RDAS. Prossimo nel gate: completare M2-09 (verifica remota)
 e M2-10 (blending multibanda), poi M2-11.
+
+## 2026-11-10 — M2-08 completato end-to-end: selezione realmente elaborata
+
+La PR #16 (merge `aec3d9f`) chiude il residuo che separava il wizard dal motore.
+La selezione corretta dei prodotti è ora salvata nel progetto e nel digest,
+inoltrata a esecuzione immediata, CLI e coda durevole e applicata da `generate`.
+Il motore accetta fino a 32 cartelle VIS con nomi relativi strettamente validati:
+allinea i prodotti grezzi usando la sezione di calibrazione corrispondente,
+preserva quelli già allineati e mantiene la provenienza CBOR senza inventare
+metadati mancanti. Il percorso vuoto conserva byte per byte la logica storica;
+VIS1/VIS2 grezzi con ROI complete continuano a produrre il merge precedente.
+
+Il compositore apre tutte le porzioni generate e applica l’eventuale baseline
+ROI soltanto alla coppia VIS1/VIS2, lasciando modificabili le porzioni ulteriori.
+Il wizard impedisce inoltre di inviare contemporaneamente la versione grezza e
+quella allineata dello stesso identificatore. Le regressioni aggiunte coprono
+core, CLI/batch, persistenza/ripresa EN/IT, coda e hand-off al compositore.
+
+La prima matrice CI ha rilevato che i livelli RGB derivati venivano ispezionati
+con il vincolo di altezza dei canali RDAS nativi; la correzione usa il lettore di
+compositi e ha eliminato sia il livello vuoto sia il timeout del flusso guidato.
+Verifiche verdi al merge: run `42820235782` (Ubuntu 22.04/26.04,
+sanitizzatori, fuzz e Cppcheck) e `42820235741` (Fedora/ARM64); CodeQL era già
+verde sul commit di produzione precedente. Le run `42820235731` (AppImage) e
+`42820235736` (ultimo CodeQL) erano ancora nell’installazione dei pacchetti.
+M2-10 e il blending multibanda non sono stati modificati.
