@@ -76,6 +76,14 @@ int main(){
         n.blend=orbyx::MosaicBlend::Replace;auto project=orbyx::mosaicProject({l,n});auto loaded=orbyx::parseMosaicProject(project);check(loaded[1].blend==orbyx::MosaicBlend::Replace,"Project lost blend mode");
         auto legacyProject=project;for(auto position=legacyProject.find("\"blend\"");position!=std::string::npos;position=legacyProject.find("\"blend\"")){const auto start=legacyProject.rfind('\n',position),end=legacyProject.find('\n',position);check(start!=std::string::npos&&end!=std::string::npos,"Cannot construct legacy project fixture");legacyProject.erase(start+1,end-start);}auto legacyLoaded=orbyx::parseMosaicProject(legacyProject);check(legacyLoaded[0].blend==orbyx::MosaicBlend::Feather&&legacyLoaded[1].blend==orbyx::MosaicBlend::Feather,"Legacy project did not retain feather semantics");
         check(cv::norm(orbyx::renderMosaic(loaded).image,orbyx::renderMosaic({l,n}).image,cv::NORM_INF)==0,"Project round trip changed pixels");
+        // M2-11: the export report declares the bit depth and colour note, embeds the
+        // reproducible project, is deterministic and records the exact depth.
+        const auto report16=orbyx::mosaicReport({l,n},"mosaic.png",16);
+        check(report16==orbyx::mosaicReport({l,n},"mosaic.png",16),"Export report is not deterministic");
+        check(report16.find("orbyx-mosaic-report/1")!=std::string::npos&&report16.find("orbyx-mosaic/1")!=std::string::npos,"Export report omits the schema or the embedded project");
+        check(report16.find("bit_depth")!=std::string::npos&&report16.find("radiometr")!=std::string::npos,"Export report omits the bit depth or colour note");
+        check(orbyx::mosaicReport({l,n},"mosaic.png",8)!=report16,"Export report ignores the bit depth");
+        rejects([&]{orbyx::mosaicReport({l,n},"mosaic.png",10);});
         // Non-destructive exclude mask: the masked region of the upper layer does
         // not contribute, revealing the layer below; outside it the upper layer is
         // unchanged and the source file is never modified.

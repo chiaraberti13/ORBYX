@@ -441,7 +441,17 @@ progettazione, non dipendenze da integrare automaticamente.
 ## M2-11 — Colore integrato e controllato
 
 - Priorità: P1
-- Stato: proposto, non implementato
+- Stato: in corso — primo incremento verificato: **report colore/passaggi
+  all'export**. `orbyx::mosaicReport` genera un report deterministico
+  (`orbyx-mosaic-report/1`) scritto accanto al PNG (`<file>.report.json`) che
+  dichiara la profondità di bit effettiva (8/16), una nota colore esplicita
+  («resa visuale, non colore calibrato radiometricamente; 8/16 bit senza
+  conversione silenziosa») e incorpora l'intero progetto riproducibile dei
+  passaggi non distruttivi, così il risultato esatto è riapribile e ogni fase
+  rivedibile dal solo report. L'export resta a profondità nativa e rifiuta la
+  sovrascrittura. Restano da implementare i preset con nomi chiari (incluso
+  canale singolo), l'istogramma con clipping alte luci/ombre e prima/dopo, e la
+  formalizzazione/test dell'ordine di elaborazione colore.
 - Dipendenze: M2-08, M2-10, M3-04
 - Responsabile: Remote Sensing / Color Science / UX / QA
 - Deliverable: composizione colore nello stesso progetto e nella stessa

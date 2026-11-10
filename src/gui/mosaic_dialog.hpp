@@ -523,6 +523,16 @@ public:
     }
     void exportTo(const QString& file){
         if(busy||layers.empty())return;auto state=layers;
-        run([state,file]{auto result=orbyx::renderMosaic(state);orbyx::writeCompositePng(result.image,file.toStdString());},[this,file]{status->setText(t("Single image exported: ","Immagine unica esportata: ")+file);});
+        run([state,file]{
+            auto result=orbyx::renderMosaic(state);
+            orbyx::writeCompositePng(result.image,file.toStdString());
+            // M2-11: declare the colour profile and the reproducible non-destructive
+            // steps beside the PNG, and record the exact bit depth (no silent 16->8).
+            const int bitDepth=result.image.depth()==CV_16U?16:8;
+            const std::string report=orbyx::mosaicReport(state,std::filesystem::path(file.toStdString()).filename().string(),bitDepth);
+            QFile reportFile(file+".report.json");
+            if(!reportFile.open(QIODevice::WriteOnly|QIODevice::NewOnly)||reportFile.write(QByteArray::fromStdString(report))<0)
+                throw std::runtime_error("Failed to write the export report");
+        },[this,file]{status->setText(t("Single image and report exported: ","Immagine unica e report esportati: ")+file);});
     }
 };

@@ -116,6 +116,11 @@ int main(int argc,char** argv){
             const auto output=temp.path()+(it?"/it.png":"/en.png");restored.exportTo(output);waitFor(restored);
             auto actual=cv::imread(output.toStdString(),cv::IMREAD_UNCHANGED);
             check(!actual.empty()&&actual.type()==CV_16UC3&&cv::norm(actual,expected,cv::NORM_INF)==0,"GUI export differs from shared native-depth renderer");
+            // M2-11: a colour/steps report is written beside the PNG, declaring the
+            // schema, the bit depth and the full reproducible project.
+            QFile reportFile(output+".report.json");check(reportFile.open(QIODevice::ReadOnly),"Export did not write the colour/steps report");
+            const auto reportText=QString::fromUtf8(reportFile.readAll());reportFile.close();
+            check(reportText.contains("orbyx-mosaic-report/1")&&reportText.contains("bit_depth")&&reportText.contains("orbyx-mosaic/1"),"Export report omitted schema, bit depth or the embedded project");
             restored.exportTo(output);waitFor(restored);check(restored.findChild<QLabel*>("mosaicStatus")->text().contains(it?"Errore":"Error"),"Existing export was not rejected");
             check(cv::norm(cv::imread(output.toStdString(),cv::IMREAD_UNCHANGED),expected,cv::NORM_INF)==0,"Existing export modified");
             // Compose three actual aligned grayscale files inside the GUI.
