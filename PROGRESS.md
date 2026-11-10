@@ -1332,3 +1332,27 @@ completa 24/24 passata con label `gpu` esclusa.
 
 Restano aperti, per M2-13: autosave e ripristino dopo arresto anomalo, e l'opzione
 pacchetto esplicito.
+
+## 2026-11-10 — M2-13 secondo incremento: autosave e ripristino dopo crash
+
+Continuazione M2-13. **Autosave + ripristino dopo arresto anomalo** nel
+compositore. Ogni modifica avvia un autosave con **debounce** (timer 150 ms) che
+scrive il progetto corrente in uno slot fisso
+`AppDataLocation/compositor/recovery.json` (percorsi assoluti, è recupero locale;
+scrittura atomica best-effort). Alla costruzione una nuova sessione rileva
+l'eventuale lavoro lasciato da una sessione interrotta (proprietà
+`recoveryAvailable`) e il comando **«Recupera lavoro autosalvato…»**
+(`mosaicRecover`) lo ripristina nei livelli. Il salvataggio esplicito del progetto
+(`saveProject`) cancella lo slot (il lavoro è già persistito) e ferma il timer per
+evitare riscritture. L'autosave legge i livelli al momento del fire (dopo la
+mutazione), non nello snapshot di `remember()`.
+
+Verifica effettiva (Ubuntu 24.04.5, Qt 6.4.2, OpenCV 4.6, offscreen):
+`mosaic-widget-flow` esteso — dopo una modifica l'autosave scrive il file di
+recovery; una nuova sessione lo rileva (`recoveryAvailable`), il comando ripristina
+il livello autosalvato; il salvataggio del progetto cancella lo slot e una sessione
+successiva non vede più recovery. Suite completa 24/24 passata con label `gpu`
+esclusa.
+
+Resta aperto, per M2-13: l'opzione pacchetto esplicito (copia delle immagini
+accanto al progetto).

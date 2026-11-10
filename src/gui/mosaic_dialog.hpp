@@ -74,14 +74,38 @@ class MosaicDialog final:public QDialog {
     std::vector<orbyx::MosaicLayer> layers;
     std::vector<orbyx::MosaicLayer> profileRoiBaseline;
     std::vector<std::vector<orbyx::MosaicLayer>> undoStates,redoStates;
-    QTimer previewTimer,blinkTimer;QImage previewImage;double previewRatio=1;bool blinkHidden=false;
-    QString workingFolder,persistentNotice;std::vector<QPolygonF> outlines;
+    QTimer previewTimer,blinkTimer,recoveryTimer;QImage previewImage;double previewRatio=1;bool blinkHidden=false;
+    QString workingFolder,persistentNotice,recoveryPath_;std::vector<QPolygonF> outlines;
     QString t(const char* en,const char* italian)const{return QString::fromUtf8(it?italian:en);}
     QPushButton* button(const char* id,const QString& text,QLayout* layout,std::function<void()> action) {
         auto* b=new QPushButton(text);b->setObjectName(id);b->setAccessibleName(text);layout->addWidget(b);
         connect(b,&QPushButton::clicked,this,std::move(action));return b;
     }
-    void remember(){dirty=true;undoStates.push_back(layers);if(undoStates.size()>50)undoStates.erase(undoStates.begin());redoStates.clear();}
+    void remember(){dirty=true;undoStates.push_back(layers);if(undoStates.size()>50)undoStates.erase(undoStates.begin());redoStates.clear();recoveryTimer.start();}
+    // M2-13: autosave the current project to the fixed recovery slot. Machine-local,
+    // so absolute paths; best-effort and never throws into the edit path.
+    void autosaveRecovery(){
+        if(recoveryPath_.isEmpty()||layers.empty())return;
+        try{
+            const auto text=QByteArray::fromStdString(orbyx::mosaicProject(layers));
+            QSaveFile file(recoveryPath_);file.setDirectWriteFallback(false);
+            if(file.open(QIODevice::WriteOnly)){file.setPermissions(QFileDevice::ReadOwner|QFileDevice::WriteOwner);if(file.write(text)==text.size())file.commit();else file.cancelWriting();}
+        }catch(const std::exception&){}
+    }
+    bool recoveryAvailable()const{
+        if(recoveryPath_.isEmpty())return false;QFileInfo info(recoveryPath_);
+        if(!info.isFile()||info.isSymLink()||info.size()<=0||info.size()>1024*1024)return false;
+        QFile file(recoveryPath_);if(!file.open(QIODevice::ReadOnly))return false;const auto text=file.read(1024*1024+1);
+        try{orbyx::parseMosaicProject(text.toStdString());return true;}catch(const std::exception&){return false;}
+    }
+    void clearRecovery(){recoveryTimer.stop();if(!recoveryPath_.isEmpty())QFile::remove(recoveryPath_);setProperty("recoveryAvailable",false);}
+    void recoverSession(){
+        if(busy||!recoveryAvailable())return;
+        QFile file(recoveryPath_);if(!file.open(QIODevice::ReadOnly))return;const auto text=file.read(1024*1024+1);
+        try{auto loaded=orbyx::parseMosaicProject(text.toStdString());remember();layers=std::move(loaded);dirty=true;refreshList();
+            persistentNotice=t("Recovered the autosaved work. Save it to keep it.","Lavoro autosalvato recuperato. Salvalo per conservarlo.");status->setText(persistentNotice);record("Recovered autosaved session");}
+        catch(const std::exception& e){status->setText(QString::fromUtf8(e.what()));}
+    }
     void schedule(){previewTimer.start();}
     void refreshList(int selected=-1) {
         updating=true;list->clear();
@@ -340,6 +364,12 @@ public:
     explicit MosaicDialog(bool italian,QWidget* parent=nullptr):QDialog(parent),it(italian){
         setObjectName("mosaicDialog");setWindowTitle(t("Portion and colour compositor","Compositore porzioni e colore"));resize(1180,820);
         workingFolder=QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)+"/compositor/"+QUuid::createUuid().toString(QUuid::WithoutBraces);
+        // M2-13 crash recovery: a fixed autosave slot shared across sessions so work
+        // left by a crashed session can be recovered on the next open.
+        recoveryPath_=QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)+"/compositor/recovery.json";
+        QDir().mkpath(QFileInfo(recoveryPath_).absolutePath());
+        setProperty("recoveryAvailable",recoveryAvailable());
+        recoveryTimer.setSingleShot(true);recoveryTimer.setInterval(150);connect(&recoveryTimer,&QTimer::timeout,this,[this]{autosaveRecovery();});
         auto* outer=new QVBoxLayout(this);auto* body=new QHBoxLayout;outer->addLayout(body,1);
         tools=new QWidget;auto* panel=new QVBoxLayout(tools);auto* scroll=new QScrollArea;scroll->setWidgetResizable(true);scroll->setWidget(tools);scroll->setMinimumWidth(335);scroll->setMaximumWidth(400);body->addWidget(scroll);
         auto* note=new QLabel(t("Multiple portions, any direction. First align each portion’s channels. Automatic overlap proposes editable geometry; it is not georeferencing.","Più porzioni, in ogni direzione. Prima allinea i canali di ciascuna porzione. La sovrapposizione automatica propone una geometria modificabile; non è una georeferenziazione."));note->setWordWrap(true);panel->addWidget(note);
@@ -391,6 +421,11 @@ public:
         button("mosaicMatchColour",t("Match selected layer to adjacent…","Uniforma il livello selezionato all’adiacente…"),panel,[this]{visualCompensationDialog();});
         button("mosaicSave",t("Save editable project…","Salva progetto modificabile…"),panel,[this]{saveProjectDialog();});
         button("mosaicOpen",t("Open project…","Apri progetto…"),panel,[this]{loadProjectDialog();});
+        button("mosaicRecover",t("Recover autosaved work…","Recupera lavoro autosalvato…"),panel,[this]{
+            if(!recoveryAvailable()){status->setText(t("No autosaved work to recover.","Nessun lavoro autosalvato da recuperare."));return;}
+            if(dirty&&!layers.empty()&&QMessageBox::question(this,t("Recover work","Recupera lavoro"),t("Replace the current layers with the autosaved work?","Sostituire i livelli attuali con il lavoro autosalvato?"),QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes)return;
+            recoverSession();
+        });
         button("mosaicQuality",t("Quality assessment…","Valutazione qualità…"),panel,[this]{qualityDialog();});
         button("mosaicExport",t("Export single image…","Esporta immagine unica…"),panel,[this]{exportDialog();});
         auto* right=new QVBoxLayout;body->addLayout(right,1);
@@ -595,7 +630,7 @@ public:
         auto text=QByteArray::fromStdString(orbyx::mosaicProject(layers,projectDir));QSaveFile file(name);file.setDirectWriteFallback(false);
         if(!file.open(QIODevice::WriteOnly))throw std::runtime_error("Cannot create project file");file.setPermissions(QFileDevice::ReadOwner|QFileDevice::WriteOwner);
         if(file.write(text)!=text.size()||!file.commit())throw std::runtime_error("Cannot save project atomically");
-        dirty=false;
+        dirty=false;clearRecovery(); // Work is persisted; no crash recovery needed.
     }
     void loadProject(const QString& name){
         if(busy)return;QFileInfo info(name);if(!info.isFile()||info.isSymLink()||info.size()>1024*1024)throw std::runtime_error("Invalid project file");
