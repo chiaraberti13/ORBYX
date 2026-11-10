@@ -491,7 +491,7 @@ progettazione, non dipendenze da integrare automaticamente.
 ## M2-12 — Valutazione qualità e scelta consigliata
 
 - Priorità: P1
-- Stato: in corso — primo incremento verificato: **indicatori di qualità della
+- Stato: verificato per l'ambito core/GUI dichiarato — tre incrementi. (1) **indicatori di qualità della
   composizione**. Nuova `orbyx::mosaicQuality` (deterministica, resa a risoluzione
   ridotta) calcola aree vuote/mancanti entro il riquadro di copertura, copertura
   della sovrapposizione (≥2 livelli), clipping di alte luci e ombre e numero di
@@ -508,8 +508,16 @@ progettazione, non dipendenze da integrare automaticamente.
   **confronta ROI e stato attuale** e raccomanda la strategia con minor concern
   (aree vuote + giunzione + clipping), segnalando i casi **ambigui**; la scelta
   resta all'utente (`qualityRecommended` ∈ profile-roi/current/ambiguous), nessuna
-  sostituzione automatica. Restano da implementare la validazione sui dataset con
-  verità nota (criteri quantitativi) e la prova di usabilità con utenti.
+  sostituzione automatica. (3) **Validazione quantitativa su verità nota**:
+  `mosaic-regression` include ora una validazione sui criteri quantitativi — su
+  porzioni testurizzate tagliate da una scena con offset noto, l'allineamento
+  automatico recupera la geometria entro tolleranza (già coperto) e
+  `mosaicQuality` distingue in modo quantitativo l'allineamento corretto
+  (`seamDifference`≈0,005, overlap presente, nessun buco) da uno disallineato di
+  40/30 px (`seamDifference`≈0,25) e dal caso senza sovrapposizione
+  (overlap 0, aree vuote ≈0,47). Resta soltanto, fuori dall'ambito automatizzabile,
+  la prova di usabilità con utenti reali e lo screen reader (coerente con M4-01);
+  M2-12 è quindi verificato per l'ambito core/GUI dichiarato.
 - Dipendenze: M2-07, M2-09, M2-10, M2-11
 - Responsabile: QA Lead / Computer Vision Validation / Remote Sensing / UX Research
 - Deliverable: report comprensibile che confronta ROI, visuale e intervento
