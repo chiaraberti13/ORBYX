@@ -1,6 +1,6 @@
 <p align="center"><img src="assets/banner.svg" alt="ORBYX — Satellite Imaging Studio" width="100%"></p>
 
-<p align="center"><a href="README.md">🇮🇹 Italiano</a> · <a href="README.en.md">🇬🇧 English</a></p>
+<p align="center"><a href="README.it.md">🇮🇹 Italiano</a> · <a href="README.en.md">🇬🇧 English</a></p>
 
 <p align="center">
 <a href="https://github.com/chiaraberti13/ORBYX/actions/workflows/ci.yml"><img src="https://github.com/chiaraberti13/ORBYX/actions/workflows/ci.yml/badge.svg" alt="Build and regression"></a>
@@ -67,19 +67,41 @@ bash start.sh
 
 Si apre la finestra del programma. Puoi avviarlo nuovamente con lo stesso comando; non devi reinstallarlo a ogni utilizzo. Per aggiornare il programma, chiudi prima ORBYX e ripeti `git pull` e `bash install.sh`.
 
+### Quale pulsante premo? Guida rapida
+
+Questa è la parte più importante: **ogni pulsante serve a una cosa diversa**. Guarda cosa hai a disposizione e usa **un solo** pulsante.
+
+| La tua situazione | Premi questo | Cosa devi scegliere |
+|---|---|---|
+| **Voglio solo vedere come funziona** (non ho dati miei) | **Generazione automatica** (Ctrl+Maiusc+D) | Niente. Parte da sola con le immagini di esempio. |
+| **Ho 6 foto JPEG** chiamate `sx_`/`dx_` MSUGS-VIS-1/2/3 | **Simulazione immagini…** (Ctrl+Maiusc+S) | La cartella che contiene le 6 foto. |
+| **Ho dati veri decodificati da SatDump** | **Crea immagine finale…** | Una cartella che contiene **direttamente** le sottocartelle `MSUGS_VIS1`, `MSUGS_VIS2`, ecc. |
+| **Voglio comporre o ritoccare le porzioni a mano** | **Componi porzioni e colore…** → *Aggiungi porzioni demo modificabili* | Immagini già allineate, oppure le porzioni demo incluse. |
+
+> ⚠️ **L'errore più comune.** Il pulsante **Crea immagine finale…** funziona *soltanto* con i dati veri di SatDump. Se gli indichi la cartella delle **foto demo** (i sei JPEG), compare un messaggio rosso del tipo «non è un'esportazione VIS di SatDump»: **è normale**, quella finestra non è pensata per le foto demo. Per le foto demo usa **Generazione automatica** oppure **Simulazione immagini…**.
+>
+> La differenza: i dati veri di SatDump sono **cartelle** (`MSUGS_VIS1`, `MSUGS_VIS2`, …) con dentro tre canali `MSUGS-VIS-1/2/3.png`; le foto demo sono invece **sei file** `.jpg` tutti nella stessa cartella.
+
+**Non sai da dove iniziare?** Premi **Generazione automatica**: è il modo più veloce per vedere subito un'immagine, senza impostare nulla. Appena finisce, il risultato compare da solo nell'anteprima.
+
 ### Non hai ancora dati? Prova la demo
 
 ```bash
 bash demo.sh
 ```
 
-Nell’app premi **Avvia demo immagini** (oppure **Ctrl+Maiusc+D**). La demo usa i sei JPEG inclusi, tre SX e tre DX: allinea i canali, compone i colori e mostra un’unica immagine. Non devi scegliere cartelle o inserire percorsi. I file vengono conservati e il riquadro Attività indica dove trovare risultato e log.
+Nell’app premi **Generazione automatica** (oppure **Ctrl+Maiusc+D**). Elabora i sei JPEG (tre SX e tre DX) presenti in una **cartella fissa** `~/.local/share/orbyx/auto-input`: allinea i canali, compone i colori e mostra un’unica immagine, **senza impostare alcun parametro**. Al primo avvio la cartella viene riempita automaticamente con i sei JPEG inclusi come esempio; per usare le tue immagini sostituiscile in quella cartella (nomi `sx_MSUGS-VIS-1/2/3.jpg` e `dx_MSUGS-VIS-1/2/3.jpg`) e premi di nuovo. Il percorso esatto compare nel riquadro Attività insieme a risultato e log.
 
 Il comando qui sopra apre direttamente questa stessa demo; `bash demo.sh --no-open` la esegue senza finestra e salva in **demo-output**, con log in **logs**. I JPEG sono anteprime a 8 bit: la demo non certifica geometria assoluta o colore radiometricamente calibrato. [Provenienza e dettagli](assets/demo-jpeg/SOURCE.md).
 
+**Simulazione manuale:** premi **Simulazione immagini…** (oppure **Ctrl+Maiusc+S**) per eseguire la stessa elaborazione scegliendo tu la cartella: parte dalla cartella demo inclusa, ma puoi indicarne una tua con sei JPEG chiamati `sx_MSUGS-VIS-1/2/3.jpg` e `dx_MSUGS-VIS-1/2/3.jpg`. Non servono dati RDAS né file `.json`.
+
+**Niente file JSON da caricare:** il **Profilo di calibrazione** è già incluso e preselezionato (lo vedi scritto «(incluso)»). Normalmente scegli solo la **Cartella RDAS di origine** e una **Nuova cartella di destinazione**; il profilo lo lasci com’è. Se lo svuoti per errore, l’app rimette da sola quello incluso.
+
 ### Nuove funzioni nell’app
 
-- **Componi porzioni e colore…**: aggiungi più porzioni come livelli, proponi automaticamente sovrapposizioni e ritaglio dei grandi bordi uniformi, controlla le giunzioni, correggi geometria e colore, salva il progetto ed esporta un solo PNG. Non è limitato a SX/DX. [Guida passo passo](docs/COMPOSITOR.md).
+- **Componi porzioni e colore…**: aggiungi più porzioni come livelli, proponi automaticamente sovrapposizioni e ritaglio dei grandi bordi uniformi, controlla le giunzioni con sostituzione, sfumatura, percorso a costo minimo o blending multibanda, disegna maschere poligonali includi/escludi, uniforma visualmente luminosità e colore fra livelli, usa i preset di canale singolo, leggi istogramma e clipping e una valutazione qualità che non dichiara mai «perfetta» un’immagine. Salva un progetto portabile (percorsi relativi) con autosalvataggio e recupero, esportalo come pacchetto autonomo ed esporta un solo PNG con report riproducibile. Dopo **Genera**, le porzioni allineate vengono aperte direttamente con le ROI del profilo come punto di partenza modificabile, senza alterare il risultato storico. Non è limitato a SX/DX. [Guida passo passo](docs/COMPOSITOR.md).
+- **Crea immagine finale…**: percorso guidato in cinque passaggi **per i dati veri di SatDump** (non per le foto demo). Al passo 1 devi indicare una cartella che contiene **direttamente** le sottocartelle `MSUGS_VIS1`, `MSUGS_VIS2`, ecc.; se scegli la cartella sbagliata (per esempio quella delle foto demo o la cartella Documenti) la procedura te lo segnala e non prosegue. Poi controlla allineamento/unione/colore, avvia l’elaborazione e l’editor si apre automaticamente sul risultato, senza cercare file intermedi. *Per provare senza dati SatDump usa invece Generazione automatica o Simulazione immagini… (vedi «Quale pulsante premo?»).*
 
 - **Calibrazione guidata…**: scegli dati e destinazione, controlla satellite e scala, poi avvia il calcolo. Il nuovo profilo viene selezionato per l’allineamento.
 - **Monitora acquisizioni…**: scegli la cartella di SatDump. Puoi importare un prodotto pronto o attivare l’accodamento automatico dei prodotti compatibili; l’elaborazione parte solo con **Avvia coda**.

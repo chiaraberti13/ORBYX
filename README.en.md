@@ -1,6 +1,6 @@
 <p align="center"><img src="assets/banner.svg" alt="ORBYX — Satellite Imaging Studio" width="100%"></p>
 
-<p align="center"><a href="README.md">🇮🇹 Italiano</a> · <a href="README.en.md">🇬🇧 English</a></p>
+<p align="center"><a href="README.it.md">🇮🇹 Italiano</a> · <a href="README.en.md">🇬🇧 English</a></p>
 
 <p align="center">
 <a href="https://github.com/chiaraberti13/ORBYX/actions/workflows/ci.yml"><img src="https://github.com/chiaraberti13/ORBYX/actions/workflows/ci.yml/badge.svg" alt="Build and regression"></a>

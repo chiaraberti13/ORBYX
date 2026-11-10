@@ -1410,3 +1410,10 @@ un'esportazione VIS»; per le foto demo si usano **Generazione automatica** o
 **Simulazione immagini…**. Chiarita la differenza cartelle-SatDump vs sei JPEG e
 aggiornato il pulsante demo EN al nome reale «Automatic generation». Solo
 documentazione, nessuna modifica al codice o al comportamento.
+
+Correzione struttura README: il README italiano è `README.it.md` (coppia con
+`README.en.md`); `README.md` era una copia italiana più recente che aveva superato
+`README.it.md` lasciandolo obsoleto. Consolidato il contenuto italiano aggiornato
+(inclusa la guida «Quale pulsante premo?») in `README.it.md`, ripuntati i link di
+lingua a `README.it.md` in entrambi i file e rimosso `README.md`. Le due note
+precedenti di oggi citano `README.md` solo come registro storico.
