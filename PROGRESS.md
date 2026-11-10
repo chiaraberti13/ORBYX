@@ -1260,3 +1260,27 @@ modifica il progetto. Suite completa 24/24 passata con label `gpu` esclusa.
 Restano aperti, per M2-12: differenza/continuità lungo la seam, report comparativo
 ROI/visuale/manuale con raccomandazione e casi ambigui, validazione su dataset con
 verità nota e prova di usabilità.
+
+## 2026-11-10 — M2-12 secondo incremento: differenza giunzione e raccomandazione
+
+Continuazione M2-12. (A) **Differenza lungo la giunzione**: `orbyx::mosaicQuality`
+calcola ora `seamDifference` — ogni livello viene reso da solo sul canvas completo
+(gli altri restano visibili ma non contribuiscono, così i limiti coincidono) e le
+coppie sovrapposte vengono confrontate in scala di grigi nell'area comune; più alta
+= giunzione più visibile. Deterministica e con memoria limitata (resa a risoluzione
+ridotta). (B) **Raccomandazione comparativa**: il report «Valutazione qualità…»
+mostra la differenza di giunzione e, quando esiste una baseline ROI del profilo,
+confronta ROI e stato attuale con un punteggio di «concern» (aree vuote +
+giunzione + clipping) e raccomanda la strategia migliore, segnalando i casi
+**ambigui**; la scelta resta all'utente (proprietà `qualityRecommended` ∈
+profile-roi/current/ambiguous), **nessuna sostituzione automatica**.
+
+Verifica effettiva (Ubuntu 24.04.5, Qt 6.4.2, OpenCV 4.6, offscreen):
+`mosaic-regression` esteso — due livelli diversi sovrapposti hanno
+`seamDifference>0.2`, due identici `<0.05` (solo residuo di bordo), deterministica.
+`mosaic-widget-flow` esteso — con baseline ROI il report espone
+`qualityRecommended` (profile-roi/current/ambiguous) e `qualitySeamDifference` e
+non modifica il progetto. Suite completa 24/24 passata con label `gpu` esclusa.
+
+Restano aperti, per M2-12: validazione sui dataset con verità nota (criteri
+quantitativi) e prova di usabilità con utenti.

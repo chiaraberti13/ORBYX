@@ -548,6 +548,29 @@ MosaicQuality mosaicQuality(const std::vector<MosaicLayer>& layers,int previewEd
     q.highlightClipped=coveredCount>0?double(highlight)/double(coveredCount):0.;
     q.shadowClipped=coveredCount>0?double(shadow)/double(coveredCount):0.;
     for(const auto& l:layers){if(!l.visible)continue;if(std::abs(l.angle)>=45.||l.scale<.5||l.scale>2.)++q.extremeTransforms;}
+    // Seam difference: each layer is rendered alone on the full canvas (others kept
+    // visible with no contribution, so the bounds are identical) and overlapping
+    // pairs are compared in their shared area. Higher means a more visible seam.
+    if(layers.size()>=2) {
+        std::vector<cv::Mat> solo(layers.size()),mask(layers.size());
+        for(size_t i=0;i<layers.size();++i) {
+            if(!layers[i].visible)continue;
+            auto only=layers;
+            for(size_t k=0;k<only.size();++k){if(k==i){only[k].blend=MosaicBlend::Replace;only[k].opacity=1;}else{only[k].blend=MosaicBlend::Feather;only[k].opacity=0;}}
+            const cv::Mat rendered=renderMosaic(only,edge).image;
+            if(rendered.size()!=img.size())continue;
+            solo[i]=rendered;
+            cv::Mat m=cv::Mat::zeros(img.size(),CV_8U);std::vector<cv::Point> pts;for(const auto& pt:whole.outlines[i])pts.emplace_back(cvRound(pt.x),cvRound(pt.y));if(pts.size()>=3)cv::fillConvexPoly(m,pts,cv::Scalar(255));mask[i]=m;
+        }
+        double seamWeight=0,seamSum=0;
+        for(size_t i=0;i<layers.size();++i)for(size_t j=i+1;j<layers.size();++j) {
+            if(solo[i].empty()||solo[j].empty()||mask[i].empty()||mask[j].empty())continue;
+            cv::Mat shared;cv::bitwise_and(mask[i],mask[j],shared);const long area=cv::countNonZero(shared);if(area==0)continue;
+            cv::Mat gi,gj,diff;cv::cvtColor(solo[i],gi,cv::COLOR_BGR2GRAY);cv::cvtColor(solo[j],gj,cv::COLOR_BGR2GRAY);cv::absdiff(gi,gj,diff);
+            seamSum+=cv::mean(diff,shared)[0]/255.0*double(area);seamWeight+=double(area);
+        }
+        q.seamDifference=seamWeight>0?seamSum/seamWeight:0.;
+    }
     return q;
 }
 }
