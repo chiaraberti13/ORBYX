@@ -22,6 +22,7 @@ satellite=args[args.index('--sat')+1]
 if satellite=='FAIL': sys.exit(9)
 p=pathlib.Path(args[args.index('--output')+1]); p.mkdir()
 (p/'result').write_text('synthetic-success')
+(p/'args').write_text('\\n'.join(args))
 with (pathlib.Path(__file__).parent/'calls').open('a') as s:s.write(satellite+'\\n')
 ''')
         self.engine.chmod(0o700)
@@ -67,6 +68,15 @@ with (pathlib.Path(__file__).parent/'calls').open('a') as s:s.write(satellite+'\
         self.assertEqual((self.root / "calls").read_text(), "L2\n")
         state = json.loads((self.root / "batch.state.json").read_text())
         self.assertEqual(state["jobs"]["one"]["status"], "completed")
+
+    def test_selected_products_are_validated_and_forwarded(self):
+        job = self.job("selected")
+        job["products"] = ["MSUGS_VIS1", "MSUGS_VIS-3_Aligned"]
+        self.assertEqual(self.invoke([job]).returncode, 0)
+        arguments = (self.root / "selected-output/args").read_text().splitlines()
+        self.assertEqual([arguments[i + 1] for i, value in enumerate(arguments) if value == "--product"], job["products"])
+        bad = self.job("bad-products"); bad["products"] = ["../MSUGS_VIS1"]
+        self.assertNotEqual(self.invoke([bad]).returncode, 0)
 
     def test_failure_does_not_block_later_job(self):
         result = self.invoke([self.job("bad", "FAIL"), self.job("good")])

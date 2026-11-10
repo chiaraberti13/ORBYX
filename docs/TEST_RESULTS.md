@@ -87,6 +87,37 @@ applicabili e Cppcheck completo. Questi risultati non trasformano il matching
 visivo in georeferenziazione, non provano prospettiva/proiezioni differenti e
 non sostituiscono il controllo umano di ogni giunzione.
 
+## Chiusura M2-08: selezione guidata collegata al motore
+
+PR **#16**, commit conclusivo su `main` **aec3d9f**. La correzione del
+raggruppamento non è più soltanto uno stato dell’interfaccia: i prodotti scelti
+sono persistiti nel progetto e nel digest, passano all’esecuzione immediata,
+alla CLI ripetibile `--product` e alla coda batch, quindi vengono elaborati dal
+motore `generate`. I VIS grezzi selezionati sono allineati con la rispettiva
+sezione del profilo; i prodotti già allineati non subiscono una seconda
+trasformazione. Il compositore importa tutti i prodotti generati (massimo 32) e
+mantiene la geometria ROI storica per VIS1/VIS2 quando disponibile.
+
+La compatibilità è esplicita: senza una selezione il percorso storico resta
+invariato; con VIS1/VIS2 grezzi e ROI complete continua a essere prodotto anche
+`MSUGS_VIS_Aligned`. Sono coperti nomi e percorsi non validi, identificatori
+duplicati, limite prodotti, profilo mancante, CBOR obbligatorio per il grezzo e
+CBOR opzionale non inventato per un prodotto già allineato. Se coesistono la
+versione grezza e quella allineata dello stesso VIS, il wizard chiede di
+sceglierne una prima dell’avvio.
+
+La prima CI ha individuato un errore reale: il livello RGB derivato veniva
+ispezionato con i vincoli dimensionali dei canali RDAS nativi, lasciando vuoto
+l’editor sulle fixture piccole. La lettura è stata separata correttamente e le
+regressioni desktop sono poi passate su Ubuntu 22.04/26.04, Fedora 44 e ARM64,
+insieme a sanitizzatori, fuzz e Cppcheck; CodeQL era già verde sul commit
+precedente contenente il medesimo codice di produzione. Matrici di riferimento
+(al momento del merge alcuni runner ridondanti erano ancora in installazione):
+[build/regressioni](https://github.com/chiaraberti13/ORBYX/actions/runs/42820235782),
+[piattaforme native](https://github.com/chiaraberti13/ORBYX/actions/runs/42820235741),
+[AppImage](https://github.com/chiaraberti13/ORBYX/actions/runs/42820235731) e
+[CodeQL](https://github.com/chiaraberti13/ORBYX/actions/runs/42820235736).
+
 ## Estensione M2-09: controllo e preparazione dell’allineamento
 
 Gli incrementi conclusi comprendono spostamento da tastiera 1/10pixel,

@@ -9,12 +9,14 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QJsonDocument>
+#include <QJsonArray>
 #include <QJsonObject>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
 #include <QListWidgetItem>
 #include <QPushButton>
+#include <QRegularExpression>
 #include <QSet>
 #include <QStandardPaths>
 #include <QVBoxLayout>
@@ -164,7 +166,7 @@ public:
         productList_ = new QListWidget; productList_->setObjectName("finalProductList");
         productList_->setAccessibleName(text("Detected products to include or exclude", "Prodotti rilevati da includere o escludere"));
         productList_->setMaximumHeight(140); importLayout->addWidget(productList_); importLayout->addStretch();
-        connect(productList_, &QListWidget::itemChanged, this, [this] { updateGroupingSummary(); });
+        connect(productList_, &QListWidget::itemChanged, this, [this] { updateGroupingSummary(); autosave(); });
         addPage(importPage);
 
         auto *alignPage = new QWizardPage;
@@ -250,6 +252,7 @@ public:
         material += input_->text().toUtf8(); material += '\0';
         material += satellite_->currentText().toUtf8(); material += '\0';
         material += (engine_->currentIndex() == 1 ? "cpu" : "auto"); material += '\0';
+        for (const QString &product : selectedProducts()) { material += product.toUtf8(); material += '\0'; }
         QFile profile(profile_->text());
         if (profile.open(QIODevice::ReadOnly) && profile.size() <= 1024 * 1024) material += profile.readAll();
         return QString::fromUtf8(QCryptographicHash::hash(material, QCryptographicHash::Sha256).toHex());
@@ -263,6 +266,8 @@ public:
         root["satellite"] = satellite_->currentText(); root["cpu"] = engine_->currentIndex() == 1;
         root["natural"] = colour_->currentIndex() == 0; root["step"] = currentId();
         root["queue"] = queueChoice_->isChecked(); root["digest"] = inputsDigest();
+        QJsonArray products; for (const QString &product : selectedProducts()) products.append(product);
+        root["products"] = products;
         return QString::fromUtf8(QJsonDocument(root).toJson(QJsonDocument::Compact));
     }
     bool applyWizardProject(const QString &json) {
@@ -276,6 +281,16 @@ public:
         engine_->setCurrentIndex(root.value("cpu").toBool() ? 1 : 0);
         colour_->setCurrentIndex(root.value("natural").toBool(true) ? 0 : 1);
         queueChoice_->setChecked(root.value("queue").toBool());
+        if (root.contains("products")) {
+            if (!root.value("products").isArray() || root.value("products").toArray().size() > 32) return false;
+            QSet<QString> selected;
+            for (const auto &value : root.value("products").toArray()) {
+                if (!value.isString()) return false;
+                selected.insert(value.toString());
+            }
+            for (int i = 0; productList_ && i < productList_->count(); ++i)
+                productList_->item(i)->setCheckState(selected.contains(productList_->item(i)->data(Qt::UserRole).toString()) ? Qt::Checked : Qt::Unchecked);
+        }
         setProperty("resumedStep", root.value("step").toInt());
         // Per-step trust: if the inputs (notably the calibration profile content)
         // changed since the project was saved, earlier results are not trusted.
@@ -317,19 +332,32 @@ public:
             const QFileInfo in(input_->text()), profile(profile_->text()), out(output_->text());
             if (!in.isDir() || in.isSymLink())
                 error = text("Choose a local SatDump export folder.", "Scegli una cartella locale esportata da SatDump.");
-            for (const QString vis : {"MSUGS_VIS1", "MSUGS_VIS2"}) {
+            const auto products = selectedProducts();
+            if (products.isEmpty()) error = text("Select at least one detected VIS product.", "Seleziona almeno un prodotto VIS rilevato.");
+            QSet<QString> productIds;
+            for (const QString &vis : products) {
+                const auto identity=QRegularExpression("^MSUGS_VIS-?([1-9][0-9]{0,2})(?:_Aligned)?$").match(vis);
+                if (!identity.hasMatch() || productIds.contains(identity.captured(1)))
+                    error = text("Select only one raw or aligned version of each VIS product.", "Seleziona una sola versione, grezza o allineata, di ogni prodotto VIS.");
+                else productIds.insert(identity.captured(1));
                 const QFileInfo folder(QDir(input_->text()).filePath(vis));
-                if (!folder.isDir() || folder.isSymLink()) error = text("The SatDump export is incomplete.", "L’esportazione SatDump è incompleta.");
+                if (!folder.isDir() || folder.isSymLink()) error = text("The selected SatDump product is incomplete.", "Il prodotto SatDump selezionato è incompleto.");
                 for (int channel = 1; channel <= 3; ++channel) {
                     const QFileInfo image(QDir(folder.absoluteFilePath()).filePath(QString("MSUGS-VIS-%1.png").arg(channel)));
                     if (!image.isFile() || image.isSymLink() || image.size() <= 0)
-                        error = text("The SatDump export is incomplete.", "L’esportazione SatDump è incompleta.");
+                        error = text("The selected SatDump product is incomplete.", "Il prodotto SatDump selezionato è incompleto.");
                 }
             }
             QFile json(profile.absoluteFilePath());
+            QJsonDocument profileDocument;
             if (!profile.isFile() || profile.isSymLink() || !json.open(QIODevice::ReadOnly) ||
-                json.size() > 1024 * 1024 || !QJsonDocument::fromJson(json.read(1024 * 1024 + 1)).isObject())
+                json.size() > 1024 * 1024 || !(profileDocument=QJsonDocument::fromJson(json.read(1024 * 1024 + 1))).isObject())
                 error = text("Choose a valid JSON calibration profile.", "Scegli un profilo JSON di calibrazione valido.");
+            else for (const QString &vis : products) {
+                const auto match=QRegularExpression("^MSUGS_VIS([1-9][0-9]{0,2})$").match(vis);
+                if(match.hasMatch()&&!profileDocument.object().value(satellite_->currentText()+"VIS"+match.captured(1)).isObject())
+                    error=text("The calibration profile does not support every selected VIS product.","Il profilo di calibrazione non supporta tutti i prodotti VIS selezionati.");
+            }
             const QString destination = QDir::cleanPath(out.absoluteFilePath());
             const QString origin = QDir::cleanPath(in.canonicalFilePath());
             if (output_->text().trimmed().isEmpty() || out.exists() || out.isSymLink() ||

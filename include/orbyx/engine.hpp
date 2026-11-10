@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <functional>
 #include <string>
+#include <vector>
 namespace orbyx {
 struct RunOptions {
   std::string satellite;
@@ -17,6 +18,9 @@ struct RunOptions {
   // profile-ROI merge so they can be opened as editable compositor layers.
   // CLI/default output remains unchanged when false.
   bool editableParts = false;
+  // Optional GUI/batch selection of relative MSUGS_VIS* product folders. An
+  // empty list preserves the historical VIS1/VIS2 path byte-for-byte.
+  std::vector<std::string> products;
 };
 using Log = std::function<void(const std::string&)>;
 struct Inspection { int width, height, depth; };

@@ -32,6 +32,7 @@ int main(int argc,char** argv){
         const auto generated=root/"generated";std::filesystem::create_directories(generated/"MSUGS_VIS-1_Aligned");std::filesystem::create_directories(generated/"MSUGS_VIS-2_Aligned");
         for(int vis=1;vis<=2;++vis)for(int channel=1;channel<=3;++channel)
             cv::imwrite((generated/("MSUGS_VIS-"+std::to_string(vis)+"_Aligned")/("MSUGS-VIS-"+std::to_string(channel)+".png")).string(),cv::Mat(80,100,CV_16UC1,cv::Scalar(vis*5000+channel*1000)));
+        std::filesystem::create_directories(generated/"MSUGS_VIS-3_Aligned");for(int channel=1;channel<=3;++channel)cv::imwrite((generated/"MSUGS_VIS-3_Aligned"/("MSUGS-VIS-"+std::to_string(channel)+".png")).string(),cv::Mat(80,100,CV_16UC1,cv::Scalar(18000+channel*1000)));
         const auto generatedProfile=root/"generated-profile.json";
         std::ofstream(generatedProfile)<<R"({"L2VIS1":{"ROI":{"x":5,"y":6,"width":60,"height":50}},"L2VIS2":{"ROI":{"x":10,"y":8,"width":55,"height":45}}})";
         for(bool it:{false,true}){
@@ -125,7 +126,7 @@ int main(int argc,char** argv){
             check(orbyx::readCompositePng(channels.state()[0].image).type()==CV_16UC3,"Natural Color in editor lost native depth");
             channels.saveProject(temp.path()+(it?"/channels-it.json":"/channels-en.json"));
             MosaicDialog profileRoi(it);profileRoi.show();profileRoi.appendGeneratedProducts(QString::fromStdString(generated.string()),QString::fromStdString(generatedProfile.string()),"L2",true);waitFor(profileRoi);
-            check(profileRoi.state().size()==2&&profileRoi.property("loadedProfileRoi").toBool(),"Profile ROI output was not opened as editable layers");
+            check(profileRoi.state().size()==3&&profileRoi.property("loadedProfileRoi").toBool(),"All selected output products were not opened as editable layers");
             check(profileRoi.state()[0].crop==cv::Rect(5,6,60,50)&&profileRoi.state()[1].crop==cv::Rect(10,8,55,45)&&profileRoi.state()[1].x==60,"Editable profile ROI geometry differs from historical merge");
             check(profileRoi.findChild<QLabel*>("mosaicStatus")->text().contains("ROI"),"Editable profile ROI explanation missing");
             auto editedRoi=profileRoi.state();editedRoi[1].x+=17;profileRoi.setState(editedRoi);

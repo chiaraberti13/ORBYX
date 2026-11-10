@@ -280,7 +280,7 @@ progettazione, non dipendenze da integrare automaticamente.
 ## M2-08 — Procedura guidata “Da SatDump all’immagine finale”
 
 - Priorità: P0
-- Stato: verificato per l'ambito GUI dichiarato — sei incrementi. (1) Una sola azione desktop guida
+- Stato: verificato end-to-end — sette incrementi. (1) Una sola azione desktop guida
   **Importa**, **Allinea canali**, **Unisci porzioni**, **Colore** ed **Esporta**,
   valida origine/profilo/destinazione, avvia il percorso reale e apre
   automaticamente il compositore senza cercare file intermedi. (2) **Ripresa del
@@ -307,10 +307,14 @@ progettazione, non dipendenze da integrare automaticamente.
   satellite, motore e contenuto del profilo di calibrazione); alla ripresa il
   digest viene ricalcolato e confrontato (`resumeDigestMatches`), e se il profilo
   o la configurazione sono cambiati dal salvataggio un avviso EN/IT dichiara che i
-  risultati precedenti non sono affidabili. Resta esterno all'ambito GUI il riuso
-  effettivo dei risultati per singolo passaggio nel percorso di esecuzione (già
-  governato dai digest del runner batch) e l'uso del raggruppamento corretto nel
-  motore `generate`, oggi vincolato ai due VIS RDAS.
+  risultati precedenti non sono affidabili. (7) **Selezione applicata realmente**:
+  lo stesso elenco corretto viene inoltrato all'esecuzione immediata, alla CLI e
+  alla coda durevole; `generate` allinea i prodotti grezzi selezionati, conserva
+  quelli già allineati e consegna al compositore tutte le porzioni prodotte. Se la
+  selezione non è presente, il percorso storico VIS1/VIS2 e il prodotto ROI
+  restano invariati. Una versione grezza e una già allineata dello stesso VIS
+  vengono rifiutate nel wizard prima dell'elaborazione. Il riuso dei risultati per
+  singolo passaggio resta governato dai digest già verificati del runner batch.
 - Dipendenze: M2-07, M3-04
 - Responsabile: Product Designer / Qt UX / SatDump Specialist / Accessibility / QA
 - Deliverable: procedura EN/IT accessibile dal desktop con percorso base in
