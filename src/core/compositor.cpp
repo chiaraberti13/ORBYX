@@ -28,7 +28,7 @@ void validate(const MosaicLayer& l) {
     check(l.masks.size()<=64,"Too many mosaic polygon masks");std::size_t maskPoints=0;
     for(const auto& mask:l.masks){check(mask.points.size()>=3&&mask.points.size()<=256,"Invalid mosaic polygon mask");maskPoints+=mask.points.size();for(const auto& point:mask.points)check(std::isfinite(point.x)&&std::isfinite(point.y)&&point.x>=0&&point.y>=0&&point.x<=100000&&point.y<=100000,"Invalid mosaic polygon point");}
     check(maskPoints<=4096,"Too many mosaic polygon points");
-    check(l.blend==MosaicBlend::Replace||l.blend==MosaicBlend::Feather||l.blend==MosaicBlend::Seam,"Invalid mosaic blend mode");
+    check(l.blend==MosaicBlend::Replace||l.blend==MosaicBlend::Feather||l.blend==MosaicBlend::Seam||l.blend==MosaicBlend::Multiband,"Invalid mosaic blend mode");
     check(!l.image.empty()&&l.image.string().size()<=4096,"Invalid mosaic input path");
 }
 cv::Rect region(const MosaicLayer& l,const cv::Mat& image) {
@@ -182,6 +182,29 @@ cv::Vec3d visualPixel(const cv::Mat& image,int x,int y,const MosaicLayer& layer)
     for(int channel=0;channel<3;++channel){const double normalized=std::clamp((value[channel]/maximum-layer.black)/(layer.white-layer.black),0.,1.);value[channel]=(layer.gamma==1?normalized:std::pow(normalized,gamma))*gains[size_t(channel)];}
     const double luminance=.0722*value[0]+.7152*value[1]+.2126*value[2];for(int channel=0;channel<3;++channel)value[channel]=std::clamp(luminance+layer.saturation*(value[channel]-luminance),0.,1.);return value;
 }
+// Deterministic Laplacian-pyramid (multiband) blend of two CV_32FC3 images guided
+// by a CV_32FC1 mask in [0,1] (1 keeps the layer, 0 keeps the base). Low-frequency
+// content blends over a wide region and high-frequency over a narrow one, which
+// hides exposure/colour steps across a seam. No randomness, so it is reproducible.
+cv::Mat laplacianBlend(const cv::Mat& base,const cv::Mat& layer,const cv::Mat& mask,int levels) {
+    std::vector<cv::Mat> gBase{base},gLayer{layer},gMask{mask};
+    for(int level=0;level<levels;++level) {
+        cv::Mat b,l,m;cv::pyrDown(gBase.back(),b);cv::pyrDown(gLayer.back(),l);cv::pyrDown(gMask.back(),m);
+        gBase.push_back(b);gLayer.push_back(l);gMask.push_back(m);
+    }
+    cv::Mat topMask;cv::cvtColor(gMask[size_t(levels)],topMask,cv::COLOR_GRAY2BGR);
+    cv::Mat result=gLayer[size_t(levels)].mul(topMask)+gBase[size_t(levels)].mul(cv::Scalar::all(1)-topMask);
+    for(int level=levels-1;level>=0;--level) {
+        cv::Mat upBase,upLayer,upResult;
+        cv::pyrUp(gBase[size_t(level+1)],upBase,gBase[size_t(level)].size());
+        cv::pyrUp(gLayer[size_t(level+1)],upLayer,gLayer[size_t(level)].size());
+        cv::pyrUp(result,upResult,gBase[size_t(level)].size());
+        cv::Mat mask3;cv::cvtColor(gMask[size_t(level)],mask3,cv::COLOR_GRAY2BGR);
+        const cv::Mat laplacianBase=gBase[size_t(level)]-upBase,laplacianLayer=gLayer[size_t(level)]-upLayer;
+        result=upResult+laplacianLayer.mul(mask3)+laplacianBase.mul(cv::Scalar::all(1)-mask3);
+    }
+    return result;
+}
 }
 MosaicResult renderMosaic(const std::vector<MosaicLayer>& layers,int previewEdge) {
     check(!layers.empty()&&layers.size()<=32,"A mosaic requires 1 to 32 layers");
@@ -260,6 +283,55 @@ MosaicResult renderMosaic(const std::vector<MosaicLayer>& layers,int previewEdge
         for(const auto& point:result.outlines[i]){left=std::min(left,point.x);right=std::max(right,point.x);top=std::min(top,point.y);bottom=std::max(bottom,point.y);}
         const int firstX=std::clamp(int(std::floor(left)),0,cols),lastX=std::clamp(int(std::ceil(right)),0,cols);
         const int firstY=std::clamp(int(std::floor(top)),0,rows),lastY=std::clamp(int(std::ceil(bottom)),0,rows);
+        // Multiband path: a native-depth Laplacian-pyramid blend over the layer's
+        // bounding box. It needs several float buffers, so above a bounded area (or
+        // when the seam has no continuous path) it falls back to the feather tiles.
+        if(l.blend==MosaicBlend::Multiband) {
+            const cv::Rect bbox(firstX,firstY,std::max(0,lastX-firstX),std::max(0,lastY-firstY));
+            const std::uint64_t area=std::uint64_t(bbox.width)*bbox.height;
+            if(bbox.width>=4 && bbox.height>=4 && area<=8000000ULL) {
+                // Blend mask: ramp across the overlap from the layers below. Deep in
+                // this layer (or where nothing is below) it keeps the layer; near the
+                // boundary with the layers below it fades to them, so a wide low-pass
+                // of the pyramid hides exposure/colour steps without a one-sided edge.
+                cv::Mat belowOnly;cv::bitwise_and(seamCoverage,~layerCoverage,belowOnly);
+                cv::Mat distFromBelow;cv::distanceTransform(~belowOnly,distFromBelow,cv::DIST_L2,3);
+                cv::Mat overlap;cv::bitwise_and(seamCoverage,layerCoverage,overlap);
+                std::vector<cv::Point> overlapPoints;cv::findNonZero(overlap,overlapPoints);
+                const cv::Rect overlapBounds=overlapPoints.empty()?cv::Rect():cv::boundingRect(overlapPoints);
+                const double transitionSeam=overlapPoints.empty()?1.:std::max(2.0,double(std::min(overlapBounds.width,overlapBounds.height)));
+                cv::Mat maskSeam;distFromBelow.convertTo(maskSeam,CV_32F,1./transitionSeam);cv::threshold(maskSeam,maskSeam,1.,1.,cv::THRESH_TRUNC);
+                int levels=0;for(int mn=std::min(bbox.width,bbox.height);levels<5 && (mn>>(levels+1))>=4;++levels){}
+                cv::Mat baseColor;result.image(bbox).convertTo(baseColor,CV_32F,1./outMaximum);
+                cv::Mat layerColor=baseColor.clone();
+                cv::Mat mask=cv::Mat::zeros(bbox.size(),CV_32F),cover=cv::Mat::zeros(bbox.size(),CV_8U);
+                for(int yy=0;yy<bbox.height;++yy) {
+                    auto* layerRow=layerColor.ptr<cv::Vec3f>(yy);auto* maskRow=mask.ptr<float>(yy);auto* coverRow=cover.ptr<unsigned char>(yy);
+                    for(int xx=0;xx<bbox.width;++xx) {
+                        const int px=firstX+xx,py=firstY+yy;
+                        const double sx=inverse(0,0)*px+inverse(0,1)*py+inverse(0,2),sy=inverse(1,0)*px+inverse(1,1)*py+inverse(1,2);
+                        if(!acceptsVisualSample(l,{sx,sy},image.size()))continue;
+                        const int seamX=std::clamp(int((px+.5)*seamScale),0,maskSeam.cols-1),seamY=std::clamp(int((py+.5)*seamScale),0,maskSeam.rows-1);
+                        maskRow[xx]=std::clamp(maskSeam.at<float>(seamY,seamX),0.f,1.f);
+                        const cv::Vec3d v=visualPixel(image,int(sx),int(sy),l);layerRow[xx]={float(v[0]),float(v[1]),float(v[2])};
+                        coverRow[xx]=255;
+                    }
+                }
+                const cv::Mat blended=laplacianBlend(baseColor,layerColor,mask,levels);
+                cv::Mat region=result.image(bbox);
+                for(int yy=0;yy<bbox.height;++yy) {
+                    const auto* blendRow=blended.ptr<cv::Vec3f>(yy);const auto* coverRow=cover.ptr<unsigned char>(yy);
+                    for(int xx=0;xx<bbox.width;++xx)if(coverRow[xx]) {
+                        const double b0=std::clamp(double(blendRow[xx][0]),0.,1.)*outMaximum,b1=std::clamp(double(blendRow[xx][1]),0.,1.)*outMaximum,b2=std::clamp(double(blendRow[xx][2]),0.,1.)*outMaximum;
+                        if(outputDepth==CV_16U)region.at<cv::Vec3w>(yy,xx)={cv::saturate_cast<unsigned short>(b0),cv::saturate_cast<unsigned short>(b1),cv::saturate_cast<unsigned short>(b2)};
+                        else region.at<cv::Vec3b>(yy,xx)={cv::saturate_cast<unsigned char>(b0),cv::saturate_cast<unsigned char>(b1),cv::saturate_cast<unsigned char>(b2)};
+                    }
+                }
+                cv::bitwise_or(seamCoverage,layerCoverage,seamCoverage);
+                continue;
+            }
+            ++result.seamFallbacks; // Multiband area out of bounds; the feather tiles below are the fallback.
+        }
         // Bound scratch allocations independently of full scene size. A layer is
         // decoded once per pass, colour conversion and blending use small tiles.
         for(int y=firstY;y<lastY;y+=256)for(int x=firstX;x<lastX;x+=256) {
@@ -281,7 +353,7 @@ MosaicResult renderMosaic(const std::vector<MosaicLayer>& layers,int previewEdge
                     if(!polygonMask.empty()&&polygonMask.at<unsigned char>(yy,xx)==0)continue;
                     double alpha=l.blend==MosaicBlend::Replace?1.:l.opacity;
                     if(l.blend==MosaicBlend::Seam&&seamReady){const int seamX=std::clamp(int((x+xx+.5)*seamScale),0,seamAlpha.cols-1),seamY=std::clamp(int((y+yy+.5)*seamScale),0,seamAlpha.rows-1);alpha=seamAlpha.at<float>(seamY,seamX);}
-                    if((l.blend==MosaicBlend::Feather||(l.blend==MosaicBlend::Seam&&!seamReady))&&l.feather>0)alpha*=std::clamp(std::min({sx+.5,sy+.5,image.cols-.5-sx,image.rows-.5-sy})*l.scale/l.feather,0.,1.);
+                    if((l.blend==MosaicBlend::Feather||l.blend==MosaicBlend::Multiband||(l.blend==MosaicBlend::Seam&&!seamReady))&&l.feather>0)alpha*=std::clamp(std::min({sx+.5,sy+.5,image.cols-.5-sx,image.rows-.5-sy})*l.scale/l.feather,0.,1.);
                     auto v=values[xx];
                     if(neutral){for(int c=0;c<3;++c)dest[xx][c]=float(v[c]*alpha+dest[xx][c]*(1-alpha));continue;}
                     for(int c=0;c<3;++c) {
@@ -391,7 +463,7 @@ std::string mosaicProject(const std::vector<MosaicLayer>& layers) {
     Json::Value root;root["schema"]="orbyx-mosaic/1";root["geometry"]="manual scene pixels; no geographic certification";
     for(const auto& l:layers) {
         validate(l);Json::Value v;v["image"]=std::filesystem::absolute(l.image).lexically_normal().string();
-        v["visible"]=l.visible;v["blend"]=l.blend==MosaicBlend::Replace?"replace":l.blend==MosaicBlend::Seam?"seam":"feather";
+        v["visible"]=l.visible;v["blend"]=l.blend==MosaicBlend::Replace?"replace":l.blend==MosaicBlend::Seam?"seam":l.blend==MosaicBlend::Multiband?"multiband":"feather";
         const double values[]={l.x,l.y,l.scale,l.angle,l.opacity,l.feather,l.black,l.white,l.gamma,l.exposure,l.saturation,l.red,l.green,l.blue};
         const char* keys[]={"x","y","scale","angle","opacity","feather","black","white","gamma","exposure","saturation","red","green","blue"};
         for(int i=0;i<14;++i)v[keys[i]]=values[i];
@@ -413,7 +485,7 @@ std::vector<MosaicLayer> parseMosaicProject(const std::string& text) {
         check(v.isObject()&&v["image"].isString()&&v["visible"].isBool()&&v["crop"].isArray()&&v["crop"].size()==4,"Invalid mosaic layer");
         const auto path=v["image"].asString();check(path.find('\0')==std::string::npos&&std::filesystem::path(path).is_absolute(),"Mosaic paths must be absolute");
         MosaicLayer l;l.image=path;l.visible=v["visible"].asBool();
-        if(v.isMember("blend")){check(v["blend"].isString(),"Invalid mosaic blend mode");const auto blend=v["blend"].asString();check(blend=="replace"||blend=="feather"||blend=="seam","Invalid mosaic blend mode");l.blend=blend=="replace"?MosaicBlend::Replace:blend=="seam"?MosaicBlend::Seam:MosaicBlend::Feather;}
+        if(v.isMember("blend")){check(v["blend"].isString(),"Invalid mosaic blend mode");const auto blend=v["blend"].asString();check(blend=="replace"||blend=="feather"||blend=="seam"||blend=="multiband","Invalid mosaic blend mode");l.blend=blend=="replace"?MosaicBlend::Replace:blend=="seam"?MosaicBlend::Seam:blend=="multiband"?MosaicBlend::Multiband:MosaicBlend::Feather;}
         double* values[]={&l.x,&l.y,&l.scale,&l.angle,&l.opacity,&l.feather,&l.black,&l.white,&l.gamma,&l.exposure,&l.saturation,&l.red,&l.green,&l.blue};
         const char* keys[]={"x","y","scale","angle","opacity","feather","black","white","gamma","exposure","saturation","red","green","blue"};
         for(int i=0;i<14;++i){check(v[keys[i]].isNumeric(),"Missing mosaic numeric parameter");*values[i]=v[keys[i]].asDouble();}

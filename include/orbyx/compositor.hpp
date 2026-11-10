@@ -6,7 +6,7 @@
 #include <string>
 #include <array>
 namespace orbyx {
-enum class MosaicBlend {Replace,Feather,Seam};
+enum class MosaicBlend {Replace,Feather,Seam,Multiband};
 struct MosaicMask {
     bool include=false; // Include masks form a union; exclude masks override it.
     std::vector<cv::Point2d> points; // Coordinates inside the cropped layer.

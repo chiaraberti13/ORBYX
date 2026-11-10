@@ -96,7 +96,7 @@ class MosaicDialog final:public QDialog {
         updating=true;const auto& l=layers[size_t(row)];
         double values[]={l.x,l.y,l.scale,l.angle,l.opacity,l.feather,double(l.crop.x),double(l.crop.y),double(l.crop.width),double(l.crop.height),l.black,l.white,l.gamma,l.exposure,l.saturation,l.red,l.green,l.blue,double(l.exclude.x),double(l.exclude.y),double(l.exclude.width),double(l.exclude.height)};
         for(size_t i=0;i<controls.size();++i)controls[i]->setValue(values[i]);
-        visible->setChecked(l.visible);blendMode->setCurrentIndex(l.blend==orbyx::MosaicBlend::Replace?0:l.blend==orbyx::MosaicBlend::Seam?2:1);controls[4]->setEnabled(l.blend==orbyx::MosaicBlend::Feather);controls[5]->setEnabled(l.blend!=orbyx::MosaicBlend::Replace);updating=false;
+        visible->setChecked(l.visible);blendMode->setCurrentIndex(l.blend==orbyx::MosaicBlend::Replace?0:l.blend==orbyx::MosaicBlend::Seam?2:l.blend==orbyx::MosaicBlend::Multiband?3:1);controls[4]->setEnabled(l.blend==orbyx::MosaicBlend::Feather);controls[5]->setEnabled(l.blend!=orbyx::MosaicBlend::Replace);updating=false;
     }
     void edit(){
         if(updating||busy)return;int row=list->currentRow();if(row<0)return;
@@ -107,7 +107,7 @@ class MosaicDialog final:public QDialog {
         double* colours[]={&l.black,&l.white,&l.gamma,&l.exposure,&l.saturation,&l.red,&l.green,&l.blue};
         for(int i=0;i<8;++i)*colours[i]=controls[size_t(i+10)]->value();
         l.exclude={int(controls[18]->value()),int(controls[19]->value()),int(controls[20]->value()),int(controls[21]->value())};
-        l.visible=visible->isChecked();l.blend=blendMode->currentIndex()==0?orbyx::MosaicBlend::Replace:blendMode->currentIndex()==2?orbyx::MosaicBlend::Seam:orbyx::MosaicBlend::Feather;controls[4]->setEnabled(l.blend==orbyx::MosaicBlend::Feather);controls[5]->setEnabled(l.blend!=orbyx::MosaicBlend::Replace);schedule();
+        l.visible=visible->isChecked();l.blend=blendMode->currentIndex()==0?orbyx::MosaicBlend::Replace:blendMode->currentIndex()==2?orbyx::MosaicBlend::Seam:blendMode->currentIndex()==3?orbyx::MosaicBlend::Multiband:orbyx::MosaicBlend::Feather;controls[4]->setEnabled(l.blend==orbyx::MosaicBlend::Feather);controls[5]->setEnabled(l.blend!=orbyx::MosaicBlend::Replace);schedule();
     }
     void record(const QString& text){
         QDir().mkpath(workingFolder);QFile file(workingFolder+"/compositor.log");
@@ -301,7 +301,7 @@ public:
         auto* history=new QHBoxLayout;panel->addLayout(history);
         button("mosaicUndo",t("Undo","Annulla"),history,[this]{undo();});button("mosaicRedo",t("Redo","Ripeti"),history,[this]{redo();});
         visible=new QCheckBox(t("Visible layer","Livello visibile"));visible->setObjectName("mosaicVisible");panel->addWidget(visible);connect(visible,&QCheckBox::toggled,this,[this]{edit();});
-        blendMode=new QComboBox;blendMode->setObjectName("mosaicBlendMode");blendMode->addItems({t("No blending (upper layer replaces)","Nessun blending (il livello superiore sostituisce)"),t("Feather (visual transition)","Sfumatura (transizione visuale)"),t("Minimum-cost seam (visual)","Giunzione a costo minimo (visuale)")});blendMode->setAccessibleName(t("Selected layer blending mode","Modalità blending del livello selezionato"));panel->addWidget(blendMode);connect(blendMode,qOverload<int>(&QComboBox::currentIndexChanged),this,[this]{edit();});
+        blendMode=new QComboBox;blendMode->setObjectName("mosaicBlendMode");blendMode->addItems({t("No blending (upper layer replaces)","Nessun blending (il livello superiore sostituisce)"),t("Feather (visual transition)","Sfumatura (transizione visuale)"),t("Minimum-cost seam (visual)","Giunzione a costo minimo (visuale)"),t("Multiband blend (visual)","Blending multibanda (visuale)")});blendMode->setAccessibleName(t("Selected layer blending mode","Modalità blending del livello selezionato"));panel->addWidget(blendMode);connect(blendMode,qOverload<int>(&QComboBox::currentIndexChanged),this,[this]{edit();});
         auto* form=new QFormLayout;panel->addLayout(form);
         struct Field{const char* id;const char* en;const char* italian;double min,max,step;int decimals;};
         const Field fields[]={
