@@ -30,7 +30,12 @@ case "$(basename "$0")" in
    touch "$ORBYX_TEST_TRACE.locked";echo 'Could not get lock: unattended-upgr' >&2;exit 100
   fi ;;
  sleep) exit 0 ;;
- ctest) [[ "$ORBYX_TEST_FAIL" != test ]] || exit 42 ;;
+ ctest)
+  if [[ "$*" == *opencl-gpu* && "$ORBYX_TEST_GPU" == divergent ]]; then
+   echo '{"status" : "failed", "error" : "synthetic GPU divergence"}'
+   exit 8
+  fi
+  [[ "$ORBYX_TEST_FAIL" != test ]] || exit 42 ;;
  cmake)
   if [[ "$1" == -S ]]; then mkdir -p "$4";fi
   if [[ "$1" == --build && "$ORBYX_TEST_FAIL" == build ]]; then echo 'synthetic build failure on stdout';exit 23;fi
@@ -46,7 +51,8 @@ exit 0
         for name in ('sudo','apt-get','sleep','cmake','ctest','ninja','c++'):
             p=self.tools/name;p.write_text(common);p.chmod(0o755)
         self.env=dict(os.environ,HOME=str(self.home),XDG_DATA_HOME=str(self.home/'data'),
-            PATH=str(self.tools)+os.pathsep+os.environ['PATH'],ORBYX_TEST_TRACE=str(self.trace),ORBYX_TEST_FAIL='')
+            PATH=str(self.tools)+os.pathsep+os.environ['PATH'],ORBYX_TEST_TRACE=str(self.trace),
+            ORBYX_TEST_FAIL='',ORBYX_TEST_GPU='')
         self.preexec=None
         if os.geteuid()==0:
             uid=65534;gid=65534
@@ -83,6 +89,16 @@ exit 0
         self.env['ORBYX_TEST_FAIL']='test'
         p=self.run_script('install.sh','--no-deps');self.assertEqual(p.returncode,42,p.stdout+p.stderr)
         self.assertNotIn('--install',self.trace.read_text())
+    def test_divergent_gpu_is_reported_but_does_not_block_cpu_install(self):
+        self.env['ORBYX_TEST_GPU']='divergent'
+        p=self.run_script('install.sh','--no-deps');self.assertEqual(p.returncode,0,p.stdout+p.stderr)
+        trace=self.trace.read_text()
+        self.assertIn('--label-exclude gpu',trace)
+        self.assertIn("--tests-regex ^opencl-gpu$",trace)
+        self.assertIn('GPU OpenCL diverge dalla CPU',p.stdout)
+        self.assertIn('--install',trace)
+        self.assertTrue((self.repo/'build-desktop/.orbyx-install-success').exists())
+        self.assertEqual(self.run_script('start.sh','--smoke-test').returncode,0)
     def test_log_symlink_is_rejected(self):
         (self.repo/'logs').symlink_to(self.home,target_is_directory=True)
         p=self.run_script('start.sh');self.assertNotEqual(p.returncode,0)
