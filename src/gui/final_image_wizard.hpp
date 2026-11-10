@@ -34,7 +34,7 @@ class FinalImageWizard final : public QWizard {
     bool italian_{};
     QLineEdit *input_{}, *profile_{}, *output_{};
     QComboBox *satellite_{}, *engine_{}, *colour_{};
-    QLabel *joinSummary_{}, *reviewSummary_{}, *importSummary_{};
+    QLabel *joinSummary_{}, *reviewSummary_{}, *importSummary_{}, *validationHint_{};
     QListWidget *productList_{}; // Detected products the user can include/exclude (M2-08).
     QCheckBox *confirmed_{}, *queueChoice_{};
     QString projectFile_; // Autosaved resumable wizard state (M2-08).
@@ -132,8 +132,8 @@ class FinalImageWizard final : public QWizard {
             if (productList_->item(i)->checkState() == Qt::Checked) ++selected;
         setProperty("selectedProductCount", selected);
         importSummary_->setText(productList_->count() == 0
-            ? text("No MSU-GS VIS products detected yet. Choose a SatDump export folder.",
-                   "Nessun prodotto MSU-GS VIS rilevato. Scegli una cartella esportata da SatDump.")
+            ? text("No MSU-GS VIS products were found. Choose the SatDump folder that directly contains MSUGS_VIS1, MSUGS_VIS2, etc. (not Documents and not the six-JPEG demo folder).",
+                   "Nessun prodotto MSU-GS VIS trovato. Scegli la cartella SatDump che contiene direttamente MSUGS_VIS1, MSUGS_VIS2, ecc. (non Documenti e non la cartella demo dei sei JPEG).")
             : text("Detected %1 product(s); %2 selected for processing. Untick any to exclude it (grouping does not depend on SX/DX names).",
                    "Rilevati %1 prodotti; %2 selezionati per l'elaborazione. Deseleziona quelli da escludere (il raggruppamento non dipende dai nomi SX/DX).")
                   .arg(productList_->count()).arg(selected));
@@ -163,6 +163,9 @@ public:
         addPath(importLayout, output_, text("New working folder", "Nuova cartella di lavoro"), false, true);
         importSummary_ = new QLabel; importSummary_->setObjectName("finalImportSummary");
         importSummary_->setWordWrap(true); importLayout->addWidget(importSummary_);
+        validationHint_ = new QLabel; validationHint_->setObjectName("finalValidationHint");
+        validationHint_->setWordWrap(true); validationHint_->setStyleSheet("color:#b42318;font-weight:600;");
+        validationHint_->hide(); importLayout->addWidget(validationHint_);
         productList_ = new QListWidget; productList_->setObjectName("finalProductList");
         productList_->setAccessibleName(text("Detected products to include or exclude", "Prodotti rilevati da includere o escludere"));
         productList_->setMaximumHeight(140); importLayout->addWidget(productList_); importLayout->addStretch();
@@ -333,40 +336,44 @@ public:
             if (!in.isDir() || in.isSymLink())
                 error = text("Choose a local SatDump export folder.", "Scegli una cartella locale esportata da SatDump.");
             const auto products = selectedProducts();
-            if (products.isEmpty()) error = text("Select at least one detected VIS product.", "Seleziona almeno un prodotto VIS rilevato.");
+            if (error.isEmpty() && products.isEmpty()) error = text(
+                "This is not a SatDump VIS export: choose the folder that directly contains MSUGS_VIS1, MSUGS_VIS2, etc.",
+                "Questa non è un’esportazione VIS di SatDump: scegli la cartella che contiene direttamente MSUGS_VIS1, MSUGS_VIS2, ecc.");
             QSet<QString> productIds;
             for (const QString &vis : products) {
                 const auto identity=QRegularExpression("^MSUGS_VIS-?([1-9][0-9]{0,2})(?:_Aligned)?$").match(vis);
-                if (!identity.hasMatch() || productIds.contains(identity.captured(1)))
+                if (error.isEmpty() && (!identity.hasMatch() || productIds.contains(identity.captured(1))))
                     error = text("Select only one raw or aligned version of each VIS product.", "Seleziona una sola versione, grezza o allineata, di ogni prodotto VIS.");
                 else productIds.insert(identity.captured(1));
                 const QFileInfo folder(QDir(input_->text()).filePath(vis));
-                if (!folder.isDir() || folder.isSymLink()) error = text("The selected SatDump product is incomplete.", "Il prodotto SatDump selezionato è incompleto.");
+                if (error.isEmpty() && (!folder.isDir() || folder.isSymLink())) error = text("The selected SatDump product is incomplete.", "Il prodotto SatDump selezionato è incompleto.");
                 for (int channel = 1; channel <= 3; ++channel) {
                     const QFileInfo image(QDir(folder.absoluteFilePath()).filePath(QString("MSUGS-VIS-%1.png").arg(channel)));
-                    if (!image.isFile() || image.isSymLink() || image.size() <= 0)
+                    if (error.isEmpty() && (!image.isFile() || image.isSymLink() || image.size() <= 0))
                         error = text("The selected SatDump product is incomplete.", "Il prodotto SatDump selezionato è incompleto.");
                 }
             }
             QFile json(profile.absoluteFilePath());
             QJsonDocument profileDocument;
-            if (!profile.isFile() || profile.isSymLink() || !json.open(QIODevice::ReadOnly) ||
-                json.size() > 1024 * 1024 || !(profileDocument=QJsonDocument::fromJson(json.read(1024 * 1024 + 1))).isObject())
-                error = text("Choose a valid JSON calibration profile.", "Scegli un profilo JSON di calibrazione valido.");
-            else for (const QString &vis : products) {
+            if (error.isEmpty() && (!profile.isFile() || profile.isSymLink() || !json.open(QIODevice::ReadOnly) ||
+                json.size() > 1024 * 1024 || !(profileDocument=QJsonDocument::fromJson(json.read(1024 * 1024 + 1))).isObject()))
+                error = text("Choose a valid JSON calibration profile. The displayed path must point to an existing file.", "Scegli un profilo JSON di calibrazione valido. Il percorso mostrato deve indicare un file esistente.");
+            else if (error.isEmpty()) for (const QString &vis : products) {
                 const auto match=QRegularExpression("^MSUGS_VIS([1-9][0-9]{0,2})$").match(vis);
-                if(match.hasMatch()&&!profileDocument.object().value(satellite_->currentText()+"VIS"+match.captured(1)).isObject())
+                if(error.isEmpty()&&match.hasMatch()&&!profileDocument.object().value(satellite_->currentText()+"VIS"+match.captured(1)).isObject())
                     error=text("The calibration profile does not support every selected VIS product.","Il profilo di calibrazione non supporta tutti i prodotti VIS selezionati.");
             }
             const QString destination = QDir::cleanPath(out.absoluteFilePath());
             const QString origin = QDir::cleanPath(in.canonicalFilePath());
-            if (output_->text().trimmed().isEmpty() || out.exists() || out.isSymLink() ||
-                !QFileInfo(out.absolutePath()).isDir() || destination == origin || destination.startsWith(origin + "/"))
+            if (error.isEmpty() && (output_->text().trimmed().isEmpty() || out.exists() || out.isSymLink() ||
+                !QFileInfo(out.absolutePath()).isDir() || destination == origin || destination.startsWith(origin + "/")))
                 error = text("Choose a new working folder outside the input.", "Scegli una nuova cartella di lavoro esterna all’origine.");
             if (!error.isEmpty()) {
-                setProperty("validationError", error); currentPage()->setSubTitle(error); return false;
+                setProperty("validationError", error); currentPage()->setSubTitle(error);
+                validationHint_->setText(error); validationHint_->show(); validationHint_->setFocus();
+                return false;
             }
-            setProperty("validationError", {}); currentPage()->setSubTitle({});
+            setProperty("validationError", {}); currentPage()->setSubTitle({}); validationHint_->clear(); validationHint_->hide();
         }
         return QWizard::validateCurrentPage();
     }

@@ -15,6 +15,17 @@
 
 <p align="center"><a href="ROADMAP.md">Roadmap</a> · <a href="PROGRESS.md">Verifiche</a> · <a href="docs/AUDIT.md">Audit</a> · <a href="SECURITY.md">Sicurezza</a> · <a href="THIRD_PARTY_NOTICES.md">Attribuzioni</a></p>
 
+## Non sai da dove iniziare?
+
+Apri la **[Guida completa per principianti](docs/GUIDA_PRINCIPIANTI.md)**. Spiega dall’installazione all’esportazione dell’immagine finale, indica quale pulsante premere e distingue chiaramente i due casi principali:
+
+| Se hai… | Usa… |
+|---|---|
+| sei JPEG `sx_`/`dx_` | **Generazione automatica** o **Simulazione immagini…** |
+| una cartella SatDump con `MSUGS_VIS1`, `MSUGS_VIS2`, ecc. | **Crea immagine finale…** |
+
+ORBYX non apre direttamente i dati grezzi CADU: vanno prima decodificati ed esportati con SatDump.
+
 ## Inizia qui — Ubuntu
 
 ORBYX è un programma con interfaccia grafica per allineare immagini satellitari e creare compositi Natural Color. Questa guida non richiede di conoscere CMake o di inserire percorsi personali.
@@ -90,7 +101,9 @@ Questa è la parte più importante: **ogni pulsante serve a una cosa diversa**. 
 bash demo.sh
 ```
 
-Nell’app premi **Generazione automatica** (oppure **Ctrl+Maiusc+D**). Elabora i sei JPEG (tre SX e tre DX) presenti in una **cartella fissa** `~/.local/share/orbyx/auto-input`: allinea i canali, compone i colori e mostra un’unica immagine, **senza impostare alcun parametro**. Al primo avvio la cartella viene riempita automaticamente con i sei JPEG inclusi come esempio; per usare le tue immagini sostituiscile in quella cartella (nomi `sx_MSUGS-VIS-1/2/3.jpg` e `dx_MSUGS-VIS-1/2/3.jpg`) e premi di nuovo. Il percorso esatto compare nel riquadro Attività insieme a risultato e log.
+Nell’app premi **Generazione automatica** (oppure **Ctrl+Maiusc+D**). Elabora i sei JPEG (tre SX e tre DX) presenti in una **cartella fissa** `~/.local/share/orbyx/auto-input`: allinea i canali, compone i colori e mostra un’unica immagine, **senza impostare alcun parametro**. Al primo avvio la cartella viene riempita automaticamente con i sei JPEG inclusi come esempio; per usare le tue immagini sostituiscile in quella cartella (nomi `sx_MSUGS-VIS-1/2/3.jpg` e `dx_MSUGS-VIS-1/2/3.jpg`) e premi di nuovo.
+
+I risultati automatici e manuali finiscono per impostazione predefinita nella cartella visibile **Immagini/ORBYX/Output Images**. I profili JSON si trovano in **Immagini/ORBYX/Calibration**: quello incluso è `included-calibration.json`, mentre una nuova calibrazione crea una sottocartella e mostra nell’interfaccia il percorso completo del nuovo `calibration.json`. I log delle elaborazioni immagini sono in **Immagini/ORBYX/Logs**. Su sistemi in lingua inglese la cartella di sistema può chiamarsi `Pictures` invece di `Immagini`.
 
 Il comando qui sopra apre direttamente questa stessa demo; `bash demo.sh --no-open` la esegue senza finestra e salva in **demo-output**, con log in **logs**. I JPEG sono anteprime a 8 bit: la demo non certifica geometria assoluta o colore radiometricamente calibrato. [Provenienza e dettagli](assets/demo-jpeg/SOURCE.md).
 
