@@ -6,7 +6,7 @@
 #include <string>
 #include <array>
 namespace orbyx {
-enum class MosaicBlend {Replace,Feather};
+enum class MosaicBlend {Replace,Feather,Seam};
 struct MosaicMask {
     bool include=false; // Include masks form a union; exclude masks override it.
     std::vector<cv::Point2d> points; // Coordinates inside the cropped layer.
@@ -27,6 +27,7 @@ struct MosaicResult {
     std::vector<std::array<cv::Point2d,4>> outlines;
     cv::Mat image; // native BGR 8/16-bit; preview is explicitly 8-bit
     double originX=0, originY=0, pixelsPerSourcePixel=1;
+    int seamFallbacks=0; // Seam layers that used the deterministic feather fallback.
 };
 struct OverlapMatch {
     std::size_t moving=0, reference=0;

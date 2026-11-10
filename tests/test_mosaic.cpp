@@ -33,6 +33,16 @@ int main(){
         m.opacity=1;m.feather=4;
         auto feather=orbyx::renderMosaic({l,m}).image;
         check(feather.at<cv::Vec3w>(0,0)[0]<feather.at<cv::Vec3w>(3,3)[0],"Feather not applied at boundary");
+        cv::Mat seamLower(64,96,CV_16UC3,cv::Scalar(9001,12001,15001)),seamUpper(64,96,CV_16UC3,cv::Scalar(31001,34001,37001));
+        check(cv::imwrite((root/"seam-lower.png").string(),seamLower)&&cv::imwrite((root/"seam-upper.png").string(),seamUpper),"Write seam fixtures");
+        orbyx::MosaicLayer seamA;seamA.image=root/"seam-lower.png";seamA.blend=orbyx::MosaicBlend::Replace;
+        orbyx::MosaicLayer seamB;seamB.image=root/"seam-upper.png";seamB.x=40;seamB.blend=orbyx::MosaicBlend::Seam;
+        const auto seamRendered=orbyx::renderMosaic({seamA,seamB});const auto seamResult=seamRendered.image,seamAgain=orbyx::renderMosaic({seamA,seamB}).image;
+        check(seamRendered.seamFallbacks==0&&seamResult.type()==CV_16UC3&&seamResult.size()==cv::Size(136,64)&&cv::norm(seamResult,seamAgain,cv::NORM_INF)==0,"Minimum-cost seam is not native-depth deterministic");
+        check(seamResult.at<cv::Vec3w>(30,10)==seamLower.at<cv::Vec3w>(30,10)&&seamResult.at<cv::Vec3w>(30,120)==seamUpper.at<cv::Vec3w>(30,80),"Minimum-cost seam lost non-overlap content");
+        for(int y=0;y<seamResult.rows;++y)for(int x=0;x<seamResult.cols;++x){const auto pixel=seamResult.at<cv::Vec3w>(y,x);check(pixel==seamLower.at<cv::Vec3w>(0,0)||pixel==seamUpper.at<cv::Vec3w>(0,0),"Minimum-cost seam introduced a hole or unrequested blend");}
+        const auto seamProject=orbyx::mosaicProject({seamA,seamB});const auto seamLoaded=orbyx::parseMosaicProject(seamProject);
+        check(seamLoaded[1].blend==orbyx::MosaicBlend::Seam&&cv::norm(orbyx::renderMosaic(seamLoaded).image,seamResult,cv::NORM_INF)==0,"Minimum-cost seam did not round trip");
         m=l;m.x=-5;m.y=-3;auto negative=orbyx::renderMosaic({m});
         check(negative.originX==-5&&negative.originY==-3&&cv::norm(negative.image,a,cv::NORM_INF)==0,"Negative-origin placement incorrect");
         m=l;m.crop={2,1,4,3};check(orbyx::renderMosaic({m}).image.size()==cv::Size(4,3),"Crop failed");

@@ -28,7 +28,7 @@ void validate(const MosaicLayer& l) {
     check(l.masks.size()<=64,"Too many mosaic polygon masks");std::size_t maskPoints=0;
     for(const auto& mask:l.masks){check(mask.points.size()>=3&&mask.points.size()<=256,"Invalid mosaic polygon mask");maskPoints+=mask.points.size();for(const auto& point:mask.points)check(std::isfinite(point.x)&&std::isfinite(point.y)&&point.x>=0&&point.y>=0&&point.x<=100000&&point.y<=100000,"Invalid mosaic polygon point");}
     check(maskPoints<=4096,"Too many mosaic polygon points");
-    check(l.blend==MosaicBlend::Replace||l.blend==MosaicBlend::Feather,"Invalid mosaic blend mode");
+    check(l.blend==MosaicBlend::Replace||l.blend==MosaicBlend::Feather||l.blend==MosaicBlend::Seam,"Invalid mosaic blend mode");
     check(!l.image.empty()&&l.image.string().size()<=4096,"Invalid mosaic input path");
 }
 cv::Rect region(const MosaicLayer& l,const cv::Mat& image) {
@@ -120,6 +120,52 @@ MosaicLayer placed(const MosaicLayer& source,const MosaicLayer& reference,const 
     result.scale=std::hypot(a,b);result.angle=std::atan2(b,a)*180./CV_PI;result.x=composed(0,2);result.y=composed(1,2);
     validate(result);return result;
 }
+// Select a deterministic minimum-cost cut through the overlap. The calculation
+// runs on a bounded working image (at most 2048 px on the long side); the result
+// is sampled by the tiled native-depth renderer. An empty result means that the
+// overlap has no continuous path and the caller must use the feather fallback.
+cv::Mat minimumCostSeam(const cv::Mat& target,const cv::Mat& incomingImage,
+                        const cv::Mat& existing,const cv::Mat& incoming) {
+    check(target.type()==CV_8U&&incomingImage.type()==CV_8U&&existing.type()==CV_8U&&incoming.type()==CV_8U&&
+          target.size()==incomingImage.size()&&target.size()==existing.size()&&target.size()==incoming.size(),
+          "Invalid optimized seam buffers");
+    cv::Mat overlap;cv::bitwise_and(existing,incoming,overlap);
+    std::vector<cv::Point> overlapPoints;cv::findNonZero(overlap,overlapPoints);
+    cv::Mat base;incoming.convertTo(base,CV_32F,1./255.);
+    if(overlapPoints.empty())return base;
+    const auto originalBounds=cv::boundingRect(overlapPoints);
+    const bool transpose=originalBounds.width>originalBounds.height;
+    cv::Mat a=target,b=incomingImage,oldMask=existing,newMask=incoming,common=overlap;
+    if(transpose){cv::transpose(a,a);cv::transpose(b,b);cv::transpose(oldMask,oldMask);cv::transpose(newMask,newMask);cv::transpose(common,common);}
+    std::vector<cv::Point> points;cv::findNonZero(common,points);const auto bounds=cv::boundingRect(points);
+    cv::Mat difference;cv::absdiff(a,b,difference);difference.convertTo(difference,CV_32F);
+    cv::Mat ax,ay,bx,by,gradientX,gradientY;
+    cv::Sobel(a,ax,CV_32F,1,0,3);cv::Sobel(a,ay,CV_32F,0,1,3);
+    cv::Sobel(b,bx,CV_32F,1,0,3);cv::Sobel(b,by,CV_32F,0,1,3);
+    cv::absdiff(ax,bx,gradientX);cv::absdiff(ay,by,gradientY);
+    difference+=.15f*(gradientX+gradientY);
+    constexpr float infinity=1e30f;const int width=bounds.width,height=bounds.height;
+    std::vector<float> previous(size_t(width),infinity),current(size_t(width),infinity);
+    std::vector<short> parent(size_t(width)*height,short(-1));
+    for(int x=0;x<width;++x)if(common.at<unsigned char>(bounds.y,bounds.x+x))previous[size_t(x)]=difference.at<float>(bounds.y,bounds.x+x);
+    for(int y=1;y<height;++y){std::fill(current.begin(),current.end(),infinity);for(int x=0;x<width;++x){
+        if(!common.at<unsigned char>(bounds.y+y,bounds.x+x))continue;
+        float best=infinity;int bestX=-1;
+        for(int delta=-2;delta<=2;++delta){const int candidate=x+delta;if(candidate<0||candidate>=width)continue;const float value=previous[size_t(candidate)]+2.f*std::abs(delta);if(value<best){best=value;bestX=candidate;}}
+        if(bestX>=0&&best<infinity/2){current[size_t(x)]=best+difference.at<float>(bounds.y+y,bounds.x+x);parent[size_t(y)*width+x]=short(bestX);}
+    }previous.swap(current);}
+    const auto end=std::min_element(previous.begin(),previous.end());if(end==previous.end()||*end>=infinity/2)return {};
+    std::vector<int> path(static_cast<size_t>(height));path.back()=int(end-previous.begin());
+    for(int y=height-1;y>0;--y){const short prior=parent[size_t(y)*width+path[size_t(y)]];if(prior<0)return {};path[size_t(y-1)]=prior;}
+    cv::Mat onlyNew;cv::bitwise_not(oldMask,onlyNew);cv::bitwise_and(onlyNew,newMask,onlyNew);
+    cv::Moments location=cv::moments(onlyNew,true);if(location.m00==0)location=cv::moments(newMask,true);
+    double meanPath=0;for(int value:path)meanPath+=bounds.x+value;meanPath/=path.size();
+    const bool chooseRight=location.m00==0||location.m10/location.m00>=meanPath;
+    cv::Mat alpha;newMask.convertTo(alpha,CV_32F,1./255.);
+    for(int y=0;y<height;++y){const int cut=bounds.x+path[size_t(y)];auto* values=alpha.ptr<float>(bounds.y+y);const auto* valid=common.ptr<unsigned char>(bounds.y+y);for(int x=bounds.x;x<bounds.x+width;++x)if(valid[x])values[x]=(chooseRight?x>=cut:x<=cut)?1.f:0.f;}
+    if(transpose)cv::transpose(alpha,alpha);
+    return alpha;
+}
 }
 MosaicResult renderMosaic(const std::vector<MosaicLayer>& layers,int previewEdge) {
     check(!layers.empty()&&layers.size()<=32,"A mosaic requires 1 to 32 layers");
@@ -158,6 +204,9 @@ MosaicResult renderMosaic(const std::vector<MosaicLayer>& layers,int previewEdge
         for(int j=0;j<4;++j){const auto p=corners[size_t(j)];result.outlines[i][size_t(j)]={(m(0,0)*p.x+m(0,1)*p.y+m(0,2)-minX)*ratio,(m(1,0)*p.x+m(1,1)*p.y+m(1,2)-minY)*ratio};}
     }
     result.image=cv::Mat::zeros(rows,cols,CV_MAKETYPE(outputDepth,3));
+    const double seamScale=std::min(1.,2048./std::max(cols,rows));
+    const cv::Size seamSize(std::max(1,int(std::ceil(cols*seamScale))),std::max(1,int(std::ceil(rows*seamScale))));
+    cv::Mat seamCoverage=cv::Mat::zeros(seamSize,CV_8U);
     for(size_t i=0;i<layers.size();++i) {
         const auto& l=layers[i];if(!l.visible||(l.blend==MosaicBlend::Feather&&l.opacity==0))continue;
         auto source=readCompositePng(l.image);
@@ -170,6 +219,22 @@ MosaicResult renderMosaic(const std::vector<MosaicLayer>& layers,int previewEdge
         m(0,2)-=minX*ratio;m(1,2)-=minY*ratio;
         bool hasIncludeMasks=false;std::vector<std::vector<cv::Point>> includeMasks,excludeMasks;
         for(const auto& mask:l.masks){std::vector<cv::Point> polygon;polygon.reserve(mask.points.size());for(const auto& point:mask.points){check(point.x<=image.cols&&point.y<=image.rows,"Mosaic polygon mask outside layer region");polygon.emplace_back(cvRound(m(0,0)*point.x+m(0,1)*point.y+m(0,2)),cvRound(m(1,0)*point.x+m(1,1)*point.y+m(1,2)));}if(mask.include){hasIncludeMasks=true;includeMasks.push_back(std::move(polygon));}else excludeMasks.push_back(std::move(polygon));}
+        cv::Mat layerCoverage=cv::Mat::zeros(seamSize,CV_8U);std::vector<cv::Point> boundary;
+        for(const auto& point:result.outlines[i])boundary.emplace_back(cvRound(point.x*seamScale),cvRound(point.y*seamScale));
+        cv::fillConvexPoly(layerCoverage,boundary,cv::Scalar(255));
+        auto scaledPolygons=[&](const std::vector<std::vector<cv::Point>>& polygons){std::vector<std::vector<cv::Point>> scaled;for(const auto& polygon:polygons){std::vector<cv::Point> value;for(const auto& point:polygon)value.emplace_back(cvRound(point.x*seamScale),cvRound(point.y*seamScale));scaled.push_back(std::move(value));}return scaled;};
+        const auto scaledIncludes=scaledPolygons(includeMasks),scaledExcludes=scaledPolygons(excludeMasks);
+        if(hasIncludeMasks){cv::Mat included=cv::Mat::zeros(seamSize,CV_8U);cv::fillPoly(included,scaledIncludes,cv::Scalar(255));cv::bitwise_and(layerCoverage,included,layerCoverage);}
+        if(!scaledExcludes.empty())cv::fillPoly(layerCoverage,scaledExcludes,cv::Scalar(0));
+        if(masked){std::vector<cv::Point> polygon;for(const cv::Point2d point:std::vector<cv::Point2d>{{double(exclude.x),double(exclude.y)},{double(exclude.x+exclude.width),double(exclude.y)},{double(exclude.x+exclude.width),double(exclude.y+exclude.height)},{double(exclude.x),double(exclude.y+exclude.height)}})polygon.emplace_back(cvRound((m(0,0)*point.x+m(0,1)*point.y+m(0,2))*seamScale),cvRound((m(1,0)*point.x+m(1,1)*point.y+m(1,2))*seamScale));cv::fillConvexPoly(layerCoverage,polygon,cv::Scalar(0));}
+        cv::Mat seamAlpha;bool seamReady=false;
+        if(l.blend==MosaicBlend::Seam){
+            cv::Mat sourceGray;if(image.channels()==3)cv::cvtColor(image,sourceGray,cv::COLOR_BGR2GRAY);else sourceGray=image;
+            cv::Matx23d seamTransform=m;for(int r=0;r<2;++r)for(int c=0;c<3;++c)seamTransform(r,c)*=seamScale;
+            cv::Mat sourceSmall;cv::warpAffine(sourceGray,sourceSmall,seamTransform,seamSize,cv::INTER_LINEAR,cv::BORDER_REPLICATE);if(sourceSmall.depth()==CV_16U)sourceSmall.convertTo(sourceSmall,CV_8U,1./257.);
+            cv::Mat targetSmall;cv::resize(result.image,targetSmall,seamSize,0,0,cv::INTER_AREA);if(targetSmall.channels()==3)cv::cvtColor(targetSmall,targetSmall,cv::COLOR_BGR2GRAY);if(targetSmall.depth()==CV_16U)targetSmall.convertTo(targetSmall,CV_8U,1./257.);
+            seamAlpha=minimumCostSeam(targetSmall,sourceSmall,seamCoverage,layerCoverage);seamReady=!seamAlpha.empty();if(!seamReady)++result.seamFallbacks;
+        }
         cv::Matx23d inverse;cv::invertAffineTransform(m,inverse);
         const double nativeMaximum=source.depth()==CV_16U?65535.:255.,outMaximum=outputDepth==CV_16U?65535.:255.;
         const double gammaExponent=1./l.gamma,exposureGain=std::exp2(l.exposure);
@@ -199,7 +264,8 @@ MosaicResult renderMosaic(const std::vector<MosaicLayer>& layers,int previewEdge
                     if(masked&&sx>=exclude.x&&sx<exclude.x+exclude.width&&sy>=exclude.y&&sy<exclude.y+exclude.height)continue;
                     if(!polygonMask.empty()&&polygonMask.at<unsigned char>(yy,xx)==0)continue;
                     double alpha=l.blend==MosaicBlend::Replace?1.:l.opacity;
-                    if(l.blend==MosaicBlend::Feather&&l.feather>0)alpha*=std::clamp(std::min({sx+.5,sy+.5,image.cols-.5-sx,image.rows-.5-sy})*l.scale/l.feather,0.,1.);
+                    if(l.blend==MosaicBlend::Seam&&seamReady){const int seamX=std::clamp(int((x+xx+.5)*seamScale),0,seamAlpha.cols-1),seamY=std::clamp(int((y+yy+.5)*seamScale),0,seamAlpha.rows-1);alpha=seamAlpha.at<float>(seamY,seamX);}
+                    if((l.blend==MosaicBlend::Feather||(l.blend==MosaicBlend::Seam&&!seamReady))&&l.feather>0)alpha*=std::clamp(std::min({sx+.5,sy+.5,image.cols-.5-sx,image.rows-.5-sy})*l.scale/l.feather,0.,1.);
                     auto v=values[xx];
                     if(neutral){for(int c=0;c<3;++c)dest[xx][c]=float(v[c]*alpha+dest[xx][c]*(1-alpha));continue;}
                     for(int c=0;c<3;++c) {
@@ -215,6 +281,7 @@ MosaicResult renderMosaic(const std::vector<MosaicLayer>& layers,int previewEdge
             }
             target.convertTo(result.image(tile),result.image.type(),outMaximum);
         }
+        cv::bitwise_or(seamCoverage,layerCoverage,seamCoverage);
     }
     return result;
 }
@@ -292,7 +359,7 @@ std::string mosaicProject(const std::vector<MosaicLayer>& layers) {
     Json::Value root;root["schema"]="orbyx-mosaic/1";root["geometry"]="manual scene pixels; no geographic certification";
     for(const auto& l:layers) {
         validate(l);Json::Value v;v["image"]=std::filesystem::absolute(l.image).lexically_normal().string();
-        v["visible"]=l.visible;v["blend"]=l.blend==MosaicBlend::Replace?"replace":"feather";
+        v["visible"]=l.visible;v["blend"]=l.blend==MosaicBlend::Replace?"replace":l.blend==MosaicBlend::Seam?"seam":"feather";
         const double values[]={l.x,l.y,l.scale,l.angle,l.opacity,l.feather,l.black,l.white,l.gamma,l.exposure,l.saturation,l.red,l.green,l.blue};
         const char* keys[]={"x","y","scale","angle","opacity","feather","black","white","gamma","exposure","saturation","red","green","blue"};
         for(int i=0;i<14;++i)v[keys[i]]=values[i];
@@ -314,7 +381,7 @@ std::vector<MosaicLayer> parseMosaicProject(const std::string& text) {
         check(v.isObject()&&v["image"].isString()&&v["visible"].isBool()&&v["crop"].isArray()&&v["crop"].size()==4,"Invalid mosaic layer");
         const auto path=v["image"].asString();check(path.find('\0')==std::string::npos&&std::filesystem::path(path).is_absolute(),"Mosaic paths must be absolute");
         MosaicLayer l;l.image=path;l.visible=v["visible"].asBool();
-        if(v.isMember("blend")){check(v["blend"].isString(),"Invalid mosaic blend mode");const auto blend=v["blend"].asString();check(blend=="replace"||blend=="feather","Invalid mosaic blend mode");l.blend=blend=="replace"?MosaicBlend::Replace:MosaicBlend::Feather;}
+        if(v.isMember("blend")){check(v["blend"].isString(),"Invalid mosaic blend mode");const auto blend=v["blend"].asString();check(blend=="replace"||blend=="feather"||blend=="seam","Invalid mosaic blend mode");l.blend=blend=="replace"?MosaicBlend::Replace:blend=="seam"?MosaicBlend::Seam:MosaicBlend::Feather;}
         double* values[]={&l.x,&l.y,&l.scale,&l.angle,&l.opacity,&l.feather,&l.black,&l.white,&l.gamma,&l.exposure,&l.saturation,&l.red,&l.green,&l.blue};
         const char* keys[]={"x","y","scale","angle","opacity","feather","black","white","gamma","exposure","saturation","red","green","blue"};
         for(int i=0;i<14;++i){check(v[keys[i]].isNumeric(),"Missing mosaic numeric parameter");*values[i]=v[keys[i]].asDouble();}
