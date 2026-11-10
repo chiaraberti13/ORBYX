@@ -7,6 +7,7 @@
 #include "queue_persistence.hpp"
 #include "mosaic_dialog.hpp"
 #include "final_image_wizard.hpp"
+#include "user_paths.hpp"
 
 #include <QAbstractItemView>
 #include <QApplication>
@@ -21,6 +22,7 @@
 #include <QComboBox>
 #include <QDir>
 #include <QDirIterator>
+#include <QDesktopServices>
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QMimeData>
@@ -130,6 +132,11 @@ const QMap<QString, QString> italian = {
  {"Real JPEG demo — six channels, one image", "Demo JPEG reali — sei canali, un’unica immagine"},
  {"Align the six bundled JPEGs and join the left and right halves.", "Allinea i sei JPEG inclusi e unisce le metà sinistra e destra."},
  {"Demo image saved", "Immagine demo salvata"},
+ {"User images folder", "Cartella immagini generate"},
+ {"Calibration file saved", "File di calibrazione salvato"},
+ {"Open generated images", "Apri immagini generate"},
+ {"Open calibrations", "Apri calibrazioni"},
+ {"Open automatic JPEG folder", "Apri cartella JPEG"},
  {"Choose aligned VIS channels", "Scegli i canali VIS allineati"},
  {"Save Natural Color PNG", "Salva PNG Natural Color"},
  {"Natural Color exported", "Natural Color esportato"},
@@ -143,9 +150,10 @@ class Window final : public QMainWindow {
     bool dark = true;
     bool quitAfterRun = false;
     bool demoMode = false;
+    bool outputExplicit = false;
     QString lastOutput;
     QString demoResult;
-    QPushButton *demoButton{}, *simulateButton{}, *wizardButton{}, *finalImageButton{}, *watchButton{}, *updatesButton{};
+    QPushButton *demoButton{}, *simulateButton{}, *wizardButton{}, *finalImageButton{}, *watchButton{}, *updatesButton{}, *openImagesButton{}, *openCalibrationButton{}, *openAutoInputButton{};
     bool openFinalEditor=false;
     bool finalNaturalColour=true;
     QStringList finalSelectedProducts;
@@ -187,6 +195,9 @@ class Window final : public QMainWindow {
         wizardButton->setAccessibleName(wizardButton->text());
         finalImageButton->setText(it?"Crea immagine finale…":"Create final image…");
         finalImageButton->setAccessibleName(finalImageButton->text());
+        openImagesButton->setText(trText("Open generated images"));openImagesButton->setAccessibleName(openImagesButton->text());
+        openCalibrationButton->setText(trText("Open calibrations"));openCalibrationButton->setAccessibleName(openCalibrationButton->text());
+        openAutoInputButton->setText(trText("Open automatic JPEG folder"));openAutoInputButton->setAccessibleName(openAutoInputButton->text());
         demoButton->setText(trText("Automatic generation"));
         demoButton->setAccessibleName(trText("Automatic generation"));
         demoButton->setToolTip(trText("Process the six JPEGs placed in the automatic-generation folder, with no parameters."));
@@ -338,6 +349,24 @@ class Window final : public QMainWindow {
             if (QFileInfo::exists(candidate)) return candidate;
         return {};
     }
+    bool validProfile(const QString &path) const {
+        const QFileInfo info(path);
+        if (!info.isFile() || info.isSymLink() || info.size() <= 0 || info.size() > 1024 * 1024) return false;
+        QFile file(info.absoluteFilePath());
+        return file.open(QIODevice::ReadOnly) && QJsonDocument::fromJson(file.readAll()).isObject();
+    }
+    // Keep the included profile in the same visible Calibration folder where
+    // profiles calculated by the user are written.  A stale saved path is never
+    // allowed to survive startup.
+    QString visibleDefaultProfile() const {
+        const QString source=bundledProfile();
+        if(source.isEmpty())return {};
+        const QString destination=QDir(orbyx::gui::calibrationRoot()).filePath("included-calibration.json");
+        if(validProfile(destination))return destination;
+        const QFileInfo target(destination);
+        if(!target.exists()&&!target.isSymLink()&&QFile::copy(source,destination))return destination;
+        return source;
+    }
     // Folder holding the six bundled demo JPEGs (sx_/dx_ MSUGS-VIS-1/2/3).
     QString bundledDemoFolder() const {
         const QDir appDir(QApplication::applicationDirPath());
@@ -368,7 +397,7 @@ class Window final : public QMainWindow {
                 trText("This folder does not contain the six JPEGs sx_/dx_ MSUGS-VIS-1/2/3."));
             return;
         }
-        executeImageDemo({},folder);
+        executeImageDemo({},folder,"manual");
     }
     // Automatic generation: process whatever six JPEGs the user has placed in a
     // fixed input folder, with no parameters. The folder is seeded with the
@@ -397,16 +426,14 @@ class Window final : public QMainWindow {
         }
         log->append((trText("Automatic generation from")+": "+folder).toHtmlEscaped());
         log->append(trText("Replace the images in that folder with your own (sx_/dx_ MSUGS-VIS-1/2/3.jpg) and press again.").toHtmlEscaped());
-        executeImageDemo({},folder);
+        executeImageDemo({},folder,"automatic");
     }
-    void executeImageDemo(const QString &requestedOutput = {}, const QString &sampleFolder = {}) {
+    void executeImageDemo(const QString &requestedOutput = {}, const QString &sampleFolder = {}, const QString &kind = "manual") {
         if (busy) return;
         const QString sample = hasDemoImages(sampleFolder) ? sampleFolder : bundledDemoFolder();
-        const QString base=QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
         const QString token=QDateTime::currentDateTimeUtc().toString("yyyyMMddTHHmmssZ")+"-"+QUuid::createUuid().toString(QUuid::WithoutBraces);
-        QDir().mkpath(base+"/demos"); QDir().mkpath(base+"/logs");
-        const QString destination=requestedOutput.isEmpty()?base+"/demos/"+token:requestedOutput;
-        const QString logPath=base+"/logs/demo-"+token+".log";
+        const QString destination=requestedOutput.isEmpty()?orbyx::gui::newOutputFolder(kind):requestedOutput;
+        const QString logPath=QDir(orbyx::gui::logsRoot()).filePath("image-"+token+".log");
         setProperty("demoFinished",false);
         demoMode=true;setQueueBusy(true);progress->setRange(0,0);applyText();status->setText(trText("Processing…"));
         auto *worker=QThread::create([this,sample,destination,logPath] {
@@ -432,6 +459,7 @@ class Window final : public QMainWindow {
                     lastOutput=destination;demoResult=QDir(destination).filePath("composite.png");
                     source->setCurrentIndex(1);loadPreview();
                     log->append((trText("Demo image saved")+": "+demoResult).toHtmlEscaped());
+                    log->append((trText("User images folder")+": "+orbyx::gui::outputImagesRoot()).toHtmlEscaped());
                 } else log->append(error.toHtmlEscaped());
                 log->append(("Log: "+logPath).toHtmlEscaped());
                 if(quitAfterRun)QApplication::exit(error.isEmpty()?0:2);
@@ -457,7 +485,7 @@ class Window final : public QMainWindow {
         if (busy) return;
         // The calibration profile is bundled: if the user cleared it, restore the
         // included one so they are never blocked for lack of a .json to load.
-        if (config->text().isEmpty()) config->setText(bundledProfile());
+        if (!validProfile(config->text())) config->setText(visibleDefaultProfile());
         if (input->text().isEmpty() || config->text().isEmpty() || output->text().isEmpty()) {
             if (quitAfterRun) { QApplication::exit(2); return; }
             QMessageBox::warning(this, trText("Missing settings"), trText("Select an input folder, calibration profile and new output folder.")); return;
@@ -491,7 +519,8 @@ class Window final : public QMainWindow {
                 else {
                     if(options.calibrate) {
                         config->setText(QDir(lastOutput).filePath("calibration.json"));mode->setCurrentIndex(0);
-                        output->setText(lastOutput+"-aligned");guidedScale=1.0;
+                        output->setText(orbyx::gui::newOutputFolder("aligned"));outputExplicit=false;guidedScale=1.0;
+                        log->append((trText("Calibration file saved")+": "+config->text()).toHtmlEscaped());
                         log->append(it?"Profilo calcolato selezionato. Controlla le regioni di fusione, poi avvia l’allineamento.":"Calculated profile selected. Review merge regions, then start alignment.");
                     }
                     source->setCurrentIndex(1); loadPreview();
@@ -754,7 +783,7 @@ class Window final : public QMainWindow {
         importedFingerprint.clear();
         finalSelectedProducts.clear();
         input->setText(folder);
-        if (output->text().isEmpty()) output->setText(folder+"-orbyx");
+        if (!outputExplicit) output->setText(orbyx::gui::newOutputFolder("aligned"));
         source->setCurrentIndex(0); loadPreview();
     }
 protected:
@@ -775,7 +804,7 @@ public:
     // Test seam: resolve the bundled demo folder and run a manual image
     // simulation on a chosen folder without going through the native picker.
     QString demoFolderForTests() const { return bundledDemoFolder(); }
-    void runImageSimulation(const QString &folder) { executeImageDemo({},folder); }
+    void runImageSimulation(const QString &folder) { executeImageDemo({},folder,"manual"); }
     void previewSettings(const QString &locale,const QString &appearance,const QSize &size) {
         if (!locale.isEmpty()) { it=locale=="it"; language->setCurrentIndex(it?0:1); }
         if (!appearance.isEmpty()) { dark=appearance=="dark"; theme->setCurrentIndex(dark?0:1); }
@@ -787,7 +816,7 @@ public:
         auto value=[&](const QString &key){const int i=args.indexOf(key);return i>=0&&i+1<args.size()?args.at(i+1):QString{};};
         if (!value("--input").isEmpty()) input->setText(value("--input"));
         if (!value("--config").isEmpty()) config->setText(value("--config"));
-        if (!value("--output").isEmpty()) output->setText(value("--output"));
+        if (!value("--output").isEmpty()) { output->setText(value("--output")); outputExplicit=true; }
         if (!value("--satellite").isEmpty()) {
             const int i=satellite->findText(value("--satellite"));
             if (i<0) { QTimer::singleShot(0,qApp,[]{QApplication::exit(2);}); return; }
@@ -827,12 +856,15 @@ public:
         setup=new QGroupBox; auto *form = new QVBoxLayout(setup); form->setSpacing(4); form->setContentsMargins(8,12,8,8);
         inputLabel=label(); input=new QLineEdit(settings.value("input").toString()); inputBrowse=new QPushButton; form->addWidget(inputLabel); form->addLayout(pathRow(input,inputBrowse));
         configLabel=label();
-        config=new QLineEdit(settings.value("config",bundledProfile()).toString()); configBrowse=new QPushButton; form->addWidget(configLabel); form->addLayout(pathRow(config,configBrowse));
+        QString savedProfile=settings.value("config").toString();
+        if(!validProfile(savedProfile))savedProfile=visibleDefaultProfile();
+        config=new QLineEdit(savedProfile); configBrowse=new QPushButton; form->addWidget(configLabel); form->addLayout(pathRow(config,configBrowse));
         wizardButton=new QPushButton;wizardButton->setObjectName("wizardButton");form->addWidget(wizardButton);
         connect(wizardButton,&QPushButton::clicked,this,[this]{
-            CalibrationWizard wizard(it,input->text(),config->text(),output->text(),satellite->currentText(),this);
+            const QString calibrationOutput=outputExplicit&& !output->text().isEmpty() ? output->text() : orbyx::gui::newCalibrationFolder();
+            CalibrationWizard wizard(it,input->text(),config->text(),calibrationOutput,satellite->currentText(),this);
             if(wizard.exec()!=QDialog::Accepted)return;
-            input->setText(wizard.inputPath());config->setText(wizard.profilePath());output->setText(wizard.outputPath());
+            input->setText(wizard.inputPath());config->setText(wizard.profilePath());output->setText(wizard.outputPath());outputExplicit=true;
             finalSelectedProducts.clear();
             satellite->setCurrentText(wizard.satelliteId());guidedScale=wizard.scale();mode->setCurrentIndex(1);engine->setCurrentIndex(1);loadPreview();
         });
@@ -853,8 +885,7 @@ public:
                     }
                 }
                 selectInput(data["path"].toString());importedFingerprint=data["fingerprint"].toString();
-                const auto base=QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)+"/imports";QDir().mkpath(base);
-                output->setText(base+"/"+QUuid::createUuid().toString(QUuid::WithoutBraces));
+                output->setText(orbyx::gui::newOutputFolder("imported"));outputExplicit=false;
                 if(automatic)return addToQueue();
                 return true;
             },this);importWindow->setAttribute(Qt::WA_DeleteOnClose);importWindow->show();
@@ -862,18 +893,25 @@ public:
         updatesButton=new QPushButton;updatesButton->setObjectName("updatesButton");form->addWidget(updatesButton);
         connect(updatesButton,&QPushButton::clicked,this,[this]{if(updateWindow){updateWindow->show();updateWindow->raise();return;}updateWindow=new UpdateDialog(it,[this](bool running){setQueueBusy(running);},this);updateWindow->setAttribute(Qt::WA_DeleteOnClose);updateWindow->show();});
         profileDup=new QPushButton; profileDup->setObjectName("profileDup"); form->addWidget(profileDup);
-        outputLabel=label(); output=new QLineEdit; outputBrowse=new QPushButton; form->addWidget(outputLabel); form->addLayout(pathRow(output,outputBrowse));
+        outputLabel=label(); output=new QLineEdit(orbyx::gui::newOutputFolder("aligned")); outputBrowse=new QPushButton; form->addWidget(outputLabel); form->addLayout(pathRow(output,outputBrowse));
         satLabel=label(); satellite=new QComboBox; satellite->addItems({"L2","L3","L4","L5","M1","M2"});
         for(const auto& name:settings.value("customSatellites").toStringList().mid(0,128))if(QRegularExpression("^[A-Z0-9_]{1,32}$").match(name).hasMatch()&&satellite->findText(name)<0)satellite->addItem(name);
         satellite->setCurrentText(settings.value("satellite","L2").toString()); form->addWidget(satLabel); form->addWidget(satellite);
         modeLabel=label(); mode=new QComboBox; mode->addItems({"Align channels","Calculate calibration"}); form->addWidget(modeLabel); form->addWidget(mode);
         engineLabel=label(); engine=new QComboBox; engine->addItems({"Automatic CPU / OpenCL","CPU only"}); form->addWidget(engineLabel); form->addWidget(engine);
         hint=label("muted"); hint->setWordWrap(true); hint->setMinimumHeight(48); hint->setSizePolicy(QSizePolicy::Preferred,QSizePolicy::Minimum); form->addWidget(hint); leftLayout->addWidget(setup);
+        auto *userFolders=new QHBoxLayout;openImagesButton=new QPushButton;openImagesButton->setObjectName("openImagesButton");openCalibrationButton=new QPushButton;openCalibrationButton->setObjectName("openCalibrationButton");userFolders->addWidget(openImagesButton);userFolders->addWidget(openCalibrationButton);leftLayout->addLayout(userFolders);
+        connect(openImagesButton,&QPushButton::clicked,this,[]{QDesktopServices::openUrl(QUrl::fromLocalFile(orbyx::gui::outputImagesRoot()));});
+        connect(openCalibrationButton,&QPushButton::clicked,this,[]{QDesktopServices::openUrl(QUrl::fromLocalFile(orbyx::gui::calibrationRoot()));});
+        openAutoInputButton=new QPushButton;openAutoInputButton->setObjectName("openAutoInputButton");leftLayout->addWidget(openAutoInputButton);
+        connect(openAutoInputButton,&QPushButton::clicked,this,[this]{const QString folder=autoInputFolder();QDir().mkpath(folder);QDesktopServices::openUrl(QUrl::fromLocalFile(folder));});
         finalImageButton=new QPushButton;finalImageButton->setObjectName("finalImageButton");leftLayout->addWidget(finalImageButton);
         connect(finalImageButton,&QPushButton::clicked,this,[this]{
-            FinalImageWizard wizard(it,input->text(),config->text(),output->text(),satellite->currentText(),engine->currentIndex()==1,this);
+            const QString manualOutput=outputExplicit&& !output->text().isEmpty() ? output->text() : orbyx::gui::newOutputFolder("manual");
+            const QString profile=validProfile(config->text())?config->text():visibleDefaultProfile();
+            FinalImageWizard wizard(it,input->text(),profile,manualOutput,satellite->currentText(),engine->currentIndex()==1,this);
             if(wizard.exec()!=QDialog::Accepted)return;
-            input->setText(wizard.inputPath());config->setText(wizard.profilePath());output->setText(wizard.outputPath());
+            input->setText(wizard.inputPath());config->setText(wizard.profilePath());output->setText(wizard.outputPath());outputExplicit=true;
             if(satellite->findText(wizard.satelliteId())<0)satellite->addItem(wizard.satelliteId());
             satellite->setCurrentText(wizard.satelliteId());engine->setCurrentIndex(wizard.cpuOnly()?1:0);mode->setCurrentIndex(0);
             finalNaturalColour=wizard.naturalColour();finalSelectedProducts=wizard.selectedProducts();loadPreview();
@@ -911,7 +949,8 @@ public:
         connect(satellite,qOverload<int>(&QComboBox::currentIndexChanged),this,[this]{applyText();});
         connect(inputBrowse,&QPushButton::clicked,this,[this]{const auto p=QFileDialog::getExistingDirectory(this,trText("Choose RDAS folder"),input->text());if(!p.isEmpty()) selectInput(p);});
         connect(configBrowse,&QPushButton::clicked,this,[this]{const auto p=QFileDialog::getOpenFileName(this,trText("Choose calibration profile"),config->text(),"JSON (*.json)");if(!p.isEmpty())config->setText(p);});
-        connect(outputBrowse,&QPushButton::clicked,this,[this]{const auto p=QFileDialog::getExistingDirectory(this,trText("Select output parent folder"),QFileInfo(output->text()).absolutePath());if(!p.isEmpty())output->setText(QDir(p).filePath("orbyx-output"));});
+        connect(outputBrowse,&QPushButton::clicked,this,[this]{const auto p=QFileDialog::getExistingDirectory(this,trText("Select output parent folder"),QFileInfo(output->text()).absolutePath());if(!p.isEmpty()){output->setText(QDir(p).filePath("orbyx-output"));outputExplicit=true;}});
+        connect(output,&QLineEdit::textEdited,this,[this]{outputExplicit=true;});
         connect(input,&QLineEdit::textEdited,this,[this]{importedFingerprint.clear();finalSelectedProducts.clear();});
         connect(input,&QLineEdit::editingFinished,this,[this]{loadPreview();}); connect(source,qOverload<int>(&QComboBox::currentIndexChanged),this,[this]{loadPreview();});
         connect(channel,qOverload<int>(&QComboBox::currentIndexChanged),this,[this](int i){settings.setValue("previewChannel",i);loadPreview();});

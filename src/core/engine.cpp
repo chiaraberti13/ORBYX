@@ -37,8 +37,10 @@ void require(bool condition, const std::string& message) {
   if (!condition) throw std::runtime_error(message);
 }
 void regular(const fs::path& file) {
-  require(!fs::is_symlink(fs::symlink_status(file)) && fs::is_regular_file(file),
-          "Expected a regular, non-symlink file: " + file.string());
+  const auto status=fs::symlink_status(file);
+  require(fs::exists(status),"Required file does not exist: "+file.string());
+  require(!fs::is_symlink(status),"Symbolic links are not allowed: "+file.string());
+  require(fs::is_regular_file(status),"Expected a regular file: "+file.string());
 }
 // Decode/parse exactly the bounded bytes that were checked, never reopen a path
 // after the preflight. Concurrent edits may invalidate the snapshot, but cannot
@@ -291,6 +293,9 @@ std::string translate(const std::string& message,const std::string& language) {
   if(language!="it") return message;
   // Prefixes preserve technical paths and upstream identifiers verbatim.
   static const std::map<std::string,std::string> catalog{
+    {"Required file does not exist: ","Il file richiesto non esiste: "},
+    {"Symbolic links are not allowed: ","I collegamenti simbolici non sono consentiti: "},
+    {"Expected a regular file: ","È richiesto un file normale: "},
     {"Expected a regular, non-symlink file: ","È richiesto un file normale, non un collegamento simbolico: "},
     {"Calibration profile exceeds 1 MiB","Il profilo di calibrazione supera 1 MiB"},
     {"Cannot read calibration profile","Impossibile leggere il profilo di calibrazione"},

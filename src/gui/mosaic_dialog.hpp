@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #pragma once
+#include "user_paths.hpp"
 #include "orbyx/compositor.hpp"
 #include "orbyx/engine.hpp"
 #include "control_points_dialog.hpp"
@@ -254,7 +255,7 @@ class MosaicDialog final:public QDialog {
         if(mode<=1)appendChannels(folder,mode==0);else appendSingleChannel(folder,mode-2);
     }
     void saveProjectDialog(){
-        if(layers.empty())return;auto name=QFileDialog::getSaveFileName(this,t("Save editable project","Salva progetto modificabile"),"mosaic.orbyx.json","ORBYX (*.json)");if(name.isEmpty())return;
+        if(layers.empty())return;auto name=QFileDialog::getSaveFileName(this,t("Save editable project","Salva progetto modificabile"),QDir(orbyx::gui::outputImagesRoot()).filePath("mosaic.orbyx.json"),"ORBYX (*.json)");if(name.isEmpty())return;
         if(!name.endsWith(".json"))name+=".json";
         try{saveProject(name);status->setText(t("Project saved. Keep the source files at their original locations.","Progetto salvato. Conserva i file sorgenti nelle posizioni originali."));}
         catch(const std::exception& e){status->setText(QString::fromUtf8(e.what()));}
@@ -265,7 +266,7 @@ class MosaicDialog final:public QDialog {
         try{loadProject(name);}catch(const std::exception& e){status->setText(QString::fromUtf8(e.what()));}
     }
     void exportDialog(){
-        if(layers.empty())return;auto name=QFileDialog::getSaveFileName(this,t("Export new mosaic PNG","Esporta nuovo PNG del mosaico"),"mosaic.png","PNG (*.png)");if(name.isEmpty())return;
+        if(layers.empty())return;auto name=QFileDialog::getSaveFileName(this,t("Export new mosaic PNG","Esporta nuovo PNG del mosaico"),QDir(orbyx::gui::outputImagesRoot()).filePath("final-image-"+QDateTime::currentDateTime().toString("yyyyMMdd-HHmmss")+".png"),"PNG (*.png)");if(name.isEmpty())return;
         if(!name.endsWith(".png"))name+=".png";exportTo(name);
     }
     void restoreProfileRoi(){
