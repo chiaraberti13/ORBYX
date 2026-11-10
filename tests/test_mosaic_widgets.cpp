@@ -147,6 +147,25 @@ int main(int argc,char** argv){
                 MosaicDialog movedProject(it);movedProject.loadProject(QString::fromStdString((dst/"project.json").string()));waitFor(movedProject);
                 check(movedProject.state().size()==1&&std::filesystem::path(movedProject.state()[0].image).lexically_normal()==(dst/"p.png").lexically_normal(),"Moved portable project did not resolve its image to the new folder");
             }
+            // M2-13: autosave + crash recovery — an edit autosaves to a fixed slot; a
+            // new session detects and recovers it; saving clears the slot.
+            {
+                const QString recoveryFile=QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)+"/compositor/recovery.json";
+                QFile::remove(recoveryFile);
+                const auto rsrc=std::filesystem::path(temp.path().toStdString())/(it?"rec-it":"rec-en");std::filesystem::create_directories(rsrc);
+                cv::imwrite((rsrc/"r.png").string(),cv::Mat(30,40,CV_16UC3,cv::Scalar(5000,6000,7000)));
+                {MosaicDialog a(it);a.appendFiles({QString::fromStdString((rsrc/"r.png").string())});waitFor(a);
+                 QElapsedTimer et;et.start();while(!QFileInfo::exists(recoveryFile)&&et.elapsed()<3000)QTest::qWait(20);
+                 check(QFileInfo::exists(recoveryFile),"Autosave did not write a recovery file after an edit");}
+                MosaicDialog b(it);b.show();
+                check(b.property("recoveryAvailable").toBool(),"Recovery was not detected on a new session");
+                auto* recoverButton=b.findChild<QPushButton*>("mosaicRecover");check(recoverButton&&recoverButton->isVisible(),"Recover control missing");
+                recoverButton->click();waitFor(b);
+                check(b.state().size()==1&&std::filesystem::path(b.state()[0].image).filename()=="r.png","Recovery did not restore the autosaved layer");
+                b.saveProject(QString::fromStdString((rsrc/"saved.json").string()));
+                check(!QFileInfo::exists(recoveryFile)&&!b.property("recoveryAvailable").toBool(),"Saving did not clear the recovery slot");
+                MosaicDialog c(it);check(!c.property("recoveryAvailable").toBool(),"Recovery lingered after a clean save");
+            }
             const auto output=temp.path()+(it?"/it.png":"/en.png");restored.exportTo(output);waitFor(restored);
             auto actual=cv::imread(output.toStdString(),cv::IMREAD_UNCHANGED);
             check(!actual.empty()&&actual.type()==CV_16UC3&&cv::norm(actual,expected,cv::NORM_INF)==0,"GUI export differs from shared native-depth renderer");
