@@ -280,13 +280,18 @@ progettazione, non dipendenze da integrare automaticamente.
 ## M2-08 — Procedura guidata “Da SatDump all’immagine finale”
 
 - Priorità: P0
-- Stato: in corso — primo incremento implementato e verificato: una sola azione
-  desktop guida **Importa**, **Allinea canali**, **Unisci porzioni**, **Colore**
-  ed **Esporta**, valida origine/profilo/destinazione, avvia il percorso reale e
-  apre automaticamente il compositore senza cercare file intermedi. Restano da
-  integrare la coda/ripresa durevole nello stesso wizard, il riconoscimento di
-  gruppi generici oltre ai due VIS RDAS e il salvataggio dello stato dei singoli
-  passaggi.
+- Stato: in corso — due incrementi verificati. (1) Una sola azione desktop guida
+  **Importa**, **Allinea canali**, **Unisci porzioni**, **Colore** ed **Esporta**,
+  valida origine/profilo/destinazione, avvia il percorso reale e apre
+  automaticamente il compositore senza cercare file intermedi. (2) **Ripresa del
+  wizard**: lo stato (origine, profilo, destinazione, satellite, motore, resa
+  colore e passaggio raggiunto) viene salvato automaticamente a ogni modifica di
+  campo o cambio pagina come progetto `orbyx-final-wizard/1`; un nuovo wizard può
+  riprenderlo (`hasSavedProject`/`resumeFromSaved`). I valori iniziali impostati
+  alla costruzione non sovrascrivono mai una sessione salvata. Restano da
+  integrare la coda/ripresa durevole del batch nello stesso wizard, il
+  riconoscimento di gruppi generici oltre ai due VIS RDAS e il salvataggio del
+  risultato per singolo passaggio con verifica digest.
 - Dipendenze: M2-07, M3-04
 - Responsabile: Product Designer / Qt UX / SatDump Specialist / Accessibility / QA
 - Deliverable: procedura EN/IT accessibile dal desktop con percorso base in

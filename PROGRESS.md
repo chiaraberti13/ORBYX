@@ -962,3 +962,27 @@ con label `gpu` esclusa.
 M2-07 passa da «in corso» a «verificato per l'ambito GUI dichiarato». Resta
 esterno all'ambito il rifattorizzare le strategie in un unico servizio core
 unificato; lo screen reader reale è in M4-01.
+
+## 2026-11-10 — M2-08 primo incremento: ripresa del wizard guidato
+
+Dopo M2-07, avviato M2-08 come richiesto. Primo incremento: **persistenza e
+ripresa dello stato del wizard** «Crea immagine finale». Il wizard salva
+automaticamente (autosave) origine, profilo, destinazione, satellite, motore,
+resa colore e passaggio raggiunto in un progetto `orbyx-final-wizard/1`
+(`QStandardPaths::AppDataLocation`/final-wizard.json) a ogni modifica di campo o
+cambio pagina. Metodi nuovi: `wizardProject()`, `applyWizardProject()`,
+`saveProject()`, `hasSavedProject()`, `resumeFromSaved()`. Le connessioni di
+autosave sono aggiunte dopo l'impostazione dei valori iniziali, quindi aprire un
+nuovo wizard non sovrascrive mai una sessione salvata: solo le modifiche
+successive dell'utente la aggiornano. Il wizard prepara solo le impostazioni;
+l'esecuzione resta della finestra principale (nessuna rete o shell implicita).
+
+Verifica effettiva (Ubuntu 24.04.5, Qt 6.4.2, OpenCV 4.6, offscreen):
+`gui-widget-flow` esteso EN/IT — un wizard con valori impostati salva il progetto;
+un secondo wizard, costruito con valori diversi, rileva il progetto salvato e lo
+riprende, ripristinando esattamente origine/profilo/destinazione/satellite/motore
+e resa colore. Suite completa 24/24 passata con label `gpu` esclusa.
+
+Restano aperti, per M2-08: coda/ripresa durevole del batch nello stesso wizard,
+riconoscimento di gruppi generici oltre ai due VIS RDAS, e salvataggio del
+risultato per singolo passaggio con verifica del digest.
