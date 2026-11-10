@@ -375,7 +375,7 @@ progettazione, non dipendenze da integrare automaticamente.
 ## M2-10 — Seam, maschere e blending per l’immagine visuale
 
 - Priorità: P1
-- Stato: in corso — sei incrementi implementati. (1) Modalità esplicite
+- Stato: verificato per l'ambito dichiarato — sette incrementi. (1) Modalità esplicite
   per livello **Nessun blending** e **Sfumatura**, persistite nel progetto con
   compatibilità dei progetti precedenti; senza blending il livello superiore
   sostituisce quello inferiore senza opacità/sfumatura e la modalità storica
@@ -403,16 +403,29 @@ progettazione, non dipendenze da integrare automaticamente.
   luci inaffidabili e propone esposizione/guadagni RGB del livello selezionato;
   mostra campioni e correzioni prima della conferma, resta annullabile e non
   modifica sorgenti o canali SatDump. Core, GUI e oggetti dei test compilano sul
-  commit `2a1daec`. Resta da valutare il blending multibanda e da confermare
-  l'intero percorso nella CI pulita.
+  commit `2a1daec`. (7) **Blending multibanda**: nuova modalità opzionale per
+  livello **Blending multibanda (visuale)** (`MosaicBlend::Multiband`). Esegue una
+  fusione a piramide laplaciana a profondità nativa sul riquadro del livello,
+  deterministica, guidata da una maschera a rampa sulla sovrapposizione
+  (distanza dai livelli sottostanti, normalizzata sull'estensione dell'overlap):
+  le basse frequenze si fondono su una banda ampia e le alte su una stretta,
+  nascondendo i salti di esposizione/colore lungo la giunzione senza buchi. Il
+  bordo adiacente ai livelli sottostanti sfuma esattamente verso di essi
+  (nessun gradino) e il lato senza nulla sotto resta il livello. Oltre un'area
+  limitata (8 Mpx) o su regioni minuscole ricade in modo deterministico sulla
+  sfumatura esistente. Le modalità Nessun blending/Sfumatura/Giunzione restano
+  byte-identiche. Serializzazione «multiband» compatibile e quarta voce nel
+  selettore GUI EN/IT. La valutazione del blending multibanda è così conclusa;
+  resta la conferma dell'intero percorso nella CI pulita.
 - Dipendenze: M2-09
 - Responsabile: Computer Vision / Imaging / Performance / AppSec / QA
-- Deliverable: tre modalità dichiarate: **Nessun blending** per dati scientifici,
-  **Sfumatura** compatibile con l’editor attuale e **Seam ottimizzata** per la
-  presentazione finale
-- Seam: implementato il primo percorso a costo minimo su intensità/gradiente;
-  resta da valutare il blending multibanda senza introdurre dipendenze o memoria
-  non controllate. Il fallback deterministico usa la sfumatura esistente
+- Deliverable: quattro modalità dichiarate: **Nessun blending** per dati
+  scientifici, **Sfumatura** compatibile con l’editor attuale, **Seam ottimizzata**
+  e **Blending multibanda** per la presentazione finale
+- Seam: percorso a costo minimo su intensità/gradiente, più il **blending
+  multibanda** a piramide laplaciana (modalità dedicata) senza dipendenze esterne
+  e con memoria limitata (area max 8 Mpx, altrimenti fallback). Il fallback
+  deterministico usa la sfumatura esistente
 - Maschere: poligoni include/escludi non distruttivi per artefatti, bordi o zone
   da preferire; salvataggio nel progetto e anteprima della seam scelta
 - Aspetto: implementata compensazione opzionale proposta di luminosità/colore

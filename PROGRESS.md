@@ -1107,28 +1107,35 @@ verificato) e l'uso del raggruppamento corretto nel motore `generate`, oggi
 vincolato ai due VIS RDAS. Prossimo nel gate: completare M2-09 (verifica remota)
 e M2-10 (blending multibanda), poi M2-11.
 
-## 2026-11-10 — M2-08 completato end-to-end: selezione realmente elaborata
+## 2026-11-10 — M2-10 chiuso (ambito dichiarato): blending multibanda
 
-La PR #16 (merge `aec3d9f`) chiude il residuo che separava il wizard dal motore.
-La selezione corretta dei prodotti è ora salvata nel progetto e nel digest,
-inoltrata a esecuzione immediata, CLI e coda durevole e applicata da `generate`.
-Il motore accetta fino a 32 cartelle VIS con nomi relativi strettamente validati:
-allinea i prodotti grezzi usando la sezione di calibrazione corrispondente,
-preserva quelli già allineati e mantiene la provenienza CBOR senza inventare
-metadati mancanti. Il percorso vuoto conserva byte per byte la logica storica;
-VIS1/VIS2 grezzi con ROI complete continuano a produrre il merge precedente.
+Ultimo incremento di M2-10, su richiesta dell'utente. Aggiunta la modalità di
+blend per livello **Blending multibanda (visuale)** (`MosaicBlend::Multiband`),
+quarta voce del selettore accanto a Nessun blending/Sfumatura/Giunzione.
 
-Il compositore apre tutte le porzioni generate e applica l’eventuale baseline
-ROI soltanto alla coppia VIS1/VIS2, lasciando modificabili le porzioni ulteriori.
-Il wizard impedisce inoltre di inviare contemporaneamente la versione grezza e
-quella allineata dello stesso identificatore. Le regressioni aggiunte coprono
-core, CLI/batch, persistenza/ripresa EN/IT, coda e hand-off al compositore.
+Implementazione (core, `src/core/compositor.cpp`): una fusione a **piramide
+laplaciana** deterministica a profondità nativa, eseguita sul riquadro del livello
+(non a tile). La maschera di fusione è una **rampa sulla sovrapposizione** basata
+sulla distance transform dai livelli sottostanti, normalizzata sull'estensione
+reale dell'overlap: le basse frequenze si fondono su una banda ampia e le alte su
+una stretta, nascondendo i salti di esposizione/colore lungo la giunzione. Il
+bordo adiacente ai livelli sottostanti sfuma esattamente verso di essi (nessun
+gradino), il lato senza nulla sotto resta il livello, e la scrittura avviene solo
+dove il livello copre (sorgenti e livelli sottostanti non toccati fuori dalla sua
+area). Rispetta ritagli ed esclusioni/maschere poligonali. Oltre 8 Mpx o su
+regioni < 4 px ricade in modo deterministico sulla sfumatura esistente. Le
+modalità Nessun blending/Sfumatura/Giunzione restano **byte-identiche**.
+Serializzazione «multiband» compatibile; selettore GUI EN/IT a quattro voci.
 
-La prima matrice CI ha rilevato che i livelli RGB derivati venivano ispezionati
-con il vincolo di altezza dei canali RDAS nativi; la correzione usa il lettore di
-compositi e ha eliminato sia il livello vuoto sia il timeout del flusso guidato.
-Verifiche verdi al merge: run `42820235782` (Ubuntu 22.04/26.04,
-sanitizzatori, fuzz e Cppcheck) e `42820235741` (Fedora/ARM64); CodeQL era già
-verde sul commit di produzione precedente. Le run `42820235731` (AppImage) e
-`42820235736` (ultimo CodeQL) erano ancora nell’installazione dei pacchetti.
-M2-10 e il blending multibanda non sono stati modificati.
+Verifica effettiva (Ubuntu 24.04.5, Qt 6.4.2, OpenCV 4.6, offscreen):
+`mosaic-regression` esteso — il blend multibanda è deterministico (due render
+identici), a profondità nativa 16 bit, senza buchi, conserva esatta la regione
+non sovrapposta del solo livello sottostante, produce una vera transizione sulla
+giunzione e fa round-trip nel progetto. `mosaic-widget-flow` esteso — quarta voce
+del selettore applica `Multiband` con i controlli contestuali corretti. Suite
+completa 24/24 passata con label `gpu` esclusa. Confronto visuale Seam vs
+Multiband su scena con gradino di esposizione ispezionato: il gradino lungo la
+giunzione è attenuato. Resta la conferma dell'intero percorso nella CI pulita.
+
+M2-10 passa da «in corso» a «verificato per l'ambito dichiarato» (sette
+incrementi). Prossimo nel gate: M2-11 (colore integrato), poi M2-12/M2-13.

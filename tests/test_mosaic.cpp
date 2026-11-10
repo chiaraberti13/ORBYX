@@ -44,6 +44,18 @@ int main(){
         const auto seamProject=orbyx::mosaicProject({seamA,seamB});const auto seamLoaded=orbyx::parseMosaicProject(seamProject);
         check(seamLoaded[1].blend==orbyx::MosaicBlend::Seam&&cv::norm(orbyx::renderMosaic(seamLoaded).image,seamResult,cv::NORM_INF)==0,"Minimum-cost seam did not round trip");
         seamB.feather=8;const auto softenedSeam=orbyx::renderMosaic({seamA,seamB}).image;bool transitionPixel=false;for(int y=0;y<softenedSeam.rows&&!transitionPixel;++y)for(int x=40;x<96;++x){const auto pixel=softenedSeam.at<cv::Vec3w>(y,x);if(pixel!=seamLower.at<cv::Vec3w>(0,0)&&pixel!=seamUpper.at<cv::Vec3w>(0,0)){transitionPixel=true;break;}}check(transitionPixel&&cv::countNonZero(softenedSeam.reshape(1)==0)==0,"Adjustable seam transition was not applied or introduced holes");
+        // Multiband blend: a visual, native-depth Laplacian-pyramid blend. It is
+        // deterministic, leaves no holes, preserves the non-overlapping lower-only
+        // region untouched and produces a real transition across the seam.
+        orbyx::MosaicLayer bandA=seamA;orbyx::MosaicLayer bandB;bandB.image=root/"seam-upper.png";bandB.x=40;bandB.blend=orbyx::MosaicBlend::Multiband;
+        const auto bandResult=orbyx::renderMosaic({bandA,bandB}).image,bandAgain=orbyx::renderMosaic({bandA,bandB}).image;
+        check(bandResult.type()==CV_16UC3&&bandResult.size()==cv::Size(136,64)&&cv::norm(bandResult,bandAgain,cv::NORM_INF)==0,"Multiband blend is not native-depth deterministic");
+        check(cv::countNonZero(bandResult.reshape(1)==0)==0,"Multiband blend left holes");
+        check(bandResult.at<cv::Vec3w>(30,10)==seamLower.at<cv::Vec3w>(0,0),"Multiband altered the lower-only region");
+        bool banded=false;for(int y=0;y<bandResult.rows&&!banded;++y)for(int x=40;x<96;++x){const auto pixel=bandResult.at<cv::Vec3w>(y,x);if(pixel!=seamLower.at<cv::Vec3w>(0,0)&&pixel!=seamUpper.at<cv::Vec3w>(0,0)){banded=true;break;}}
+        check(banded,"Multiband blend produced no transition across the seam");
+        const auto bandProject=orbyx::mosaicProject({bandA,bandB});const auto bandLoaded=orbyx::parseMosaicProject(bandProject);
+        check(bandProject.find("multiband")!=std::string::npos&&bandLoaded[1].blend==orbyx::MosaicBlend::Multiband&&cv::norm(orbyx::renderMosaic(bandLoaded).image,bandResult,cv::NORM_INF)==0,"Multiband blend did not round trip");
         cv::Mat colourReference(72,96,CV_16UC3,cv::Scalar(20000,24000,28000)),colourMoving(72,96,CV_16UC3,cv::Scalar(10000,16000,14000));
         check(cv::imwrite((root/"colour-reference.png").string(),colourReference)&&cv::imwrite((root/"colour-moving.png").string(),colourMoving),"Write compensation fixtures");
         orbyx::MosaicLayer colourA;colourA.image=root/"colour-reference.png";orbyx::MosaicLayer colourB;colourB.image=root/"colour-moving.png";colourB.x=32;

@@ -47,10 +47,11 @@ int main(int argc,char** argv){
             dialog.undo();waitFor(dialog);check(dialog.state()[2].x==0,"Undo geometry failed");
             dialog.redo();waitFor(dialog);check(dialog.state()[2].x==-15,"Redo geometry failed");
             auto* blendMode=dialog.findChild<QComboBox*>("mosaicBlendMode");auto* opacity=dialog.findChild<QDoubleSpinBox*>("mosaic_opacity");auto* featherControl=dialog.findChild<QDoubleSpinBox*>("mosaic_feather");
-            check(blendMode&&blendMode->count()==3&&opacity&&featherControl,"Explicit blending modes missing");blendMode->setCurrentIndex(0);waitFor(dialog);
+            check(blendMode&&blendMode->count()==4&&opacity&&featherControl,"Explicit blending modes missing");blendMode->setCurrentIndex(0);waitFor(dialog);
             check(dialog.state()[2].blend==orbyx::MosaicBlend::Replace&&!opacity->isEnabled()&&!featherControl->isEnabled(),"No-blending mode was not applied explicitly");
             blendMode->setCurrentIndex(1);waitFor(dialog);check(dialog.state()[2].blend==orbyx::MosaicBlend::Feather&&opacity->isEnabled()&&featherControl->isEnabled(),"Feather mode did not restore visual controls");
             blendMode->setCurrentIndex(2);waitFor(dialog);check(dialog.state()[2].blend==orbyx::MosaicBlend::Seam&&!opacity->isEnabled()&&featherControl->isEnabled(),"Minimum-cost seam mode was not applied explicitly");
+            blendMode->setCurrentIndex(3);waitFor(dialog);check(dialog.state()[2].blend==orbyx::MosaicBlend::Multiband&&!opacity->isEnabled()&&featherControl->isEnabled(),"Multiband blend mode was not applied explicitly");
             blendMode->setCurrentIndex(1);waitFor(dialog);
             gamma->setValue(1.25);waitFor(dialog);dialog.applyColoursToAll();waitFor(dialog);
             for(const auto& layer:dialog.state())check(layer.gamma==1.25,"Colour application not applied to all portions");
