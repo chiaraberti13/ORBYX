@@ -540,7 +540,7 @@ progettazione, non dipendenze da integrare automaticamente.
 ## M2-13 — Progetto portabile e recupero del lavoro
 
 - Priorità: P2
-- Stato: in corso — due incrementi verificati. (1) **progetto portabile con
+- Stato: verificato per l'ambito dichiarato — tre incrementi. (1) **progetto portabile con
   riferimenti relativi**. `orbyx::mosaicProject`/`parseMosaicProject` hanno ora
   una variante con cartella base: le immagini sotto la cartella del progetto sono
   salvate con percorso **relativo** e risolte rispetto alla cartella alla
@@ -555,8 +555,14 @@ progettazione, non dipendenze da integrare automaticamente.
   fisso `compositor/recovery.json`; una nuova sessione rileva il lavoro lasciato da
   una sessione interrotta (`recoveryAvailable`) e il comando «Recupera lavoro
   autosalvato…» lo ripristina; il salvataggio esplicito del progetto cancella lo
-  slot (lavoro già persistito). Resta da implementare l'opzione pacchetto esplicito
-  (copia delle immagini accanto al progetto).
+  slot (lavoro già persistito). (3) **Pacchetto esplicito**: «Esporta pacchetto
+  progetto…» (`packageProject`) crea una cartella autoconsistente con il progetto e
+  le **copie** di tutte le immagini sorgente, referenziate in modo relativo e
+  deduplicate; non scrive nulla fuori dalla destinazione, rifiuta sorgenti symlink/
+  mancanti/vuote/oltre 256 MiB e una destinazione non vuota, e lascia invariati i
+  livelli correnti. Il pacchetto si riapre risolvendo le immagini al suo interno.
+  M2-13 è così verificato per l'ambito dichiarato (il task conclude la serie M2 del
+  compositore).
 - Dipendenze: M2-08
 - Responsabile: Desktop Architecture / UX / AppSec / QA
 - Deliverable: progetto con riferimenti relativi o pacchetto esplicito, autosave

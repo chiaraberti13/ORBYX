@@ -1356,3 +1356,29 @@ esclusa.
 
 Resta aperto, per M2-13: l'opzione pacchetto esplicito (copia delle immagini
 accanto al progetto).
+
+## 2026-11-10 — M2-13 chiuso (ambito dichiarato): pacchetto esplicito
+
+Ultimo incremento di M2-13. **Pacchetto esplicito**: comando «Esporta pacchetto
+progetto…» (`MosaicDialog::packageProject`) che crea una cartella autoconsistente
+contenente il progetto e le **copie** di tutte le immagini sorgente, referenziate
+in modo **relativo** (riuso della serializzazione con cartella base) e
+**deduplicate** (sorgenti identiche copiate una sola volta). Sicurezza: non scrive
+nulla fuori dalla cartella di destinazione, rifiuta sorgenti symlink/mancanti/vuote
+o oltre 256 MiB e una destinazione esistente non vuota; i livelli correnti restano
+invariati (opera su una copia). Il pacchetto si riapre risolvendo le immagini al
+suo interno.
+
+Verifica effettiva (Ubuntu 24.04.5, Qt 6.4.2, OpenCV 4.6, offscreen):
+`mosaic-widget-flow` esteso — tre livelli di cui due dalla stessa immagine →
+pacchetto con `project.json` e **due** sole immagini copiate (dedup), progetto con
+percorsi relativi `image-000...` (nessun percorso sorgente assoluto), livelli
+correnti invariati; riapertura del pacchetto con tutti e tre i livelli e immagini
+risolte dentro la cartella del pacchetto; destinazione non vuota rifiutata. Suite
+completa 24/24 passata con label `gpu` esclusa.
+
+M2-13 passa a «verificato per l'ambito dichiarato» (tre incrementi: riferimenti
+relativi, autosave/ripristino crash, pacchetto esplicito). Con M2-13 si conclude
+la serie M2 del compositore (M2-07…M2-13) per l'ambito dichiarato. Restano aperti,
+come già dichiarato, i punti che richiedono hardware o prove manuali reali (GPU,
+verità a terra, screen reader/utenti reali, firma GPG personale).

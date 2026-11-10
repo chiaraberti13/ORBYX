@@ -39,6 +39,7 @@
 #include <QUuid>
 #include <QVBoxLayout>
 #include <QDir>
+#include <QMap>
 #include <opencv2/imgproc.hpp>
 #include <functional>
 #include <memory>
@@ -420,6 +421,7 @@ public:
         button("mosaicAllColour",t("Apply selected colours to all","Applica colori selezionati a tutti"),panel,[this]{applyColoursToAll();});
         button("mosaicMatchColour",t("Match selected layer to adjacent…","Uniforma il livello selezionato all’adiacente…"),panel,[this]{visualCompensationDialog();});
         button("mosaicSave",t("Save editable project…","Salva progetto modificabile…"),panel,[this]{saveProjectDialog();});
+        button("mosaicPackage",t("Export project package…","Esporta pacchetto progetto…"),panel,[this]{packageDialog();});
         button("mosaicOpen",t("Open project…","Apri progetto…"),panel,[this]{loadProjectDialog();});
         button("mosaicRecover",t("Recover autosaved work…","Recupera lavoro autosalvato…"),panel,[this]{
             if(!recoveryAvailable()){status->setText(t("No autosaved work to recover.","Nessun lavoro autosalvato da recuperare."));return;}
@@ -631,6 +633,40 @@ public:
         if(!file.open(QIODevice::WriteOnly))throw std::runtime_error("Cannot create project file");file.setPermissions(QFileDevice::ReadOwner|QFileDevice::WriteOwner);
         if(file.write(text)!=text.size()||!file.commit())throw std::runtime_error("Cannot save project atomically");
         dirty=false;clearRecovery(); // Work is persisted; no crash recovery needed.
+    }
+    // M2-13 explicit package: a self-contained folder with the project and copies of
+    // every source image, referenced relatively. Nothing is written outside destDir;
+    // sources that are symlinks, missing, empty or oversized are rejected; identical
+    // sources are copied once. The current layers keep their original paths.
+    void packageProject(const QString& destDir){
+        if(layers.empty())throw std::runtime_error("Nothing to package");
+        QFileInfo destInfo(destDir);
+        if(destInfo.exists()){ if(destInfo.isSymLink()||!destInfo.isDir()||!QDir(destDir).isEmpty())throw std::runtime_error("Package destination must be a new empty folder"); }
+        else if(!QDir().mkpath(destDir))throw std::runtime_error("Cannot create the package folder");
+        QDir dir(destDir);std::vector<orbyx::MosaicLayer> packaged=layers;QMap<QString,QString> copied;int index=0;
+        for(auto& l:packaged){
+            const QString src=QFileInfo(QString::fromStdString(l.image.string())).absoluteFilePath();QFileInfo si(src);
+            if(!si.isFile()||si.isSymLink()||si.size()<=0||si.size()>256LL*1024*1024)throw std::runtime_error("A source image is missing, a symlink, empty or too large");
+            QString name=copied.value(src);
+            if(name.isEmpty()){
+                name=QString("image-%1.%2").arg(index++,3,10,QChar('0')).arg(si.suffix().isEmpty()?QString("png"):si.suffix());
+                if(!QFile::copy(src,dir.filePath(name)))throw std::runtime_error("Cannot copy a source image into the package");
+                QFile::setPermissions(dir.filePath(name),QFileDevice::ReadOwner|QFileDevice::WriteOwner);copied.insert(src,name);
+            }
+            l.image=std::filesystem::path(dir.filePath(name).toStdString());
+        }
+        const auto text=QByteArray::fromStdString(orbyx::mosaicProject(packaged,std::filesystem::path(destDir.toStdString())));
+        QSaveFile file(dir.filePath("project.json"));file.setDirectWriteFallback(false);
+        if(!file.open(QIODevice::WriteOnly))throw std::runtime_error("Cannot create the packaged project file");file.setPermissions(QFileDevice::ReadOwner|QFileDevice::WriteOwner);
+        if(file.write(text)!=text.size()||!file.commit())throw std::runtime_error("Cannot write the packaged project");
+    }
+    void packageDialog(){
+        if(busy||layers.empty())return;
+        const auto parent=QFileDialog::getExistingDirectory(this,t("Choose a folder for the project package","Scegli una cartella per il pacchetto del progetto"));
+        if(parent.isEmpty())return;
+        const QString destDir=QDir(parent).filePath("orbyx-package-"+QDateTime::currentDateTimeUtc().toString("yyyyMMddTHHmmssZ")+"-"+QUuid::createUuid().toString(QUuid::WithoutBraces));
+        try{packageProject(destDir);status->setText(t("Project package created: ","Pacchetto del progetto creato: ")+destDir);record("Project package created: "+destDir);}
+        catch(const std::exception& e){status->setText(QString::fromUtf8(e.what()));}
     }
     void loadProject(const QString& name){
         if(busy)return;QFileInfo info(name);if(!info.isFile()||info.isSymLink()||info.size()>1024*1024)throw std::runtime_error("Invalid project file");
