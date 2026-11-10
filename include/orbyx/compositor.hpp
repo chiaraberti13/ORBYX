@@ -38,6 +38,7 @@ struct MosaicQuality {
     double highlightClipped=0;     // Covered pixels with a channel at the maximum.
     double shadowClipped=0;        // Covered pixels that are pure black.
     int extremeTransforms=0;       // Visible layers rotated >=45 deg or scaled outside [0.5, 2].
+    double seamDifference=0;       // Mean disagreement (0..1) between overlapping layers in their shared area.
 };
 // Bounded, deterministic quality assessment rendered at a preview edge (64..2048).
 MosaicQuality mosaicQuality(const std::vector<MosaicLayer>& layers,int previewEdge=1024);

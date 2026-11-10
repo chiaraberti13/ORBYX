@@ -266,18 +266,37 @@ class MosaicDialog final:public QDialog {
         setProperty("qualityHighlightClipped",q.highlightClipped);
         setProperty("qualityShadowClipped",q.shadowClipped);
         setProperty("qualityExtremeTransforms",q.extremeTransforms);
+        setProperty("qualitySeamDifference",q.seamDifference);
         return q;
     }
+    // Lower is better: gaps, visible seams and clipping are the concerns.
+    static double qualityConcern(const orbyx::MosaicQuality& q){return q.emptyFraction+q.seamDifference+q.highlightClipped+q.shadowClipped;}
     void qualityDialog(){
         if(busy||layers.empty())return;
         orbyx::MosaicQuality q;
         try{q=computeQuality();}catch(const std::exception& e){status->setText(QString::fromUtf8(e.what()));return;}
         const QString strategy=property("mergeStrategy").toString();
-        const QString body=t("Strategy: %1\nEmpty/gap area: %2%\nOverlap coverage: %3%\nHighlight clipping: %4%\nShadow clipping: %5%\nExtreme transforms: %6\n\nEvidence only — ORBYX does not declare an image perfect and does not change your project. Review and choose.",
-                             "Strategia: %1\nAree vuote/mancanti: %2%\nCopertura sovrapposizione: %3%\nClipping alte luci: %4%\nClipping ombre: %5%\nTrasformazioni estreme: %6\n\nSolo evidenze — ORBYX non dichiara perfetta un'immagine e non modifica il progetto. Controlla e scegli.")
+        QString recommendation=t("No profile ROI to compare; review the evidence and choose.","Nessuna ROI del profilo da confrontare; valuta le evidenze e scegli.");
+        setProperty("qualityRecommended",QString());
+        if(!profileRoiBaseline.empty()){
+            // Compare the historical ROI strategy with the current one as evidence.
+            try{
+                const orbyx::MosaicQuality roi=orbyx::mosaicQuality(profileRoiBaseline);
+                const double concernRoi=qualityConcern(roi),concernCur=qualityConcern(q);
+                QString pick;if(std::abs(concernRoi-concernCur)<0.02)pick="ambiguous";else pick=concernRoi<concernCur?"profile-roi":"current";
+                setProperty("qualityRecommended",pick);
+                recommendation=pick=="ambiguous"
+                    ? t("ROI and current are close: ambiguous — compare them and choose.","ROI e stato attuale sono simili: ambiguo — confrontali e scegli.")
+                    : pick=="profile-roi"
+                        ? t("On this evidence the profile ROI looks preferable; confirm before keeping it.","Su queste evidenze la ROI del profilo sembra preferibile; conferma prima di tenerla.")
+                        : t("On this evidence the current strategy looks preferable; confirm before keeping it.","Su queste evidenze lo stato attuale sembra preferibile; conferma prima di tenerlo.");
+            }catch(const std::exception&){}
+        }
+        const QString body=t("Strategy: %1\nEmpty/gap area: %2%\nOverlap coverage: %3%\nSeam difference: %4%\nHighlight clipping: %5%\nShadow clipping: %6%\nExtreme transforms: %7\n\n%8\n\nEvidence only — ORBYX does not declare an image perfect and does not change your project.",
+                             "Strategia: %1\nAree vuote/mancanti: %2%\nCopertura sovrapposizione: %3%\nDifferenza lungo la giunzione: %4%\nClipping alte luci: %5%\nClipping ombre: %6%\nTrasformazioni estreme: %7\n\n%8\n\nSolo evidenze — ORBYX non dichiara perfetta un'immagine e non modifica il progetto.")
             .arg(strategy.isEmpty()?t("manual","manuale"):strategy)
-            .arg(q.emptyFraction*100,0,'f',2).arg(q.overlapFraction*100,0,'f',1).arg(q.highlightClipped*100,0,'f',2).arg(q.shadowClipped*100,0,'f',2).arg(q.extremeTransforms);
-        record(QString("Quality assessment: empty=%1 overlap=%2 highlightClip=%3 shadowClip=%4 extreme=%5 (fractions 0..1)").arg(q.emptyFraction).arg(q.overlapFraction).arg(q.highlightClipped).arg(q.shadowClipped).arg(q.extremeTransforms));
+            .arg(q.emptyFraction*100,0,'f',2).arg(q.overlapFraction*100,0,'f',1).arg(q.seamDifference*100,0,'f',2).arg(q.highlightClipped*100,0,'f',2).arg(q.shadowClipped*100,0,'f',2).arg(q.extremeTransforms).arg(recommendation);
+        record(QString("Quality assessment: empty=%1 overlap=%2 seam=%3 highlightClip=%4 shadowClip=%5 extreme=%6 recommended=%7").arg(q.emptyFraction).arg(q.overlapFraction).arg(q.seamDifference).arg(q.highlightClipped).arg(q.shadowClipped).arg(q.extremeTransforms).arg(property("qualityRecommended").toString()));
         QMessageBox::information(this,t("Quality assessment","Valutazione qualità"),body);
     }
     void compareStrategies(){

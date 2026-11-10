@@ -500,9 +500,16 @@ progettazione, non dipendenze da integrare automaticamente.
   con le proprietà `qualityEmptyFraction`/`qualityOverlapFraction`/
   `qualityHighlightClipped`/`qualityShadowClipped`/`qualityExtremeTransforms`/
   `qualityCovered`; **non dichiara mai «perfetta» un'immagine e non modifica il
-  progetto**. Restano da implementare la differenza/continuità lungo la seam, il
-  report comparativo ROI/visuale/manuale con raccomandazione e segnalazione dei
-  casi ambigui, la validazione sui dataset con verità nota e la prova di usabilità.
+  progetto**. (2) **Differenza lungo la giunzione e raccomandazione comparativa**:
+  `mosaicQuality` misura ora la `seamDifference` (ogni livello è reso da solo sul
+  canvas completo e le coppie sovrapposte sono confrontate nell'area comune; più
+  alta = giunzione più visibile), deterministica. Il report «Valutazione qualità…»
+  mostra la differenza di giunzione e, quando esiste una baseline ROI del profilo,
+  **confronta ROI e stato attuale** e raccomanda la strategia con minor concern
+  (aree vuote + giunzione + clipping), segnalando i casi **ambigui**; la scelta
+  resta all'utente (`qualityRecommended` ∈ profile-roi/current/ambiguous), nessuna
+  sostituzione automatica. Restano da implementare la validazione sui dataset con
+  verità nota (criteri quantitativi) e la prova di usabilità con utenti.
 - Dipendenze: M2-07, M2-09, M2-10, M2-11
 - Responsabile: QA Lead / Computer Vision Validation / Remote Sensing / UX Research
 - Deliverable: report comprensibile che confronta ROI, visuale e intervento

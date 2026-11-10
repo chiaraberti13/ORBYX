@@ -166,6 +166,16 @@ int main(int argc,char** argv){
             auto editedRoi=profileRoi.state();editedRoi[1].x+=17;profileRoi.setState(editedRoi);
             QTest::mouseClick(profileRoi.findChild<QPushButton*>("mosaicRestoreRoi"),Qt::LeftButton);waitFor(profileRoi);
             check(profileRoi.state()[1].x==60&&profileRoi.property("mergeStrategy").toString()=="profile-roi","Profile ROI could not be restored after a manual edit");
+            // M2-12: with a ROI baseline the quality report recommends a strategy from
+            // evidence (never auto-applied) and reports the seam difference.
+            {
+                const auto beforeQ=orbyx::mosaicProject(profileRoi.state());
+                QTimer dq;QObject::connect(&dq,&QTimer::timeout,[&]{for(auto* w:QApplication::topLevelWidgets())if(auto* box=qobject_cast<QMessageBox*>(w)){box->accept();dq.stop();}});dq.start(10);
+                profileRoi.findChild<QPushButton*>("mosaicQuality")->click();dq.stop();
+                const auto rec=profileRoi.property("qualityRecommended").toString();
+                check((rec=="profile-roi"||rec=="current"||rec=="ambiguous")&&profileRoi.property("qualitySeamDifference").isValid(),"Quality recommendation or seam difference missing with a ROI baseline");
+                check(orbyx::mosaicProject(profileRoi.state())==beforeQ,"Quality recommendation changed the project");
+            }
             // M2-07: a comparable ROI / current preview is available; it renders both
             // strategies side by side without altering the ROI baseline or the layers.
             auto* compareButton=profileRoi.findChild<QPushButton*>("mosaicCompareStrategies");

@@ -108,6 +108,11 @@ int main(){
             orbyx::MosaicLayer rotated=qa;rotated.angle=90;check(orbyx::mosaicQuality({rotated}).extremeTransforms==1,"Quality did not flag an extreme transform");
             const auto d1=orbyx::mosaicQuality({qa,qb}),d2=orbyx::mosaicQuality({qa,qb});
             check(d1.coveredPixels==d2.coveredPixels&&d1.overlapFraction==d2.overlapFraction&&d1.emptyFraction==d2.emptyFraction,"Quality assessment is not deterministic");
+            // Seam difference: different overlapping layers disagree strongly; identical
+            // ones agree (only a thin boundary residual remains); it is deterministic.
+            check(orbyx::mosaicQuality({qa,qb}).seamDifference>0.2&&d1.seamDifference==d2.seamDifference,"Quality did not measure (deterministically) a seam difference");
+            orbyx::MosaicLayer qdup;qdup.image=root/"seam-lower.png";qdup.x=40;qdup.blend=orbyx::MosaicBlend::Replace;
+            check(orbyx::mosaicQuality({qa,qdup}).seamDifference<0.05,"Identical overlapping layers should have a much lower seam difference");
         }
         // Non-destructive exclude mask: the masked region of the upper layer does
         // not contribute, revealing the layer below; outside it the upper layer is
