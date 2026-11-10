@@ -125,7 +125,7 @@ MosaicLayer placed(const MosaicLayer& source,const MosaicLayer& reference,const 
 // is sampled by the tiled native-depth renderer. An empty result means that the
 // overlap has no continuous path and the caller must use the feather fallback.
 cv::Mat minimumCostSeam(const cv::Mat& target,const cv::Mat& incomingImage,
-                        const cv::Mat& existing,const cv::Mat& incoming) {
+                        const cv::Mat& existing,const cv::Mat& incoming,double transition) {
     check(target.type()==CV_8U&&incomingImage.type()==CV_8U&&existing.type()==CV_8U&&incoming.type()==CV_8U&&
           target.size()==incomingImage.size()&&target.size()==existing.size()&&target.size()==incoming.size(),
           "Invalid optimized seam buffers");
@@ -163,6 +163,7 @@ cv::Mat minimumCostSeam(const cv::Mat& target,const cv::Mat& incomingImage,
     const bool chooseRight=location.m00==0||location.m10/location.m00>=meanPath;
     cv::Mat alpha;newMask.convertTo(alpha,CV_32F,1./255.);
     for(int y=0;y<height;++y){const int cut=bounds.x+path[size_t(y)];auto* values=alpha.ptr<float>(bounds.y+y);const auto* valid=common.ptr<unsigned char>(bounds.y+y);for(int x=bounds.x;x<bounds.x+width;++x)if(valid[x])values[x]=(chooseRight?x>=cut:x<=cut)?1.f:0.f;}
+    if(transition>.5){cv::Mat selected,rejected,inside,outside;cv::compare(alpha,.5,selected,cv::CMP_GT);cv::bitwise_not(selected,rejected);cv::distanceTransform(selected,inside,cv::DIST_L2,cv::DIST_MASK_PRECISE);cv::distanceTransform(rejected,outside,cv::DIST_L2,cv::DIST_MASK_PRECISE);for(int y=0;y<alpha.rows;++y){auto* values=alpha.ptr<float>(y);const auto* overlapValues=common.ptr<unsigned char>(y);const auto* in=inside.ptr<float>(y);const auto* out=outside.ptr<float>(y);for(int x=0;x<alpha.cols;++x)if(overlapValues[x])values[x]=std::clamp(.5f+(in[x]-out[x])/float(2*transition),0.f,1.f);}}
     if(transpose)cv::transpose(alpha,alpha);
     return alpha;
 }
@@ -248,7 +249,7 @@ MosaicResult renderMosaic(const std::vector<MosaicLayer>& layers,int previewEdge
             cv::Matx23d seamTransform=m;for(int r=0;r<2;++r)for(int c=0;c<3;++c)seamTransform(r,c)*=seamScale;
             cv::Mat sourceSmall;cv::warpAffine(sourceGray,sourceSmall,seamTransform,seamSize,cv::INTER_LINEAR,cv::BORDER_REPLICATE);if(sourceSmall.depth()==CV_16U)sourceSmall.convertTo(sourceSmall,CV_8U,1./257.);
             cv::Mat targetSmall;cv::resize(result.image,targetSmall,seamSize,0,0,cv::INTER_AREA);if(targetSmall.channels()==3)cv::cvtColor(targetSmall,targetSmall,cv::COLOR_BGR2GRAY);if(targetSmall.depth()==CV_16U)targetSmall.convertTo(targetSmall,CV_8U,1./257.);
-            seamAlpha=minimumCostSeam(targetSmall,sourceSmall,seamCoverage,layerCoverage);seamReady=!seamAlpha.empty();if(!seamReady)++result.seamFallbacks;
+            seamAlpha=minimumCostSeam(targetSmall,sourceSmall,seamCoverage,layerCoverage,l.feather*l.scale*ratio*seamScale);seamReady=!seamAlpha.empty();if(!seamReady)++result.seamFallbacks;
         }
         cv::Matx23d inverse;cv::invertAffineTransform(m,inverse);
         const double nativeMaximum=source.depth()==CV_16U?65535.:255.,outMaximum=outputDepth==CV_16U?65535.:255.;
@@ -326,7 +327,7 @@ ControlPointSolution alignFromControlPoints(const MosaicLayer& moving,const Mosa
     check(std::isfinite(scale)&&scale>=.01&&scale<=100,"Control-point scale exceeds limits");
     result.medianError=median(accepted);result.maxError=*std::max_element(accepted.begin(),accepted.end());
     const auto movingRegion=region(moving,readCompositePng(moving.image)),referenceRegion=region(reference,readCompositePng(reference.image));
-    auto coverage=[&](bool useMoving,const cv::Rect& bounds){double x0=std::numeric_limits<double>::infinity(),y0=x0,x1=-x0,y1=-x0;for(const auto index:result.inliers){const auto& point=useMoving?pairs[index].moving:pairs[index].reference;x0=std::min(x0,point.x);y0=std::min(y0,point.y);x1=std::max(x1,point.x);y1=std::max(y1,point.y);}const double spanX=std::clamp((x1-x0)/bounds.width,0.,1.),spanY=std::clamp((y1-y0)/bounds.height,0.,1.);return std::array<double,3>{spanX*spanY,spanX,spanY};};
+    auto coverage=[&](bool useMoving,const cv::Rect& bounds){const auto& first=useMoving?pairs[result.inliers.front()].moving:pairs[result.inliers.front()].reference;cv::Point2d minimum=first,maximum=first;for(const auto index:result.inliers){const auto& point=useMoving?pairs[index].moving:pairs[index].reference;minimum.x=std::min(minimum.x,point.x);minimum.y=std::min(minimum.y,point.y);maximum.x=std::max(maximum.x,point.x);maximum.y=std::max(maximum.y,point.y);}const double spanX=std::clamp((maximum.x-minimum.x)/bounds.width,0.,1.),spanY=std::clamp((maximum.y-minimum.y)/bounds.height,0.,1.);return std::array<double,3>{spanX*spanY,spanX,spanY};};
     const auto movingSpread=coverage(true,movingRegion),referenceSpread=coverage(false,referenceRegion);
     result.movingCoverage=movingSpread[0];result.referenceCoverage=referenceSpread[0];
     result.spatiallyConcentrated=movingSpread[0]<.05||referenceSpread[0]<.05||movingSpread[1]<.15||movingSpread[2]<.15||referenceSpread[1]<.15||referenceSpread[2]<.15;
@@ -355,7 +356,7 @@ VisualCompensation proposeVisualCompensation(const std::vector<MosaicLayer>& lay
     check(moving.red>.01&&moving.green>.01&&moving.blue>.01,"Reset zero colour gains before visual compensation");
     auto movingSource=readCompositePng(moving.image),referenceSource=readCompositePng(reference.image);const auto movingRegion=region(moving,movingSource),referenceRegion=region(reference,referenceSource);
     cv::Mat movingImage=movingSource(movingRegion),referenceImage=referenceSource(referenceRegion);const auto movingTransform=transform(moving),referenceTransform=transform(reference);
-    auto sceneBounds=[](const cv::Matx23d& matrix,const cv::Size& size){double left=std::numeric_limits<double>::infinity(),top=left,right=-left,bottom=-left;for(double x:{0.,double(size.width)})for(double y:{0.,double(size.height)}){const double px=matrix(0,0)*x+matrix(0,1)*y+matrix(0,2),py=matrix(1,0)*x+matrix(1,1)*y+matrix(1,2);left=std::min(left,px);right=std::max(right,px);top=std::min(top,py);bottom=std::max(bottom,py);}return cv::Rect2d(left,top,right-left,bottom-top);};
+    auto sceneBounds=[](const cv::Matx23d& matrix,const cv::Size& size){cv::Point2d minimum{matrix(0,2),matrix(1,2)},maximum=minimum;for(double x:{0.,double(size.width)})for(double y:{0.,double(size.height)}){const double px=matrix(0,0)*x+matrix(0,1)*y+matrix(0,2),py=matrix(1,0)*x+matrix(1,1)*y+matrix(1,2);minimum.x=std::min(minimum.x,px);maximum.x=std::max(maximum.x,px);minimum.y=std::min(minimum.y,py);maximum.y=std::max(maximum.y,py);}return cv::Rect2d(minimum.x,minimum.y,maximum.x-minimum.x,maximum.y-minimum.y);};
     const auto overlap=sceneBounds(movingTransform,movingImage.size())&sceneBounds(referenceTransform,referenceImage.size());check(overlap.width>=2&&overlap.height>=2,"Selected layers have no visual overlap");
     cv::Matx23d movingInverse,referenceInverse;cv::invertAffineTransform(movingTransform,movingInverse);cv::invertAffineTransform(referenceTransform,referenceInverse);
     const double area=overlap.width*overlap.height;const int step=std::max(1,int(std::ceil(std::sqrt(area/150000.))));std::array<std::vector<double>,3> logRatios;
