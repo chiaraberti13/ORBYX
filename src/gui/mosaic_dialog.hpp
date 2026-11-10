@@ -422,7 +422,10 @@ public:
                 for(int channel=0;channel<3;++channel)channels[size_t(channel)]=root.filePath(names[vis]+"/MSUGS-VIS-"+QString::number(channel+1)+".png").toStdString();
                 const auto file=std::filesystem::path(destination.toStdString())/("vis-"+std::to_string(vis+1)+".png");
                 if(natural)orbyx::composeNaturalColor(channels,file);else orbyx::composeRgb(channels,file);
-                const auto inspected=orbyx::inspect(file);orbyx::MosaicLayer layer;layer.image=file;layer.crop={0,0,inspected.width,inspected.height};
+                // The composed editor layer is no longer an RDAS source channel:
+                // inspect it with the composite reader so small/derived products do
+                // not inherit the native RDAS height constraint.
+                const auto composed=orbyx::readCompositePng(file);orbyx::MosaicLayer layer;layer.image=file;layer.crop={0,0,composed.cols,composed.rows};
                 if(imported->profileRoi&&(vis==first||vis==second)){const int pair=vis==first?0:1;const auto region=layout.regions[size_t(pair)];layer.crop={region.x,region.y,region.width,region.height};layer.x=pair?layout.regions[0].width:0;}
                 imported->layers.push_back(layer);
             }
