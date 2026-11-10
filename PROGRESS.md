@@ -1082,3 +1082,27 @@ incrementi di M2-08 nella roadmap (ora cinque).
 Resta aperto, per M2-08: il salvataggio del risultato per singolo passaggio con
 verifica del digest e, a valle, l'uso del raggruppamento corretto nel percorso di
 esecuzione (oggi il motore `generate` è vincolato ai due VIS RDAS).
+
+## 2026-11-10 — M2-08 completato (ambito GUI): verifica digest alla ripresa
+
+Ultimo incremento di M2-08. Il progetto resumibile del wizard salva ora un
+**digest degli ingressi** che determinano i risultati: identità della cartella di
+origine, satellite, motore e **contenuto del profilo di calibrazione** (SHA-256,
+limitato a 1 MiB). Alla ripresa (`applyWizardProject`/`resumeFromSaved`) il digest
+viene ricalcolato dallo stato corrente su disco e confrontato con quello salvato;
+`resumeDigestMatches` espone l'esito. Se il profilo o la configurazione sono
+cambiati dal salvataggio, un avviso EN/IT nel riepilogo import dichiara che i
+risultati precedenti non sono affidabili e i passaggi vanno rieseguiti.
+
+Verifica effettiva (Ubuntu 24.04.5, Qt 6.4.2, OpenCV 4.6, offscreen):
+`gui-widget-flow` esteso EN/IT — con profilo invariato la ripresa è «affidabile»
+(`resumeDigestMatches` vero); modificando il contenuto del profilo la ripresa è
+segnalata «non affidabile» (digest diverso) e il riepilogo avvisa l'utente
+(«cambiati»/«changed»). Suite completa 24/24 passata con label `gpu` esclusa.
+
+M2-08 passa da «in corso» a «verificato per l'ambito GUI dichiarato» (sei
+incrementi). Restano esterni all'ambito GUI: il riuso effettivo dei risultati per
+singolo passaggio in esecuzione (già governato dai digest del runner batch già
+verificato) e l'uso del raggruppamento corretto nel motore `generate`, oggi
+vincolato ai due VIS RDAS. Prossimo nel gate: completare M2-09 (verifica remota)
+e M2-10 (blending multibanda), poi M2-11.

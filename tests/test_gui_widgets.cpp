@@ -123,6 +123,20 @@ int main(int argc, char **argv) {
                 requireTest(resumer.inputPath()=="/orbyx/in"&&resumer.profilePath()=="/orbyx/profile.json"&&resumer.outputPath()=="/orbyx/out"&&resumer.satelliteId()=="L3"&&resumer.cpuOnly()&&resumer.naturalColour(),"Resumed guided wizard restored the wrong settings");
                 requireTest(resumer.queueInsteadOfRun(),"Resumed guided wizard lost the durable-queue choice");
             }
+            // M2-08: per-step trust — a resume whose calibration profile content
+            // changed since saving is flagged so earlier results are not trusted.
+            {
+                const QString prof=QString::fromStdString((std::filesystem::path(temporary.path().toStdString())/("wiz-digest-"+lang.toStdString()+".json")).string());
+                { QFile f(prof);requireTest(f.open(QIODevice::WriteOnly),"digest profile fixture");f.write("{\"L2VIS1\":{}}"); }
+                FinalImageWizard digestSaver(lang=="it","/orbyx/in",prof,"/orbyx/out","L2",true);
+                digestSaver.saveProject();
+                FinalImageWizard trusted(lang=="it","","","","L9",false);
+                requireTest(trusted.resumeFromSaved()&&trusted.resumeDigestMatches(),"Unchanged inputs should resume as trusted");
+                { QFile f(prof);requireTest(f.open(QIODevice::WriteOnly|QIODevice::Truncate),"digest profile rewrite");f.write("{\"L2VIS1\":{\"changed\":1}}"); }
+                FinalImageWizard stale(lang=="it","","","","L9",false);
+                requireTest(stale.resumeFromSaved()&&!stale.resumeDigestMatches(),"A changed calibration profile should mark the resume as stale");
+                requireTest(stale.findChild<QLabel*>("finalImportSummary")->text().contains(lang=="it"?"cambiati":"changed"),"Stale resume did not warn the user");
+            }
             // M2-08: the import step recognizes generic MSUGS_VIS* products and
             // already-aligned products, without depending on SX/DX names.
             {
