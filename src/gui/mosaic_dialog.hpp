@@ -3,6 +3,7 @@
 #include "orbyx/compositor.hpp"
 #include "orbyx/engine.hpp"
 #include "control_points_dialog.hpp"
+#include "polygon_mask_dialog.hpp"
 #include <QApplication>
 #include <QCheckBox>
 #include <QCloseEvent>
@@ -229,6 +230,7 @@ class MosaicDialog final:public QDialog {
         const int reference=moving>0?moving-1:moving+1;ControlPointsDialog dialog(it,layers[size_t(moving)],layers[size_t(reference)],this);
         if(dialog.exec()!=QDialog::Accepted)return;applyControlPoints(dialog.solution(),moving,reference);
     }
+    void polygonMaskDialog(){const int row=list->currentRow();if(busy||row<0){status->setText(t("Select one layer first.","Seleziona prima un livello."));return;}try{PolygonMaskDialog dialog(it,layers[size_t(row)],this);if(dialog.exec()==QDialog::Accepted)applyPolygonMask(dialog.mask(),row);}catch(const std::exception& error){status->setText(t("Error: ","Errore: ")+QString::fromUtf8(error.what()));}}
 protected:
     void done(int result)override{
         if(busy)return;
@@ -261,6 +263,8 @@ public:
         button("mosaicZoomSeam",t("Zoom to selected overlap","Zoom sulla sovrapposizione selezionata"),panel,[this]{zoomToOverlap();});
         button("mosaicControlPoints",t("Align with control points…","Allinea con punti di controllo…"),panel,[this]{controlPointsDialog();});
         button("mosaicCropProposal",t("Propose uniform-border crop…","Proponi ritaglio bordi uniformi…"),panel,[this]{proposeCrop();});
+        button("mosaicPolygonMask",t("Draw polygon mask…","Disegna maschera poligonale…"),panel,[this]{polygonMaskDialog();});
+        button("mosaicClearPolygonMasks",t("Clear selected polygon masks","Cancella maschere poligonali selezionate"),panel,[this]{clearPolygonMasks(list->currentRow());});
         auto* ordering=new QHBoxLayout;panel->addLayout(ordering);
         button("mosaicDown",t("Lower","Abbassa"),ordering,[this]{reorder(-1);});button("mosaicUp",t("Raise","Alza"),ordering,[this]{reorder(1);});
         button("mosaicRemove",t("Remove","Rimuovi"),panel,[this]{int row=list->currentRow();if(row<0)return;remember();layers.erase(layers.begin()+row);refreshList();});
@@ -319,6 +323,8 @@ public:
         persistentNotice=t("Crop proposal applied without moving the retained content. Review the borders and undo if needed.","Proposta di ritaglio applicata senza spostare il contenuto conservato. Controlla i bordi e annulla se necessario.");
         refreshList(row);status->setText(persistentNotice);record(QString("Uniform-border crop applied: x=%1 y=%2 w=%3 h=%4 retained=%5%").arg(proposal.proposed.x).arg(proposal.proposed.y).arg(proposal.proposed.width).arg(proposal.proposed.height).arg(proposal.retainedFraction*100.,0,'f',1));
     }
+    void applyPolygonMask(const orbyx::MosaicMask& mask,int row){if(busy||row<0||row>=int(layers.size())||mask.points.size()<3)throw std::runtime_error("Invalid polygon mask");remember();layers[size_t(row)].masks.push_back(mask);setProperty("mergeStrategy","manual-mask");setProperty("polygonMaskCount",int(layers[size_t(row)].masks.size()));persistentNotice=t("Polygon mask added. Review the preview; the source image is unchanged.","Maschera poligonale aggiunta. Controlla l’anteprima; l’immagine sorgente è invariata.");refreshList(row);status->setText(persistentNotice);record(QString("Polygon mask added: mode=%1 vertices=%2").arg(mask.include?"include":"exclude").arg(mask.points.size()));}
+    void clearPolygonMasks(int row){if(busy||row<0||row>=int(layers.size())||layers[size_t(row)].masks.empty())return;remember();layers[size_t(row)].masks.clear();setProperty("mergeStrategy","manual-mask");setProperty("polygonMaskCount",0);persistentNotice=t("Polygon masks cleared from the selected layer.","Maschere poligonali cancellate dal livello selezionato.");refreshList(row);status->setText(persistentNotice);record("Polygon masks cleared");}
     void setState(const std::vector<orbyx::MosaicLayer>& state){if(busy)return;orbyx::mosaicProject(state);remember();layers=state;refreshList();}
     void appendDemo(QString sample={}){
         if(busy||layers.size()>30)return;
