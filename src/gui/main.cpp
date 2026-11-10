@@ -362,7 +362,7 @@ class Window final : public QMainWindow {
         const QString destination=QDir(orbyx::gui::calibrationRoot()).filePath("included-calibration.json");
         if(validProfile(destination))return destination;
         const QFileInfo target(destination);
-        if(!target.exists()&&!target.isSymLink()&&QFile::copy(source,destination)&&validProfile(destination))return destination;
+        if(!target.exists()&&!target.isSymLink()&&QFile::copy(source,destination))return destination;
         return source;
     }
     // Folder holding the six bundled demo JPEGs (sx_/dx_ MSUGS-VIS-1/2/3).
