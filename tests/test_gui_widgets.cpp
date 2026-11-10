@@ -115,11 +115,13 @@ int main(int argc, char **argv) {
             // so the flow can be continued later without re-entering every setting.
             {
                 FinalImageWizard saver(lang=="it","/orbyx/in","/orbyx/profile.json","/orbyx/out","L3",true);
+                saver.findChild<QCheckBox*>("finalQueue")->setChecked(true);
                 saver.saveProject();
                 FinalImageWizard resumer(lang=="it","","","","L9",false);
                 requireTest(resumer.hasSavedProject(),"Guided wizard did not persist a resumable project");
                 requireTest(resumer.resumeFromSaved(),"Guided wizard could not resume the saved project");
                 requireTest(resumer.inputPath()=="/orbyx/in"&&resumer.profilePath()=="/orbyx/profile.json"&&resumer.outputPath()=="/orbyx/out"&&resumer.satelliteId()=="L3"&&resumer.cpuOnly()&&resumer.naturalColour(),"Resumed guided wizard restored the wrong settings");
+                requireTest(resumer.queueInsteadOfRun(),"Resumed guided wizard lost the durable-queue choice");
             }
             // M2-08: the import step recognizes generic MSUGS_VIS* products and
             // already-aligned products, without depending on SX/DX names.
@@ -133,6 +135,28 @@ int main(int argc, char **argv) {
                 requireTest(detector.property("detectedVisProducts").toInt()==3,"Import detection missed generic VIS products beyond VIS1/VIS2");
                 requireTest(detector.property("detectedAlignedProducts").toInt()==1,"Import detection missed already-aligned products");
                 requireTest(detector.findChild<QLabel*>("finalImportSummary")->text().contains("3"),"Import summary did not report what was detected");
+            }
+            // M2-08: finishing the guided wizard with the durable-queue option enqueues
+            // the job instead of running it immediately (no editor, nothing executed).
+            {
+                auto* queueTable=w.findChild<QTableWidget*>("queueTable");
+                const int before=queueTable->rowCount();
+                const QString queuedResult=temporary.path()+"/queued-output-"+lang;
+                w.loadArguments({"--input",fixture+"/input","--config",roiProfile,"--output",queuedResult,"--satellite","L2","--cpu"});
+                bool queuedEditorOpened=false;QTimer driveQueue;driveQueue.setInterval(30);
+                QObject::connect(&driveQueue,&QTimer::timeout,[&]{
+                    if(auto *wizard=dynamic_cast<FinalImageWizard*>(QApplication::activeModalWidget())){
+                        if(wizard->currentId()<4)QTest::mouseClick(wizard->button(QWizard::NextButton),Qt::LeftButton);
+                        else {auto* q=wizard->findChild<QCheckBox*>("finalQueue");if(!q->isChecked())QTest::mouseClick(q,Qt::LeftButton);auto *confirm=wizard->findChild<QCheckBox*>("finalConfirm");if(!confirm->isChecked())QTest::mouseClick(confirm,Qt::LeftButton);QTest::mouseClick(wizard->button(QWizard::FinishButton),Qt::LeftButton);}
+                    } else if(auto *dialog=dynamic_cast<MosaicDialog*>(QApplication::activeModalWidget())){queuedEditorOpened=true;dialog->reject();}
+                });
+                driveQueue.start();clickVisible(finalButton);driveQueue.stop();
+                requireTest(queueTable->rowCount()==before+1,"Guided wizard did not enqueue the job on the durable queue");
+                requireTest(!queuedEditorOpened,"Queued guided flow should not open the editor immediately");
+                requireTest(!QFileInfo::exists(queuedResult+"/MSUGS_VIS_Aligned/MSUGS-VIS-1.png"),"Queued guided flow ran immediately instead of queueing");
+                // Restore the queue so later persistence assertions see the prior state.
+                queueTable->setCurrentCell(queueTable->rowCount()-1,0);clickVisible(w.findChild<QPushButton*>("queueRemove"));
+                requireTest(queueTable->rowCount()==before,"Queue cleanup after enqueue failed");
             }
             // Fill the actual source/target/save dialogs and dismiss the success box.
             const auto originalProfile=hashFile(fixture+"/profile.json");

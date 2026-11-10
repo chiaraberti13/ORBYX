@@ -293,10 +293,13 @@ progettazione, non dipendenze da integrare automaticamente.
   dai nomi SX/DX, qualunque prodotto `MSUGS_VIS*` (tre canali) e i prodotti già
   allineati presenti nella cartella, esponendo `detectedVisProducts`/
   `detectedAlignedProducts` e un riepilogo EN/IT; non modifica mai l'esportazione
-  SatDump. Restano da integrare la coda/ripresa durevole del batch nello stesso
-  wizard, la **correzione interattiva del raggruppamento** dei prodotti rilevati
-  (oltre al solo riconoscimento) e il salvataggio del risultato per singolo
-  passaggio con verifica digest.
+  SatDump. (4) **Coda durevole dal wizard**: al passo «Esporta» una casella opt-in
+  permette di aggiungere il lavoro guidato alla coda durevole e ripristinabile
+  invece di avviarlo subito; la scelta è persistita nel progetto del wizard e,
+  quando attiva, la finestra principale accoda il lavoro (`addToQueue`) senza
+  aprire l'editor. Restano da integrare la **correzione interattiva del
+  raggruppamento** dei prodotti rilevati (oltre al solo riconoscimento) e il
+  salvataggio del risultato per singolo passaggio con verifica digest.
 - Dipendenze: M2-07, M3-04
 - Responsabile: Product Designer / Qt UX / SatDump Specialist / Accessibility / QA
 - Deliverable: procedura EN/IT accessibile dal desktop con percorso base in

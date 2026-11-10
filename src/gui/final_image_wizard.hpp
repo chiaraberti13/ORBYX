@@ -29,7 +29,7 @@ class FinalImageWizard final : public QWizard {
     QLineEdit *input_{}, *profile_{}, *output_{};
     QComboBox *satellite_{}, *engine_{}, *colour_{};
     QLabel *joinSummary_{}, *reviewSummary_{}, *importSummary_{};
-    QCheckBox *confirmed_{};
+    QCheckBox *confirmed_{}, *queueChoice_{};
     QString projectFile_; // Autosaved resumable wizard state (M2-08).
 
     QString text(const char *en, const char *it) const {
@@ -182,6 +182,11 @@ public:
         confirmed_ = new QCheckBox(text("I checked the satellite and destination and will review the seams before export.",
                                              "Ho controllato satellite e destinazione e verificherò le giunzioni prima dell’esportazione."));
         confirmed_->setObjectName("finalConfirm"); exportLayout->addWidget(confirmed_);
+        // M2-08: optionally enqueue the guided job on the durable queue instead of
+        // running it immediately, so the beginner flow is resumable like the batch.
+        queueChoice_ = new QCheckBox(text("Add this job to the durable queue instead of running it now.",
+                                             "Aggiungi questo lavoro alla coda durevole invece di avviarlo subito."));
+        queueChoice_->setObjectName("finalQueue"); exportLayout->addWidget(queueChoice_);
         exportPage->requireConfirmation(confirmed_); exportLayout->addStretch(); addPage(exportPage);
 
         connect(this, &QWizard::currentIdChanged, this, [this] { updateSummary(); });
@@ -196,6 +201,7 @@ public:
             connect(edit, &QLineEdit::textChanged, this, [this] { autosave(); });
         for (auto *combo : {satellite_, engine_, colour_})
             connect(combo, qOverload<int>(&QComboBox::currentIndexChanged), this, [this] { autosave(); });
+        connect(queueChoice_, &QCheckBox::toggled, this, [this] { autosave(); });
         connect(this, &QWizard::currentIdChanged, this, [this] { autosave(); });
 
         // Refresh the import detection when the folder changes or the page is shown.
@@ -212,6 +218,7 @@ public:
         root["input"] = input_->text(); root["profile"] = profile_->text(); root["output"] = output_->text();
         root["satellite"] = satellite_->currentText(); root["cpu"] = engine_->currentIndex() == 1;
         root["natural"] = colour_->currentIndex() == 0; root["step"] = currentId();
+        root["queue"] = queueChoice_->isChecked();
         return QString::fromUtf8(QJsonDocument(root).toJson(QJsonDocument::Compact));
     }
     bool applyWizardProject(const QString &json) {
@@ -224,6 +231,7 @@ public:
         if (!sat.isEmpty()) { if (satellite_->findText(sat) < 0) satellite_->addItem(sat); satellite_->setCurrentText(sat); }
         engine_->setCurrentIndex(root.value("cpu").toBool() ? 1 : 0);
         colour_->setCurrentIndex(root.value("natural").toBool(true) ? 0 : 1);
+        queueChoice_->setChecked(root.value("queue").toBool());
         setProperty("resumedStep", root.value("step").toInt());
         updateSummary();
         return true;
@@ -288,4 +296,5 @@ public:
     QString satelliteId() const { return satellite_->currentText(); }
     bool cpuOnly() const { return engine_->currentIndex() == 1; }
     bool naturalColour() const { return colour_->currentIndex() == 0; }
+    bool queueInsteadOfRun() const { return queueChoice_->isChecked(); }
 };

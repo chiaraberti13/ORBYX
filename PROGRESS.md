@@ -1010,3 +1010,27 @@ esclusa.
 Restano aperti, per M2-08: coda/ripresa durevole del batch nel wizard, la
 **correzione interattiva** del raggruppamento (oltre al riconoscimento) e il
 salvataggio del risultato per singolo passaggio con verifica del digest.
+
+## 2026-11-10 — M2-08 quarto incremento: coda durevole dal wizard guidato
+
+Continuazione di M2-08. Al passo «Esporta» del wizard «Crea immagine finale» una
+casella opt-in **«Aggiungi questo lavoro alla coda durevole invece di avviarlo
+subito»** (`finalQueue`, getter `queueInsteadOfRun()`) consente di accodare il
+lavoro guidato sulla coda durevole e ripristinabile già verificata, anziché
+avviarlo immediatamente. La scelta è persistita nel progetto del wizard (campo
+`queue`, ripristinata al resume). Nella finestra principale la consegna del
+wizard, quando l'opzione è attiva, chiama `addToQueue()` senza aprire l'editor;
+altrimenti mantiene il comportamento esistente (esecuzione immediata + editor).
+
+Verifica effettiva (Ubuntu 24.04.5, Qt 6.4.2, OpenCV 4.6, offscreen):
+`gui-widget-flow` esteso EN/IT — (a) round-trip del progetto: la scelta coda è
+salvata e ripristinata (`queueInsteadOfRun` vero dopo resume); (b) consegna reale:
+completando il wizard con l'opzione attiva, la tabella della coda guadagna una
+riga, l'editor **non** si apre e il prodotto **non** viene generato subito (job
+accodato, non eseguito); la coda viene poi ripristinata allo stato precedente per
+non alterare le asserzioni di persistenza successive. Suite completa 24/24 passata
+con label `gpu` esclusa.
+
+Restano aperti, per M2-08: la correzione interattiva del raggruppamento dei
+prodotti rilevati e il salvataggio del risultato per singolo passaggio con
+verifica del digest.
