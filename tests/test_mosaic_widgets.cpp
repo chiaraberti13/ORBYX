@@ -166,6 +166,28 @@ int main(int argc,char** argv){
                 check(!QFileInfo::exists(recoveryFile)&&!b.property("recoveryAvailable").toBool(),"Saving did not clear the recovery slot");
                 MosaicDialog c(it);check(!c.property("recoveryAvailable").toBool(),"Recovery lingered after a clean save");
             }
+            // M2-13: explicit package — a self-contained folder with the project and
+            // deduplicated copied images, referenced relatively; reopens from it.
+            {
+                const auto psrc=std::filesystem::path(temp.path().toStdString())/(it?"pkgsrc-it":"pkgsrc-en");std::filesystem::create_directories(psrc);
+                cv::imwrite((psrc/"a.png").string(),cv::Mat(20,24,CV_16UC3,cv::Scalar(1,2,3)));cv::imwrite((psrc/"b.png").string(),cv::Mat(20,24,CV_16UC3,cv::Scalar(4,5,6)));
+                MosaicDialog pk(it);pk.appendFiles({QString::fromStdString((psrc/"a.png").string()),QString::fromStdString((psrc/"b.png").string()),QString::fromStdString((psrc/"a.png").string())});waitFor(pk);
+                check(pk.state().size()==3,"Package fixture layers missing");
+                const auto beforePkg=orbyx::mosaicProject(pk.state());
+                const auto dest=std::filesystem::path(temp.path().toStdString())/(it?"pkg-it":"pkg-en");
+                pk.packageProject(QString::fromStdString(dest.string()));
+                check(std::filesystem::exists(dest/"project.json"),"Package did not write the project");
+                int images=0;for(const auto& e:std::filesystem::directory_iterator(dest))if(e.path().filename().string().rfind("image-",0)==0)++images;
+                check(images==2,"Package did not deduplicate identical images");
+                QFile pf(QString::fromStdString((dest/"project.json").string()));check(pf.open(QIODevice::ReadOnly),"Packaged project unreadable");const auto ptext=QString::fromUtf8(pf.readAll());pf.close();
+                check(ptext.contains("image-000")&&!ptext.contains(QString::fromStdString(psrc.string())),"Packaged project did not use relative copied images");
+                check(orbyx::mosaicProject(pk.state())==beforePkg,"Packaging changed the current layers");
+                MosaicDialog reopened(it);reopened.loadProject(QString::fromStdString((dest/"project.json").string()));waitFor(reopened);
+                check(reopened.state().size()==3,"Package did not reopen all layers");
+                for(const auto& l:reopened.state())check(std::filesystem::path(l.image).lexically_normal().string().rfind(dest.lexically_normal().string(),0)==0,"Packaged layer image is outside the package");
+                bool threw=false;try{pk.packageProject(QString::fromStdString(dest.string()));}catch(const std::exception&){threw=true;}
+                check(threw,"Packaging into a non-empty folder was not rejected");
+            }
             const auto output=temp.path()+(it?"/it.png":"/en.png");restored.exportTo(output);waitFor(restored);
             auto actual=cv::imread(output.toStdString(),cv::IMREAD_UNCHANGED);
             check(!actual.empty()&&actual.type()==CV_16UC3&&cv::norm(actual,expected,cv::NORM_INF)==0,"GUI export differs from shared native-depth renderer");
