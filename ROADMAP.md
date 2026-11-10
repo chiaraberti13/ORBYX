@@ -338,7 +338,7 @@ progettazione, non dipendenze da integrare automaticamente.
 ## M2-10 — Seam, maschere e blending per l’immagine visuale
 
 - Priorità: P1
-- Stato: in corso — cinque incrementi implementati. (1) Modalità esplicite
+- Stato: in corso — sei incrementi implementati. (1) Modalità esplicite
   per livello **Nessun blending** e **Sfumatura**, persistite nel progetto con
   compatibilità dei progetti precedenti; senza blending il livello superiore
   sostituisce quello inferiore senza opacità/sfumatura e la modalità storica
@@ -361,8 +361,13 @@ progettazione, non dipendenze da integrare automaticamente.
   working image limitata a 2048 pixel, rendering finale a profondità nativa e
   fallback esplicito alla sfumatura salvata se non esiste un percorso continuo.
   Core, GUI e oggetti dei test compilano sul commit `53732bb`; la suite pulita
-  deve ancora concludersi in CI. Restano da valutare blending multibanda e
-  compensazione visuale automatica.
+  deve ancora concludersi in CI. (6) **Compensazione visuale proposta**:
+  campiona l'overlap reale rispettando ritagli e maschere, scarta ombre e alte
+  luci inaffidabili e propone esposizione/guadagni RGB del livello selezionato;
+  mostra campioni e correzioni prima della conferma, resta annullabile e non
+  modifica sorgenti o canali SatDump. Core, GUI e oggetti dei test compilano sul
+  commit `2a1daec`. Resta da valutare il blending multibanda e da confermare
+  l'intero percorso nella CI pulita.
 - Dipendenze: M2-09
 - Responsabile: Computer Vision / Imaging / Performance / AppSec / QA
 - Deliverable: tre modalità dichiarate: **Nessun blending** per dati scientifici,
@@ -373,9 +378,9 @@ progettazione, non dipendenze da integrare automaticamente.
   non controllate. Il fallback deterministico usa la sfumatura esistente
 - Maschere: poligoni include/escludi non distruttivi per artefatti, bordi o zone
   da preferire; salvataggio nel progetto e anteprima della seam scelta
-- Aspetto: compensazione opzionale di luminosità/colore soltanto sull’output
-  visuale; mai sui canali SatDump o sul prodotto scientifico senza scelta
-  esplicita e tracciata
+- Aspetto: implementata compensazione opzionale proposta di luminosità/colore
+  soltanto nel progetto visuale, con conferma e log; non interviene mai sui
+  canali SatDump o sul prodotto scientifico
 - Prestazioni: preview a risoluzione ridotta, export a profondità nativa, tile e
   budget memoria; annullamento cooperativo delle elaborazioni lunghe
 - Test: seam sintetiche note, bordi/maschere, scene 8/16 bit, differenze di

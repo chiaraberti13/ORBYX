@@ -886,5 +886,20 @@ stati usati i parametri di sfumatura salvati. La modalità viene persistita nel
 progetto e i file precedenti mantengono la semantica storica. Compilati senza
 warning core, GUI e oggetti dei test sul commit `53732bb`; il link finale locale
 resta bloccato dalle librerie esterne isolate già note, quindi la suite completa
-non viene dichiarata superata fino alla CI pulita. Per M2-10 restano blending
-multibanda e compensazione visuale automatica.
+non viene dichiarata superata fino alla CI pulita. A questo punto restavano
+blending multibanda e compensazione visuale.
+
+### M2-10 — Sesto incremento: compensazione visuale proposta
+
+Il livello selezionato può ora essere uniformato visualmente a quello adiacente
+senza uscire da ORBYX. Il core campiona al massimo circa 150000 punti della zona
+comune, applica geometria, ritagli e maschere, elimina campioni quasi neri o
+saturi e usa mediane robuste per proporre variazione EV e moltiplicatori RGB.
+Servono almeno 64 campioni affidabili. La finestra di conferma mostra i valori e
+non applica nulla automaticamente; una proposta riferita a geometria o sorgente
+ormai cambiate viene rifiutata. L'applicazione modifica soltanto i parametri
+visuali del progetto, è tracciata e annullabile e lascia invariati originali e
+canali SatDump. Fixture 16 bit, mancata sovrapposizione, sorgenti invariati e
+flusso Annulla sono coperti dai test; core, GUI e oggetti test compilano sul
+commit `2a1daec`. Resta da valutare il blending multibanda e da eseguire la
+suite in un ambiente pulito con tutte le dipendenze runtime.

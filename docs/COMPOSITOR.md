@@ -145,6 +145,14 @@ in M2-08.
    regolazione comune usa **Applica colori selezionati a tutti**. **Ripristina
    colori selezionati** torna ai valori neutri. Valori troppo forti possono
    saturare o tagliare le alte luci: controlla il risultato.
+   Con **Uniforma il livello selezionato all’adiacente…** ORBYX analizza la zona
+   realmente comune al livello selezionato e a quello immediatamente sotto
+   (oppure sopra, se è il primo). Ritagli e maschere vengono rispettati; pixel
+   troppo scuri o saturi vengono esclusi. Prima di applicare mostra numero di
+   campioni, variazione di esposizione e moltiplicatori RGB. **Annulla** lascia
+   tutto invariato; **Applica** modifica soltanto i controlli visuali del
+   progetto ed entra in **Annulla/Ripeti**. Non è una calibrazione radiometrica,
+   non modifica gli originali e non corregge una geometria errata.
 11. **Annulla/Ripeti** conserva fino a 50 stati modificabili. **Salva progetto
    modificabile…** conserva livelli e parametri in JSON; **Apri progetto…** li
    ricarica. Il progetto usa riferimenti assoluti, non incorpora le immagini:

@@ -146,6 +146,18 @@ link del test non è eseguibile nel container di lavoro per dipendenze isolate
 esterne obsolete, quindi l'esecuzione completa resta attribuita soltanto alla CI
 pulita quando disponibile.
 
+### M2-10: compensazione visuale proposta
+
+Il commit `2a1daec` campiona in modo limitato e robusto l'area realmente comune
+fra livello selezionato e adiacente, rispettando trasformazioni, ritagli e
+maschere. Scarta valori quasi neri o saturi, richiede almeno 64 campioni e
+propone soltanto esposizione e guadagni RGB già persistiti dal compositore. La
+GUI mostra evidenze e valori prima della conferma; una proposta diventa invalida
+se nel frattempo cambia sorgente o geometria. Le regressioni sintetiche coprono
+una scena 16 bit con differenze di luminosità/colore, qualità della correzione,
+sorgente invariata, assenza di overlap, applicazione e Annulla. Core, GUI e
+oggetti dei test compilano localmente; la suite completa attende una CI pulita.
+
 ## Funzioni completate
 
 - **Calibrazione guidata EN/IT**: tre passaggi, controllo degli input nativi,
