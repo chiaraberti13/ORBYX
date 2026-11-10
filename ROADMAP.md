@@ -491,7 +491,18 @@ progettazione, non dipendenze da integrare automaticamente.
 ## M2-12 — Valutazione qualità e scelta consigliata
 
 - Priorità: P1
-- Stato: proposto, non implementato
+- Stato: in corso — primo incremento verificato: **indicatori di qualità della
+  composizione**. Nuova `orbyx::mosaicQuality` (deterministica, resa a risoluzione
+  ridotta) calcola aree vuote/mancanti entro il riquadro di copertura, copertura
+  della sovrapposizione (≥2 livelli), clipping di alte luci e ombre e numero di
+  trasformazioni estreme (rotazione ≥45° o scala fuori [0.5, 2]). Il desktop
+  espone «Valutazione qualità…» (`mosaicQuality`) che mostra queste evidenze EN/IT
+  con le proprietà `qualityEmptyFraction`/`qualityOverlapFraction`/
+  `qualityHighlightClipped`/`qualityShadowClipped`/`qualityExtremeTransforms`/
+  `qualityCovered`; **non dichiara mai «perfetta» un'immagine e non modifica il
+  progetto**. Restano da implementare la differenza/continuità lungo la seam, il
+  report comparativo ROI/visuale/manuale con raccomandazione e segnalazione dei
+  casi ambigui, la validazione sui dataset con verità nota e la prova di usabilità.
 - Dipendenze: M2-07, M2-09, M2-10, M2-11
 - Responsabile: QA Lead / Computer Vision Validation / Remote Sensing / UX Research
 - Deliverable: report comprensibile che confronta ROI, visuale e intervento

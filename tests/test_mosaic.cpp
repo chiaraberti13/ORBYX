@@ -95,6 +95,20 @@ int main(){
             const auto source=cv::imread((root/"c.png").string(),cv::IMREAD_UNCHANGED);
             check(moved.size()==source.size()&&cv::norm(moved,source,cv::NORM_INF)==0,"Colour channels diverged under a single-layer transform");
         }
+        // M2-12: quality indicators (evidence only; deterministic; never "perfect").
+        {
+            orbyx::MosaicLayer qa;qa.image=root/"seam-lower.png";qa.blend=orbyx::MosaicBlend::Replace;
+            const auto single=orbyx::mosaicQuality({qa});
+            check(single.coveredPixels>0&&single.emptyFraction<0.02&&single.overlapFraction==0.&&single.extremeTransforms==0,"Quality single-layer mismeasured");
+            orbyx::MosaicLayer qb;qb.image=root/"seam-upper.png";qb.x=40;qb.blend=orbyx::MosaicBlend::Replace;
+            check(orbyx::mosaicQuality({qa,qb}).overlapFraction>0.05,"Quality did not detect overlap");
+            orbyx::MosaicLayer qfar=qb;qfar.x=300;const auto gapped=orbyx::mosaicQuality({qa,qfar});
+            check(gapped.overlapFraction==0.&&gapped.emptyFraction>0.1,"Quality did not detect an empty gap");
+            orbyx::MosaicLayer bright=qa;bright.exposure=10;check(orbyx::mosaicQuality({bright}).highlightClipped>0.5,"Quality did not detect highlight clipping");
+            orbyx::MosaicLayer rotated=qa;rotated.angle=90;check(orbyx::mosaicQuality({rotated}).extremeTransforms==1,"Quality did not flag an extreme transform");
+            const auto d1=orbyx::mosaicQuality({qa,qb}),d2=orbyx::mosaicQuality({qa,qb});
+            check(d1.coveredPixels==d2.coveredPixels&&d1.overlapFraction==d2.overlapFraction&&d1.emptyFraction==d2.emptyFraction,"Quality assessment is not deterministic");
+        }
         // Non-destructive exclude mask: the masked region of the upper layer does
         // not contribute, revealing the layer below; outside it the upper layer is
         // unchanged and the source file is never modified.

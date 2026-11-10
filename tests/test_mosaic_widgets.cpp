@@ -68,6 +68,16 @@ int main(int argc,char** argv){
             exposure->setValue(10);dialog.applyColoursToAll();waitFor(dialog);
             check(dialog.property("highlightClippedPixels").toLongLong()>baselineHighlights&&dialog.property("highlightClippedPixels").toLongLong()>0,"Highlight clipping was not detected after over-exposure");
             exposure->setValue(0);dialog.applyColoursToAll();waitFor(dialog);
+            // M2-12: a quality assessment exposes evidence (empty/overlap/clipping)
+            // without changing the project; the control is present and accessible.
+            auto* qualityButton=dialog.findChild<QPushButton*>("mosaicQuality");
+            check(qualityButton&&qualityButton->isVisible()&&!qualityButton->accessibleName().isEmpty(),"Quality assessment control missing");
+            const auto beforeQuality=orbyx::mosaicProject(dialog.state());
+            bool sawQualityReport=false;QTimer dismissQuality;QObject::connect(&dismissQuality,&QTimer::timeout,[&]{for(auto* w:QApplication::topLevelWidgets())if(auto* box=qobject_cast<QMessageBox*>(w)){sawQualityReport=box->text().contains(it?"perfetta":"perfect");box->accept();dismissQuality.stop();}});dismissQuality.start(10);
+            qualityButton->click();dismissQuality.stop();
+            check(sawQualityReport,"Quality report did not state it never declares an image perfect");
+            check(dialog.property("qualityCovered").toLongLong()>0&&dialog.property("qualityOverlapFraction").toDouble()>=0.0,"Quality assessment produced no evidence");
+            check(orbyx::mosaicProject(dialog.state())==beforeQuality,"Quality assessment changed the project");
             // Non-destructive exclude mask control: editing the spin boxes updates
             // the selected layer, keeps the preview valid and is stored in the project.
             auto* excludeX=dialog.findChild<QDoubleSpinBox*>("mosaic_excludeX");auto* excludeY=dialog.findChild<QDoubleSpinBox*>("mosaic_excludeY");
