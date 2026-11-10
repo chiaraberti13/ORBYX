@@ -119,6 +119,14 @@ const QMap<QString, QString> italian = {
  {"Profile duplicated", "Profilo duplicato"}, {"Could not duplicate the profile", "Impossibile duplicare il profilo"},
  {"Export Natural Color…", "Esporta Natural Color…"},
  {"Run image demo", "Avvia demo immagini"},
+ {"Automatic generation", "Generazione automatica"},
+ {"Process the six JPEGs placed in the automatic-generation folder, with no parameters.",
+  "Elabora i sei JPEG inseriti nella cartella di generazione automatica, senza alcun parametro."},
+ {"Put the six JPEGs sx_/dx_ MSUGS-VIS-1/2/3 in this folder, then press Automatic generation again:",
+  "Inserisci i sei JPEG sx_/dx_ MSUGS-VIS-1/2/3 in questa cartella, poi premi di nuovo Generazione automatica:"},
+ {"Automatic generation from", "Generazione automatica da"},
+ {"Replace the images in that folder with your own (sx_/dx_ MSUGS-VIS-1/2/3.jpg) and press again.",
+  "Sostituisci le immagini in quella cartella con le tue (sx_/dx_ MSUGS-VIS-1/2/3.jpg) e premi di nuovo."},
  {"Real JPEG demo — six channels, one image", "Demo JPEG reali — sei canali, un’unica immagine"},
  {"Align the six bundled JPEGs and join the left and right halves.", "Allinea i sei JPEG inclusi e unisce le metà sinistra e destra."},
  {"Demo image saved", "Immagine demo salvata"},
@@ -178,9 +186,9 @@ class Window final : public QMainWindow {
         wizardButton->setAccessibleName(wizardButton->text());
         finalImageButton->setText(it?"Crea immagine finale…":"Create final image…");
         finalImageButton->setAccessibleName(finalImageButton->text());
-        demoButton->setText(trText("Run image demo"));
-        demoButton->setAccessibleName(trText("Run image demo"));
-        demoButton->setToolTip(trText("Align the six bundled JPEGs and join the left and right halves."));
+        demoButton->setText(trText("Automatic generation"));
+        demoButton->setAccessibleName(trText("Automatic generation"));
+        demoButton->setToolTip(trText("Process the six JPEGs placed in the automatic-generation folder, with no parameters."));
         simulateButton->setText(it?"Simulazione immagini…":"Image simulation…");
         simulateButton->setAccessibleName(simulateButton->text());
         simulateButton->setToolTip(trText("Run the image demo on a chosen folder of six JPEGs; defaults to the bundled demo images."));
@@ -359,6 +367,35 @@ class Window final : public QMainWindow {
                 trText("This folder does not contain the six JPEGs sx_/dx_ MSUGS-VIS-1/2/3."));
             return;
         }
+        executeImageDemo({},folder);
+    }
+    // Automatic generation: process whatever six JPEGs the user has placed in a
+    // fixed input folder, with no parameters. The folder is seeded with the
+    // bundled example images on first use so the button works out of the box; the
+    // user then replaces them with their own and presses it again.
+    QString autoInputFolder() const {
+        return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)+"/auto-input";
+    }
+    void runAutomaticGeneration() {
+        if (busy) return;
+        const QString folder=autoInputFolder();
+        QDir().mkpath(folder);
+        if (!hasDemoImages(folder)) {
+            const QString bundled=bundledDemoFolder();
+            if (!bundled.isEmpty())
+                for (const QString &name : {"sx_MSUGS-VIS-1.jpg","sx_MSUGS-VIS-2.jpg","sx_MSUGS-VIS-3.jpg",
+                     "dx_MSUGS-VIS-1.jpg","dx_MSUGS-VIS-2.jpg","dx_MSUGS-VIS-3.jpg"}) {
+                    const QString target=QDir(folder).filePath(name);
+                    if (!QFileInfo::exists(target)) QFile::copy(QDir(bundled).filePath(name),target);
+                }
+        }
+        if (!hasDemoImages(folder)) {
+            QMessageBox::information(this,trText("Automatic generation"),
+                trText("Put the six JPEGs sx_/dx_ MSUGS-VIS-1/2/3 in this folder, then press Automatic generation again:")+"\n"+folder);
+            return;
+        }
+        log->append((trText("Automatic generation from")+": "+folder).toHtmlEscaped());
+        log->append(trText("Replace the images in that folder with your own (sx_/dx_ MSUGS-VIS-1/2/3.jpg) and press again.").toHtmlEscaped());
         executeImageDemo({},folder);
     }
     void executeImageDemo(const QString &requestedOutput = {}, const QString &sampleFolder = {}) {
@@ -772,7 +809,7 @@ public:
         themeLabel=label("muted"); theme=new QComboBox; theme->addItems({"Dark","Light"}); theme->setCurrentIndex(dark?0:1);
         demoButton=new QPushButton;demoButton->setObjectName("demoButton");
         demoButton->setShortcut(QKeySequence("Ctrl+Shift+D"));header->addWidget(demoButton);
-        connect(demoButton,&QPushButton::clicked,this,[this]{executeImageDemo();});
+        connect(demoButton,&QPushButton::clicked,this,[this]{runAutomaticGeneration();});
         simulateButton=new QPushButton;simulateButton->setObjectName("simulateButton");
         simulateButton->setShortcut(QKeySequence("Ctrl+Shift+S"));header->addWidget(simulateButton);
         connect(simulateButton,&QPushButton::clicked,this,[this]{imageSimulationDialog();});

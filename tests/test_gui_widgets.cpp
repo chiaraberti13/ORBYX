@@ -277,18 +277,21 @@ int main(int argc, char **argv) {
         requireTest(until([&]{return run->isEnabled();}),"Nonterminal state left GUI disabled");
         requireTest(w.findChild<QTableWidget*>("queueTable")->item(0,2)->text()=="Error","Running state marked successful");
         qputenv("PATH",oldPath); w.close();
-        // Drive the production demo button in both languages; verify the displayed
-        // image and the source snapshots, rather than a separate renderer.
+        // Drive the "Automatic generation" button in both languages: it processes
+        // whatever six JPEGs are in the fixed auto-input folder (seeded with the
+        // bundled examples on first use), with no parameters.
         for(const QString lang : {"en","it"}) {
             Window demo;demo.previewSettings(lang,"dark",{1280,1000});demo.show();
             auto *button=demo.findChild<QPushButton*>("demoButton");
-            requireTest(button&&button->isVisible()&&!button->accessibleName().isEmpty(),"Demo button inaccessible");
+            requireTest(button&&button->isVisible()&&!button->accessibleName().isEmpty(),"Automatic generation button inaccessible");
+            requireTest(button->text().contains(lang=="it"?"Generazione":"Automatic"),"Button was not renamed to Automatic generation");
             clickVisible(button);
-            requireTest(until([&]{return button->isEnabled();},60000),"Demo stuck busy");
+            requireTest(until([&]{return button->isEnabled();},60000),"Automatic generation stuck busy");
             const auto log=demo.findChild<QTextEdit*>()->toPlainText();
-            requireTest(log.contains("1428x1428")&&!log.contains("ERROR:"),"Real six-image demo failed");
-            requireTest(!demo.findChild<QLabel*>("canvas")->pixmap().isNull(),"Demo result not displayed");
-            requireTest(demo.findChild<QProgressBar*>()->value()==100,"Demo was not completed");
+            requireTest(log.contains("1428x1428")&&!log.contains("ERROR:"),"Automatic generation failed");
+            requireTest(log.contains("auto-input"),"Automatic generation did not use the fixed input folder");
+            requireTest(!demo.findChild<QLabel*>("canvas")->pixmap().isNull(),"Automatic generation result not displayed");
+            requireTest(demo.findChild<QProgressBar*>()->value()==100,"Automatic generation was not completed");
             demo.close();
         }
         // Manual image simulation: the dedicated button exists and is accessible,
