@@ -28,8 +28,8 @@ class FinalImageWizard final : public QWizard {
     bool italian_{};
     QLineEdit *input_{}, *profile_{}, *output_{};
     QComboBox *satellite_{}, *engine_{}, *colour_{};
-    QLabel *joinSummary_{}, *reviewSummary_{};
-    QCheckBox *confirmed_{};
+    QLabel *joinSummary_{}, *reviewSummary_{}, *importSummary_{};
+    QCheckBox *confirmed_{}, *queueChoice_{};
     QString projectFile_; // Autosaved resumable wizard state (M2-08).
 
     QString text(const char *en, const char *it) const {
@@ -77,6 +77,37 @@ class FinalImageWizard final : public QWizard {
         reviewSummary_->setText(text("ORBYX will align the channels into a new folder, create the selected colour view and open the editable compositor. Originals remain unchanged. Export the final PNG from the compositor after checking every seam.",
                                             "ORBYX allineerà i canali in una nuova cartella, creerà la resa colore scelta e aprirà il compositore modificabile. Gli originali resteranno invariati. Esporta il PNG finale dal compositore dopo aver controllato ogni giunzione."));
     }
+    // M2-08: recognize what the import folder contains without depending on SX/DX
+    // names — any MSUGS_VIS* product (three channels) and already-aligned products.
+    // This only reports what was found; it never modifies the SatDump export.
+    void detectProducts() {
+        if (!importSummary_) return;
+        int vis = 0, aligned = 0;
+        const QDir root(input_->text());
+        if (!input_->text().trimmed().isEmpty() && root.exists()) {
+            const auto hasThreeChannels = [](const QDir &dir) {
+                for (int channel = 1; channel <= 3; ++channel) {
+                    const QFileInfo image(dir.filePath(QString("MSUGS-VIS-%1.png").arg(channel)));
+                    if (!image.isFile() || image.isSymLink() || image.size() <= 0) return false;
+                }
+                return true;
+            };
+            const auto names = root.entryList(QStringList() << "MSUGS_VIS*", QDir::Dirs | QDir::NoDotAndDotDot);
+            for (const QString &name : names) {
+                const QFileInfo info(root.filePath(name));
+                if (info.isSymLink() || !hasThreeChannels(QDir(info.absoluteFilePath()))) continue;
+                if (name.contains("Aligned")) ++aligned; else ++vis;
+                if (vis + aligned >= 64) break;
+            }
+        }
+        setProperty("detectedVisProducts", vis);
+        setProperty("detectedAlignedProducts", aligned);
+        importSummary_->setText(vis == 0 && aligned == 0
+            ? text("No MSU-GS VIS products detected yet. Choose a SatDump export folder.",
+                   "Nessun prodotto MSU-GS VIS rilevato. Scegli una cartella esportata da SatDump.")
+            : text("Detected %1 VIS product(s) and %2 already-aligned product(s). Grouping does not depend on SX/DX names.",
+                   "Rilevati %1 prodotti VIS e %2 prodotti già allineati. Il raggruppamento non dipende dai nomi SX/DX.").arg(vis).arg(aligned));
+    }
 
 public:
     FinalImageWizard(bool italian, const QString &input, const QString &profile,
@@ -100,6 +131,8 @@ public:
         addPath(importLayout, input_, text("SatDump export folder", "Cartella esportata da SatDump"), false, false);
         addPath(importLayout, profile_, text("Calibration profile", "Profilo di calibrazione"), true, false);
         addPath(importLayout, output_, text("New working folder", "Nuova cartella di lavoro"), false, true);
+        importSummary_ = new QLabel; importSummary_->setObjectName("finalImportSummary");
+        importSummary_->setWordWrap(true); importLayout->addWidget(importSummary_); importLayout->addStretch();
         addPage(importPage);
 
         auto *alignPage = new QWizardPage;
@@ -149,6 +182,11 @@ public:
         confirmed_ = new QCheckBox(text("I checked the satellite and destination and will review the seams before export.",
                                              "Ho controllato satellite e destinazione e verificherò le giunzioni prima dell’esportazione."));
         confirmed_->setObjectName("finalConfirm"); exportLayout->addWidget(confirmed_);
+        // M2-08: optionally enqueue the guided job on the durable queue instead of
+        // running it immediately, so the beginner flow is resumable like the batch.
+        queueChoice_ = new QCheckBox(text("Add this job to the durable queue instead of running it now.",
+                                             "Aggiungi questo lavoro alla coda durevole invece di avviarlo subito."));
+        queueChoice_->setObjectName("finalQueue"); exportLayout->addWidget(queueChoice_);
         exportPage->requireConfirmation(confirmed_); exportLayout->addStretch(); addPage(exportPage);
 
         connect(this, &QWizard::currentIdChanged, this, [this] { updateSummary(); });
@@ -163,7 +201,13 @@ public:
             connect(edit, &QLineEdit::textChanged, this, [this] { autosave(); });
         for (auto *combo : {satellite_, engine_, colour_})
             connect(combo, qOverload<int>(&QComboBox::currentIndexChanged), this, [this] { autosave(); });
+        connect(queueChoice_, &QCheckBox::toggled, this, [this] { autosave(); });
         connect(this, &QWizard::currentIdChanged, this, [this] { autosave(); });
+
+        // Refresh the import detection when the folder changes or the page is shown.
+        connect(input_, &QLineEdit::textChanged, this, [this] { detectProducts(); });
+        connect(this, &QWizard::currentIdChanged, this, [this] { detectProducts(); });
+        detectProducts();
     }
 
     // Serialized, resumable wizard state. The main window owns execution; this only
@@ -174,6 +218,7 @@ public:
         root["input"] = input_->text(); root["profile"] = profile_->text(); root["output"] = output_->text();
         root["satellite"] = satellite_->currentText(); root["cpu"] = engine_->currentIndex() == 1;
         root["natural"] = colour_->currentIndex() == 0; root["step"] = currentId();
+        root["queue"] = queueChoice_->isChecked();
         return QString::fromUtf8(QJsonDocument(root).toJson(QJsonDocument::Compact));
     }
     bool applyWizardProject(const QString &json) {
@@ -186,6 +231,7 @@ public:
         if (!sat.isEmpty()) { if (satellite_->findText(sat) < 0) satellite_->addItem(sat); satellite_->setCurrentText(sat); }
         engine_->setCurrentIndex(root.value("cpu").toBool() ? 1 : 0);
         colour_->setCurrentIndex(root.value("natural").toBool(true) ? 0 : 1);
+        queueChoice_->setChecked(root.value("queue").toBool());
         setProperty("resumedStep", root.value("step").toInt());
         updateSummary();
         return true;
@@ -250,4 +296,5 @@ public:
     QString satelliteId() const { return satellite_->currentText(); }
     bool cpuOnly() const { return engine_->currentIndex() == 1; }
     bool naturalColour() const { return colour_->currentIndex() == 0; }
+    bool queueInsteadOfRun() const { return queueChoice_->isChecked(); }
 };

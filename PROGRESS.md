@@ -986,3 +986,51 @@ e resa colore. Suite completa 24/24 passata con label `gpu` esclusa.
 Restano aperti, per M2-08: coda/ripresa durevole del batch nello stesso wizard,
 riconoscimento di gruppi generici oltre ai due VIS RDAS, e salvataggio del
 risultato per singolo passaggio con verifica del digest.
+
+## 2026-11-10 — Verifica stato e M2-08 terzo incremento: rilevamento prodotti import
+
+Verifica dello stato richiesta dall'utente: su `main` (merge PR #11, `5cd238c`)
+M2-07 è verificato e M2-08 è «in corso» con due incrementi; M2-09 implementato
+(verifica remota), M2-10 in corso (sei incrementi), M2-11/12/13 ancora proposti.
+Nessun ramo remoto oltre `main`. Siamo quindi effettivamente ancora a M2-08.
+
+Terzo incremento M2-08: **rilevamento dei prodotti nel passo «Importa»**. Il
+wizard riconosce e riporta, senza dipendere dai nomi SX/DX, qualunque prodotto
+`MSUGS_VIS*` con i tre canali e i prodotti già allineati presenti nella cartella
+di import, esponendo le proprietà `detectedVisProducts`/`detectedAlignedProducts`
+e un riepilogo EN/IT (`finalImportSummary`). È sola lettura: non modifica mai
+l'esportazione SatDump; scansione limitata (max 64 voci, rifiuto symlink).
+
+Verifica effettiva (Ubuntu 24.04.5, Qt 6.4.2, OpenCV 4.6, offscreen):
+`gui-widget-flow` esteso EN/IT — con una cartella contenente `MSUGS_VIS1/2/3` e
+un prodotto `MSUGS_VIS-1_Aligned`, il rilevamento riporta 3 prodotti VIS e 1 già
+allineato e il riepilogo lo mostra. Suite completa 24/24 passata con label `gpu`
+esclusa.
+
+Restano aperti, per M2-08: coda/ripresa durevole del batch nel wizard, la
+**correzione interattiva** del raggruppamento (oltre al riconoscimento) e il
+salvataggio del risultato per singolo passaggio con verifica del digest.
+
+## 2026-11-10 — M2-08 quarto incremento: coda durevole dal wizard guidato
+
+Continuazione di M2-08. Al passo «Esporta» del wizard «Crea immagine finale» una
+casella opt-in **«Aggiungi questo lavoro alla coda durevole invece di avviarlo
+subito»** (`finalQueue`, getter `queueInsteadOfRun()`) consente di accodare il
+lavoro guidato sulla coda durevole e ripristinabile già verificata, anziché
+avviarlo immediatamente. La scelta è persistita nel progetto del wizard (campo
+`queue`, ripristinata al resume). Nella finestra principale la consegna del
+wizard, quando l'opzione è attiva, chiama `addToQueue()` senza aprire l'editor;
+altrimenti mantiene il comportamento esistente (esecuzione immediata + editor).
+
+Verifica effettiva (Ubuntu 24.04.5, Qt 6.4.2, OpenCV 4.6, offscreen):
+`gui-widget-flow` esteso EN/IT — (a) round-trip del progetto: la scelta coda è
+salvata e ripristinata (`queueInsteadOfRun` vero dopo resume); (b) consegna reale:
+completando il wizard con l'opzione attiva, la tabella della coda guadagna una
+riga, l'editor **non** si apre e il prodotto **non** viene generato subito (job
+accodato, non eseguito); la coda viene poi ripristinata allo stato precedente per
+non alterare le asserzioni di persistenza successive. Suite completa 24/24 passata
+con label `gpu` esclusa.
+
+Restano aperti, per M2-08: la correzione interattiva del raggruppamento dei
+prodotti rilevati e il salvataggio del risultato per singolo passaggio con
+verifica del digest.

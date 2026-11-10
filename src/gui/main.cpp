@@ -830,7 +830,11 @@ public:
             input->setText(wizard.inputPath());config->setText(wizard.profilePath());output->setText(wizard.outputPath());
             if(satellite->findText(wizard.satelliteId())<0)satellite->addItem(wizard.satelliteId());
             satellite->setCurrentText(wizard.satelliteId());engine->setCurrentIndex(wizard.cpuOnly()?1:0);mode->setCurrentIndex(0);
-            finalNaturalColour=wizard.naturalColour();openFinalEditor=true;loadPreview();execute();
+            finalNaturalColour=wizard.naturalColour();loadPreview();
+            // M2-08: the guided job can run now (opening the editor) or join the
+            // durable, resumable queue instead of running immediately.
+            if(wizard.queueInsteadOfRun()){openFinalEditor=false;addToQueue();}
+            else{openFinalEditor=true;execute();}
         });
         start=new QPushButton; start->setObjectName("start"); start->setShortcut(QKeySequence("Ctrl+Return")); leftLayout->addWidget(start);
         mosaicButton=new QPushButton; mosaicButton->setObjectName("mosaicButton");leftLayout->addWidget(mosaicButton);
