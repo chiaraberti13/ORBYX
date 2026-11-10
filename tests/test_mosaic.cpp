@@ -186,6 +186,18 @@ int main(){
         check(std::abs(recovered.layers[1].x-inverse.at<double>(0,2))<6&&std::abs(recovered.layers[1].y-inverse.at<double>(1,2))<6,"Automatic rotated translation outside tolerance");
         auto noMatch=orbyx::autoAlignOverlaps({automatic[0],blank});
         check(noMatch.accepted.empty()&&noMatch.unaligned==std::vector<std::size_t>{1},"Featureless portion was not retained for manual editing");
+        // M2-12 quantitative validation on known truth: a correctly aligned textured
+        // pair coregisters in the overlap (low seam difference); a deliberate
+        // misalignment scores clearly higher; a far portion is a no-overlap gap.
+        {
+            const orbyx::MosaicLayer A=automatic[0],B=arranged.layers[1];
+            const auto good=orbyx::mosaicQuality({A,B});
+            check(good.overlapFraction>0.05&&good.emptyFraction<0.2&&good.seamDifference<0.05,"Known-truth: aligned pair failed the quality criteria");
+            orbyx::MosaicLayer bad=B;bad.x+=40;bad.y+=30;const auto poor=orbyx::mosaicQuality({A,bad});
+            check(poor.seamDifference>good.seamDifference+0.05,"Known-truth: seam difference did not penalise a 40/30 px misalignment");
+            orbyx::MosaicLayer far=automatic[1];far.x=1200;far.y=0;const auto gap=orbyx::mosaicQuality({A,far});
+            check(gap.overlapFraction==0.&&gap.emptyFraction>0.1,"Known-truth: no-overlap case misclassified");
+        }
         // User-reviewed control points recover a known similarity transform,
         // reject one gross outlier and expose residuals for every pair.
         reference.x=100;reference.y=50;reference.scale=1.2;reference.angle=10;moving.x=-400;moving.y=700;

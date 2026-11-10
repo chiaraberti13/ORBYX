@@ -1284,3 +1284,25 @@ non modifica il progetto. Suite completa 24/24 passata con label `gpu` esclusa.
 
 Restano aperti, per M2-12: validazione sui dataset con verità nota (criteri
 quantitativi) e prova di usabilità con utenti.
+
+## 2026-11-10 — M2-12 terzo incremento: validazione quantitativa su verità nota
+
+Continuazione M2-12. Aggiunta una **validazione sui criteri quantitativi** con
+verità nota in `mosaic-regression` (solo test, nessuna modifica al codice).
+Riusando la scena testurizzata già presente, due porzioni sovrapposte tagliate con
+offset noto: l'allineamento automatico recupera la geometria entro tolleranza (già
+verificato) e `mosaicQuality` distingue quantitativamente i casi:
+- allineamento corretto → `seamDifference`≈0,005, overlap≈0,22, aree vuote≈0,12;
+- disallineamento di 40/30 px → `seamDifference`≈0,25 (chiaramente maggiore);
+- porzione lontana (nessuna sovrapposizione) → overlap 0, aree vuote≈0,47.
+
+I criteri quantitativi (seam basso su allineamento corretto, penalizzazione del
+disallineamento, classificazione del no-overlap) sono asseriti con margini ampi.
+Verifica effettiva (Ubuntu 24.04.5, Qt 6.4.2, OpenCV 4.6, offscreen): suite
+completa 24/24 passata con label `gpu` esclusa.
+
+M2-12 passa a «verificato per l'ambito core/GUI dichiarato» (tre incrementi:
+indicatori, differenza giunzione + raccomandazione, validazione quantitativa).
+Resta fuori dall'ambito automatizzabile la prova di usabilità con utenti reali e
+screen reader (coerente con M4-01). Nel gate resta M2-13 (progetto portabile e
+recupero del lavoro).
