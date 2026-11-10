@@ -25,6 +25,9 @@ void validate(const MosaicLayer& l) {
     // A zero width or height simply means "no mask", so partial spin-box edits stay valid.
     check(l.exclude.x>=0&&l.exclude.y>=0&&l.exclude.width>=0&&l.exclude.height>=0&&l.exclude.x<=100000&&l.exclude.y<=100000&&
           l.exclude.width<=100000&&l.exclude.height<=100000,"Invalid mosaic exclude mask");
+    check(l.masks.size()<=64,"Too many mosaic polygon masks");std::size_t maskPoints=0;
+    for(const auto& mask:l.masks){check(mask.points.size()>=3&&mask.points.size()<=256,"Invalid mosaic polygon mask");maskPoints+=mask.points.size();for(const auto& point:mask.points)check(std::isfinite(point.x)&&std::isfinite(point.y)&&point.x>=0&&point.y>=0&&point.x<=100000&&point.y<=100000,"Invalid mosaic polygon point");}
+    check(maskPoints<=4096,"Too many mosaic polygon points");
     check(l.blend==MosaicBlend::Replace||l.blend==MosaicBlend::Feather,"Invalid mosaic blend mode");
     check(!l.image.empty()&&l.image.string().size()<=4096,"Invalid mosaic input path");
 }
@@ -165,6 +168,8 @@ MosaicResult renderMosaic(const std::vector<MosaicLayer>& layers,int previewEdge
         if(masked)check(exclude.x+exclude.width<=image.cols&&exclude.y+exclude.height<=image.rows,"Mosaic exclude mask outside layer region");
         auto m=transform(l);for(int r=0;r<2;++r)for(int c=0;c<3;++c)m(r,c)*=ratio;
         m(0,2)-=minX*ratio;m(1,2)-=minY*ratio;
+        bool hasIncludeMasks=false;std::vector<std::vector<cv::Point>> includeMasks,excludeMasks;
+        for(const auto& mask:l.masks){std::vector<cv::Point> polygon;polygon.reserve(mask.points.size());for(const auto& point:mask.points){check(point.x<=image.cols&&point.y<=image.rows,"Mosaic polygon mask outside layer region");polygon.emplace_back(cvRound(m(0,0)*point.x+m(0,1)*point.y+m(0,2)),cvRound(m(1,0)*point.x+m(1,1)*point.y+m(1,2)));}if(mask.include){hasIncludeMasks=true;includeMasks.push_back(std::move(polygon));}else excludeMasks.push_back(std::move(polygon));}
         cv::Matx23d inverse;cv::invertAffineTransform(m,inverse);
         const double nativeMaximum=source.depth()==CV_16U?65535.:255.,outMaximum=outputDepth==CV_16U?65535.:255.;
         const double gammaExponent=1./l.gamma,exposureGain=std::exp2(l.exposure);
@@ -183,6 +188,7 @@ MosaicResult renderMosaic(const std::vector<MosaicLayer>& layers,int previewEdge
             if(warped.channels()==1)cv::cvtColor(warped,colour,cv::COLOR_GRAY2BGR);else colour=warped;
             colour.convertTo(colour,CV_32F,1./nativeMaximum);
             cv::Mat target;result.image(tile).convertTo(target,CV_32F,1./outMaximum);
+            cv::Mat polygonMask;if(hasIncludeMasks||!excludeMasks.empty()){polygonMask=cv::Mat(tile.size(),CV_8U,cv::Scalar(hasIncludeMasks?0:255));if(hasIncludeMasks)cv::fillPoly(polygonMask,includeMasks,cv::Scalar(255),cv::LINE_8,0,{-x,-y});if(!excludeMasks.empty())cv::fillPoly(polygonMask,excludeMasks,cv::Scalar(0),cv::LINE_8,0,{-x,-y});}
             for(int yy=0;yy<tile.height;++yy) {
                 auto* values=colour.ptr<cv::Vec3f>(yy);auto* dest=target.ptr<cv::Vec3f>(yy);
                 for(int xx=0;xx<tile.width;++xx) {
@@ -191,6 +197,7 @@ MosaicResult renderMosaic(const std::vector<MosaicLayer>& layers,int previewEdge
                     if(sx<0||sy<0||sx>=image.cols||sy>=image.rows)continue;
                     // Non-destructive exclude mask: this region does not contribute, revealing layers below.
                     if(masked&&sx>=exclude.x&&sx<exclude.x+exclude.width&&sy>=exclude.y&&sy<exclude.y+exclude.height)continue;
+                    if(!polygonMask.empty()&&polygonMask.at<unsigned char>(yy,xx)==0)continue;
                     double alpha=l.blend==MosaicBlend::Replace?1.:l.opacity;
                     if(l.blend==MosaicBlend::Feather&&l.feather>0)alpha*=std::clamp(std::min({sx+.5,sy+.5,image.cols-.5-sx,image.rows-.5-sy})*l.scale/l.feather,0.,1.);
                     auto v=values[xx];
@@ -291,6 +298,7 @@ std::string mosaicProject(const std::vector<MosaicLayer>& layers) {
         for(int i=0;i<14;++i)v[keys[i]]=values[i];
         for(int n:{l.crop.x,l.crop.y,l.crop.width,l.crop.height})v["crop"].append(n);
         if(l.exclude.width>0&&l.exclude.height>0)for(int n:{l.exclude.x,l.exclude.y,l.exclude.width,l.exclude.height})v["exclude"].append(n);
+        for(const auto& mask:l.masks){Json::Value item;item["mode"]=mask.include?"include":"exclude";for(const auto& point:mask.points){Json::Value coordinates;coordinates.append(point.x);coordinates.append(point.y);item["points"].append(coordinates);}v["masks"].append(item);}
         root["layers"].append(v);
     }
     Json::StreamWriterBuilder writer;return Json::writeString(writer,root);
@@ -317,6 +325,7 @@ std::vector<MosaicLayer> parseMosaicProject(const std::string& text) {
             for(const auto& n:v["exclude"])check(n.isInt(),"Invalid mosaic exclude integer");
             l.exclude={v["exclude"][0].asInt(),v["exclude"][1].asInt(),v["exclude"][2].asInt(),v["exclude"][3].asInt()};
         }
+        if(v.isMember("masks")){check(v["masks"].isArray()&&v["masks"].size()<=64,"Invalid mosaic polygon masks");for(const auto& item:v["masks"]){check(item.isObject()&&item["mode"].isString()&&item["points"].isArray(),"Invalid mosaic polygon mask");const auto mode=item["mode"].asString();check(mode=="include"||mode=="exclude","Invalid mosaic polygon mode");MosaicMask mask;mask.include=mode=="include";for(const auto& coordinates:item["points"]){check(coordinates.isArray()&&coordinates.size()==2&&coordinates[0].isNumeric()&&coordinates[1].isNumeric(),"Invalid mosaic polygon point");mask.points.emplace_back(coordinates[0].asDouble(),coordinates[1].asDouble());}l.masks.push_back(std::move(mask));}}
         validate(l);layers.push_back(l);
     }
     return layers;

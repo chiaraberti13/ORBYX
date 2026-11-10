@@ -7,12 +7,17 @@
 #include <array>
 namespace orbyx {
 enum class MosaicBlend {Replace,Feather};
+struct MosaicMask {
+    bool include=false; // Include masks form a union; exclude masks override it.
+    std::vector<cv::Point2d> points; // Coordinates inside the cropped layer.
+};
 // Scene coordinates are source-resolution pixels. Order is bottom to top.
 struct MosaicLayer {
     std::filesystem::path image;
     double x=0, y=0, scale=1, angle=0, opacity=1, feather=0;
     cv::Rect crop; // empty means the full source
     cv::Rect exclude; // empty means no mask; otherwise this region of the (cropped) layer does not contribute, revealing layers below. Non-destructive: source pixels are untouched.
+    std::vector<MosaicMask> masks; // Optional non-destructive polygon masks.
     double black=0, white=1, gamma=1, exposure=0, saturation=1;
     double red=1, green=1, blue=1;
     MosaicBlend blend=MosaicBlend::Feather;

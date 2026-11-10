@@ -62,6 +62,20 @@ int main(){
         // A zero width or height is "no mask", not an error, and never serialized.
         m=l;m.exclude={10,10,4,0};check(cv::norm(orbyx::renderMosaic({m}).image,a,cv::NORM_INF)==0,"Zero-height exclude unexpectedly masked");
         check(orbyx::mosaicProject({m}).find("\"exclude\"")==std::string::npos,"Inactive exclude mask must not be serialized");
+        // Polygon masks use cropped-layer coordinates. Include polygons form a
+        // union, while exclusions override them; sources remain unchanged.
+        m=l;m.image=root/"b.png";m.blend=orbyx::MosaicBlend::Replace;m.masks={orbyx::MosaicMask{false,{{2,1},{6,1},{2,5}}}};
+        auto polygonExcluded=orbyx::renderMosaic({l,m}).image;
+        check(polygonExcluded.at<cv::Vec3w>(2,3)==a.at<cv::Vec3w>(2,3)&&polygonExcluded.at<cv::Vec3w>(6,8)==b.at<cv::Vec3w>(6,8),"Polygon exclude mask did not reveal only the lower layer");
+        m.masks={orbyx::MosaicMask{true,{{0,0},{5,0},{0,5}}}};auto polygonIncluded=orbyx::renderMosaic({l,m}).image;
+        check(polygonIncluded.at<cv::Vec3w>(1,1)==b.at<cv::Vec3w>(1,1)&&polygonIncluded.at<cv::Vec3w>(6,8)==a.at<cv::Vec3w>(6,8),"Polygon include mask did not limit the upper layer");
+        m.masks.push_back(orbyx::MosaicMask{false,{{0,0},{3,0},{0,3}}});auto polygonCombined=orbyx::renderMosaic({l,m}).image;
+        check(polygonCombined.at<cv::Vec3w>(1,1)==a.at<cv::Vec3w>(1,1),"Polygon exclusion did not override inclusion");
+        auto polygonProject=orbyx::mosaicProject({l,m});auto polygonLoaded=orbyx::parseMosaicProject(polygonProject);
+        check(polygonLoaded[1].masks.size()==2&&polygonLoaded[1].masks[0].include&& !polygonLoaded[1].masks[1].include&&cv::norm(orbyx::renderMosaic(polygonLoaded).image,polygonCombined,cv::NORM_INF)==0,"Polygon masks did not round trip");
+        check(cv::norm(cv::imread((root/"b.png").string(),cv::IMREAD_UNCHANGED),b,cv::NORM_INF)==0,"Polygon masks altered the source image");
+        m.masks={orbyx::MosaicMask{false,{{0,0},{1,1}}}};rejects([&]{orbyx::mosaicProject({m});});
+        m.masks={orbyx::MosaicMask{false,{{0,0},{20,0},{0,5}}}};rejects([&]{orbyx::renderMosaic({m});});
         rejects([&]{orbyx::parseMosaicProject(project+"{}");});
         rejects([&]{orbyx::parseMosaicProject("{\"schema\":\"orbyx-mosaic/1\",\"schema\":\"bad\",\"layers\":[]}");});
         auto invalidBlend=project;auto blendValue=invalidBlend.find("replace");check(blendValue!=std::string::npos,"Blend field missing");invalidBlend.replace(blendValue,7,"invalid");rejects([&]{orbyx::parseMosaicProject(invalidBlend);});
