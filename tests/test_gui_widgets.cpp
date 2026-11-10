@@ -167,6 +167,7 @@ int main(int argc, char **argv) {
                 const auto groupingProfile=din/("grouping-"+lang.toStdString()+".json");
                 {std::ofstream file(groupingProfile);file<<R"({"L2VIS1":{},"L2VIS2":{},"L2VIS3":{}})";}
                 FinalImageWizard conflicting(lang=="it",QString::fromStdString(din.string()),QString::fromStdString(groupingProfile.string()),temporary.path()+"/grouped-output-"+lang,"L2",true);
+                conflicting.show();QTest::qWait(10);
                 requireTest(!conflicting.validateCurrentPage()&&conflicting.property("validationError").toString().contains(lang=="it"?"sola versione":"one raw or aligned"),"Raw/aligned versions of the same VIS id were not rejected before processing");
                 requireTest(QFileInfo::exists((din/"MSUGS_VIS3"/"MSUGS-VIS-1.png").string().c_str()),"Grouping correction modified the source export");
             }
