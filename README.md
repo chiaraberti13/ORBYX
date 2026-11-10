@@ -67,6 +67,23 @@ bash start.sh
 
 Si apre la finestra del programma. Puoi avviarlo nuovamente con lo stesso comando; non devi reinstallarlo a ogni utilizzo. Per aggiornare il programma, chiudi prima ORBYX e ripeti `git pull` e `bash install.sh`.
 
+### Quale pulsante premo? Guida rapida
+
+Questa è la parte più importante: **ogni pulsante serve a una cosa diversa**. Guarda cosa hai a disposizione e usa **un solo** pulsante.
+
+| La tua situazione | Premi questo | Cosa devi scegliere |
+|---|---|---|
+| **Voglio solo vedere come funziona** (non ho dati miei) | **Generazione automatica** (Ctrl+Maiusc+D) | Niente. Parte da sola con le immagini di esempio. |
+| **Ho 6 foto JPEG** chiamate `sx_`/`dx_` MSUGS-VIS-1/2/3 | **Simulazione immagini…** (Ctrl+Maiusc+S) | La cartella che contiene le 6 foto. |
+| **Ho dati veri decodificati da SatDump** | **Crea immagine finale…** | Una cartella che contiene **direttamente** le sottocartelle `MSUGS_VIS1`, `MSUGS_VIS2`, ecc. |
+| **Voglio comporre o ritoccare le porzioni a mano** | **Componi porzioni e colore…** → *Aggiungi porzioni demo modificabili* | Immagini già allineate, oppure le porzioni demo incluse. |
+
+> ⚠️ **L'errore più comune.** Il pulsante **Crea immagine finale…** funziona *soltanto* con i dati veri di SatDump. Se gli indichi la cartella delle **foto demo** (i sei JPEG), compare un messaggio rosso del tipo «non è un'esportazione VIS di SatDump»: **è normale**, quella finestra non è pensata per le foto demo. Per le foto demo usa **Generazione automatica** oppure **Simulazione immagini…**.
+>
+> La differenza: i dati veri di SatDump sono **cartelle** (`MSUGS_VIS1`, `MSUGS_VIS2`, …) con dentro tre canali `MSUGS-VIS-1/2/3.png`; le foto demo sono invece **sei file** `.jpg` tutti nella stessa cartella.
+
+**Non sai da dove iniziare?** Premi **Generazione automatica**: è il modo più veloce per vedere subito un'immagine, senza impostare nulla. Appena finisce, il risultato compare da solo nell'anteprima.
+
 ### Non hai ancora dati? Prova la demo
 
 ```bash
@@ -84,7 +101,7 @@ Il comando qui sopra apre direttamente questa stessa demo; `bash demo.sh --no-op
 ### Nuove funzioni nell’app
 
 - **Componi porzioni e colore…**: aggiungi più porzioni come livelli, proponi automaticamente sovrapposizioni e ritaglio dei grandi bordi uniformi, controlla le giunzioni con sostituzione, sfumatura, percorso a costo minimo o blending multibanda, disegna maschere poligonali includi/escludi, uniforma visualmente luminosità e colore fra livelli, usa i preset di canale singolo, leggi istogramma e clipping e una valutazione qualità che non dichiara mai «perfetta» un’immagine. Salva un progetto portabile (percorsi relativi) con autosalvataggio e recupero, esportalo come pacchetto autonomo ed esporta un solo PNG con report riproducibile. Dopo **Genera**, le porzioni allineate vengono aperte direttamente con le ROI del profilo come punto di partenza modificabile, senza alterare il risultato storico. Non è limitato a SX/DX. [Guida passo passo](docs/COMPOSITOR.md).
-- **Crea immagine finale…**: percorso guidato in cinque passaggi per principianti. Seleziona l’esportazione SatDump, controlla allineamento/unione/colore, avvia l’elaborazione e apre automaticamente l’editor sul risultato, senza cercare file intermedi.
+- **Crea immagine finale…**: percorso guidato in cinque passaggi **per i dati veri di SatDump** (non per le foto demo). Al passo 1 devi indicare una cartella che contiene **direttamente** le sottocartelle `MSUGS_VIS1`, `MSUGS_VIS2`, ecc.; se scegli la cartella sbagliata (per esempio quella delle foto demo o la cartella Documenti) la procedura te lo segnala e non prosegue. Poi controlla allineamento/unione/colore, avvia l’elaborazione e l’editor si apre automaticamente sul risultato, senza cercare file intermedi. *Per provare senza dati SatDump usa invece Generazione automatica o Simulazione immagini… (vedi «Quale pulsante premo?»).*
 
 - **Calibrazione guidata…**: scegli dati e destinazione, controlla satellite e scala, poi avvia il calcolo. Il nuovo profilo viene selezionato per l’allineamento.
 - **Monitora acquisizioni…**: scegli la cartella di SatDump. Puoi importare un prodotto pronto o attivare l’accodamento automatico dei prodotti compatibili; l’elaborazione parte solo con **Avvia coda**.
