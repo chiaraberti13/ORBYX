@@ -40,6 +40,7 @@ int main(int argc, char **argv) {
     requireTest(temporary.isValid(), "Temporary directory unavailable");
     qputenv("XDG_CONFIG_HOME", (temporary.path()+"/config").toUtf8());
     qputenv("XDG_DATA_HOME", (temporary.path()+"/data").toUtf8());
+    qputenv("ORBYX_USER_FILES_ROOT", (temporary.path()+"/user-files").toUtf8());
     QApplication::setAttribute(Qt::AA_DontUseNativeDialogs);
     QApplication app(argc,argv); app.setApplicationName("ORBYX");
     bool expectedDialogs=false,unexpectedDialog=false;
@@ -58,6 +59,9 @@ int main(int argc, char **argv) {
         for (const QString lang : {"en","it"}) {
             std::cout<<"Queue widgets: "<<lang.toStdString()<<std::endl;
             Window w; w.previewSettings(lang,"dark",lang=="it"?QSize(960,680):QSize(1280,860)); w.show();
+            requireTest(w.findChild<QLineEdit*>("config")->text()==temporary.path()+"/user-files/Calibration/included-calibration.json","GUI did not expose the real visible calibration profile path");
+            requireTest(w.findChild<QLineEdit*>("output")->text().startsWith(temporary.path()+"/user-files/Output Images/aligned-"),"GUI default output is not in the visible image folder");
+            requireTest(w.findChild<QPushButton*>("openImagesButton")&&w.findChild<QPushButton*>("openCalibrationButton"),"Visible user-folder buttons are missing");
             auto *finalButton=w.findChild<QPushButton*>("finalImageButton");
             requireTest(finalButton&&finalButton->isVisible()&&!finalButton->accessibleName().isEmpty(),"Final-image guided action is not accessible");
             bool compositorOpened=false;
@@ -266,6 +270,10 @@ int main(int argc, char **argv) {
             FinalImageWizard invalid(italian,fixture+"/input",fixture+"/profile.json",fixture+"/input","L2",false);
             invalid.show();QTest::mouseClick(invalid.button(QWizard::NextButton),Qt::LeftButton);
             requireTest(invalid.currentId()==0&&!invalid.property("validationError").toString().isEmpty(),"Final-image wizard allowed a destructive destination");invalid.reject();
+            FinalImageWizard wrongFolder(italian,temporary.path(),fixture+"/profile.json",temporary.path()+QString("/wrong-folder-output-%1").arg(italian),"L2",false);
+            wrongFolder.show();QTest::mouseClick(wrongFolder.button(QWizard::NextButton),Qt::LeftButton);
+            auto *visibleError=wrongFolder.findChild<QLabel*>("finalValidationHint");
+            requireTest(wrongFolder.currentId()==0&&visibleError&&visibleError->isVisible()&&visibleError->text().contains("MSUGS_VIS1"),"Invalid SatDump folder did not show an actionable visible error");wrongFolder.reject();
         }
         {
             // The native-size synthetic fixture gets explicitly synthetic but
@@ -325,6 +333,7 @@ int main(int argc, char **argv) {
             const auto log=demo.findChild<QTextEdit*>()->toPlainText();
             requireTest(log.contains("1428x1428")&&!log.contains("ERROR:"),"Automatic generation failed");
             requireTest(log.contains("auto-input"),"Automatic generation did not use the fixed input folder");
+            requireTest(log.contains(temporary.path()+"/user-files/Output Images/automatic-"),"Automatic image was not written to the visible output folder");
             requireTest(!demo.findChild<QLabel*>("canvas")->pixmap().isNull(),"Automatic generation result not displayed");
             requireTest(demo.findChild<QProgressBar*>()->value()==100,"Automatic generation was not completed");
             demo.close();
@@ -342,6 +351,7 @@ int main(int argc, char **argv) {
             requireTest(until([&]{return simButton->isEnabled();},60000),"Manual simulation stuck busy");
             const auto simLog=sim.findChild<QTextEdit*>()->toPlainText();
             requireTest(simLog.contains("1428x1428")&&!simLog.contains("ERROR:"),"Manual image simulation failed");
+            requireTest(simLog.contains(temporary.path()+"/user-files/Output Images/manual-"),"Manual image was not written to the visible output folder");
             requireTest(!sim.findChild<QLabel*>("canvas")->pixmap().isNull(),"Manual simulation result not displayed");
             requireTest(sim.findChild<QProgressBar*>()->value()==100,"Manual simulation was not completed");
             sim.close();

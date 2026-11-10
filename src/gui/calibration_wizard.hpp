@@ -25,6 +25,7 @@ class CalibrationWizard final : public QWizard {
     QComboBox *satelliteEdit{};
     QDoubleSpinBox *scaleEdit{};
     QCheckBox *confirm{};
+    QLabel *profileDestination{};
     QString text(const char* en,const char* it) const {return QString::fromUtf8(italian?it:en);}
     void pathField(QVBoxLayout *layout,QLineEdit *edit,const QString& title,bool profile,bool destination) {
         auto *label=new QLabel(title);label->setBuddy(edit);edit->setAccessibleName(title);
@@ -46,7 +47,10 @@ public:
         outputEdit=new QLineEdit(output);outputEdit->setObjectName("wizardOutput");
         pathField(form,inputEdit,text("SatDump RDAS folder","Cartella RDAS SatDump"),false,false);
         pathField(form,profileEdit,text("Existing calibration profile","Profilo di calibrazione esistente"),true,false);
-        pathField(form,outputEdit,text("New output folder","Nuova cartella di destinazione"),false,true);addPage(source);
+        pathField(form,outputEdit,text("New output folder","Nuova cartella di destinazione"),false,true);
+        profileDestination=new QLabel;profileDestination->setObjectName("calibrationDestination");profileDestination->setWordWrap(true);form->addWidget(profileDestination);
+        const auto updateDestination=[this]{profileDestination->setText(text("The new JSON file will be saved here: ","Il nuovo file JSON verrà salvato qui: ")+QDir(outputEdit->text()).filePath("calibration.json"));};
+        connect(outputEdit,&QLineEdit::textChanged,this,[updateDestination]{updateDestination();});updateDestination();addPage(source);
         auto *options=new QWizardPage;options->setTitle(text("2. Select satellite and working scale","2. Scegli satellite e scala di lavoro"));auto *fields=new QVBoxLayout(options);
         satelliteEdit=new QComboBox;satelliteEdit->setObjectName("wizardSatellite");satelliteEdit->addItems({"L2","L3","L4","L5","M1","M2"});if(satelliteEdit->findText(satellite)<0)satelliteEdit->addItem(satellite);satelliteEdit->setCurrentText(satellite);
         satelliteEdit->setAccessibleName(text("Satellite","Satellite"));fields->addWidget(satelliteEdit);
