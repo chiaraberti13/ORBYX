@@ -284,6 +284,17 @@ void compose(const fs::path& root) {
   else {const auto px=rgb.at<cv::Vec3w>(0,0);check(px[2]==10*257&&px[1]==20*257&&px[0]==30*257,"RGB channel mapping 16-bit");}
   check(cv::imread(paths[0].string(),cv::IMREAD_UNCHANGED).channels()==1,"compose inputs unchanged");
   fails([&]{orbyx::composeRgb(paths,out);}); // destination must not be overwritten
+  // M2-11 single-channel preset: the chosen channel as neutral gray, depth kept.
+  for(int index=0;index<3;++index){
+   const auto single=dir/("single-"+std::to_string(index)+".png");orbyx::composeSingleChannel(paths,single,index);
+   const auto g=cv::imread(single.string(),cv::IMREAD_UNCHANGED);
+   check(g.channels()==3&&g.depth()==type,"Single channel shape/depth preserved");
+   const int expect=type==CV_8U?base[size_t(index)]:base[size_t(index)]*257;
+   if(type==CV_8U){const auto px=g.at<cv::Vec3b>(0,0);check(px[0]==expect&&px[1]==expect&&px[2]==expect,"Single channel is neutral gray 8-bit");}
+   else{const auto px=g.at<cv::Vec3w>(0,0);check(px[0]==expect&&px[1]==expect&&px[2]==expect,"Single channel is neutral gray 16-bit");}
+  }
+  check(cv::imread(paths[1].string(),cv::IMREAD_UNCHANGED).channels()==1,"Single channel inputs unchanged");
+  fails([&]{orbyx::composeSingleChannel(paths,dir/"bad.png",3);}); // invalid index
   cv::imwrite(paths[0].string(),cv::Mat(16,24,type==CV_8U?CV_16U:CV_8U,cv::Scalar(5)));
   fails([&]{orbyx::composeRgb(paths,dir/"mismatch.png");});
   check(!fs::exists(dir/"mismatch.png"),"No RGB product on depth mismatch");

@@ -58,6 +58,11 @@ void composeRgb(const std::array<std::filesystem::path, 3>& channels,
 // true colour. Inputs unchanged; exclusive atomic PNG publication.
 void composeNaturalColor(const std::array<std::filesystem::path, 3>& channels,
                          const std::filesystem::path& destination);
+// Single-channel grayscale preset (M2-11): writes the chosen channel (index 0, 1
+// or 2) as a neutral gray product (R=G=B), preserving 8/16-bit depth. Inputs
+// unchanged; exclusive atomic PNG publication. Not calibrated true colour.
+void composeSingleChannel(const std::array<std::filesystem::path, 3>& channels,
+                          const std::filesystem::path& destination, int index);
 // Curated six-JPEG desktop demo; measures channel registration and joins adjacent
 // sx/dx halves. Output must be new; source images remain unchanged. Not RDAS input.
 void runImageDemo(const std::filesystem::path& input, const std::filesystem::path& output,

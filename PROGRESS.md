@@ -1187,3 +1187,25 @@ esclusa; screenshot del compositore ispezionato (istogramma e readout «alte luc
 
 Restano aperti, per M2-11: i preset colore con nomi chiari (incluso canale
 singolo) e la formalizzazione/test dell'ordine di elaborazione colore.
+
+## 2026-11-10 — M2-11 terzo incremento: preset colore (incluso canale singolo)
+
+Continuazione M2-11. Il selettore «Aggiungi 3 canali allineati» del compositore
+offre ora cinque preset con nomi chiari: **Natural Color (RGB321)**, **RGB123** e
+tre preset **canale singolo (scala di grigi)** CH1/CH2/CH3. Nuova funzione core
+`orbyx::composeSingleChannel(channels, destination, index)` che scrive il canale
+scelto come prodotto neutro (R=G=B replicato) preservando la profondità 8/16 bit,
+lasciando gli input invariati e con pubblicazione atomica esclusiva. Nessun preset
+è etichettato «colore vero scientifico» (coerente con «nessun preset definito
+colore vero senza calibrazione radiometrica»).
+
+Verifica effettiva (Ubuntu 24.04.5, Qt 6.4.2, OpenCV 4.6):
+`engine-regression` esteso — `composeSingleChannel` produce un prodotto 3 canali
+neutro (R=G=B = canale scelto) a 8 e 16 bit, input invariati, rifiuto di indice
+non valido. `mosaic-widget-flow` esteso — il selettore colore ha 5 voci con nomi
+chiari (nessuna etichetta «true scientific»); `appendSingleChannel` sul CH2 crea
+un livello grigio neutro a 16 bit col valore del canale. Suite completa 24/24
+passata con label `gpu` esclusa.
+
+Restano aperti, per M2-11: la formalizzazione/test dell'ordine di elaborazione
+colore (allineamento → unione → composizione colore → correzioni visuali).
