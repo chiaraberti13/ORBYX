@@ -1417,3 +1417,9 @@ Correzione struttura README: il README italiano è `README.it.md` (coppia con
 (inclusa la guida «Quale pulsante premo?») in `README.it.md`, ripuntati i link di
 lingua a `README.it.md` in entrambi i file e rimosso `README.md`. Le due note
 precedenti di oggi citano `README.md` solo come registro storico.
+
+Convenzione README finale su richiesta: inglese in `README.md` (pagina iniziale del
+repository su GitHub) e italiano in `README.it.md`. Spostato il contenuto inglese da
+`README.en.md` a `README.md` (rename, storia conservata), ripuntati i link di lingua
+all'inglese su `README.md` in entrambi i file. `README.en.md` rimosso. Restano due
+soli README: `README.md` (EN) e `README.it.md` (IT).
