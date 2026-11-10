@@ -61,7 +61,7 @@ int main(int argc, char **argv) {
             Window w; w.previewSettings(lang,"dark",lang=="it"?QSize(960,680):QSize(1280,860)); w.show();
             if(lang=="en")requireTest(w.findChild<QLineEdit*>("config")->text()==temporary.path()+"/user-files/Calibration/included-calibration.json","GUI did not expose the real visible calibration profile path");
             requireTest(w.findChild<QLineEdit*>("output")->text().startsWith(temporary.path()+"/user-files/Output Images/aligned-"),"GUI default output is not in the visible image folder");
-            requireTest(w.findChild<QPushButton*>("openImagesButton")&&w.findChild<QPushButton*>("openCalibrationButton"),"Visible user-folder buttons are missing");
+            requireTest(w.findChild<QPushButton*>("openImagesButton")&&w.findChild<QPushButton*>("openCalibrationButton")&&w.findChild<QPushButton*>("openAutoInputButton"),"Visible user-folder buttons are missing");
             auto *finalButton=w.findChild<QPushButton*>("finalImageButton");
             requireTest(finalButton&&finalButton->isVisible()&&!finalButton->accessibleName().isEmpty(),"Final-image guided action is not accessible");
             bool compositorOpened=false;

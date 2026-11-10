@@ -15,6 +15,17 @@
 
 <p align="center"><a href="ROADMAP.md">Roadmap</a> · <a href="PROGRESS.md">Verifiche</a> · <a href="docs/AUDIT.md">Audit</a> · <a href="SECURITY.md">Sicurezza</a> · <a href="THIRD_PARTY_NOTICES.md">Attribuzioni</a></p>
 
+## Non sai da dove iniziare?
+
+Apri la **[Guida completa per principianti](docs/GUIDA_PRINCIPIANTI.md)**. Spiega dall’installazione all’esportazione dell’immagine finale, indica quale pulsante premere e distingue chiaramente i due casi principali:
+
+| Se hai… | Usa… |
+|---|---|
+| sei JPEG `sx_`/`dx_` | **Generazione automatica** o **Simulazione immagini…** |
+| una cartella SatDump con `MSUGS_VIS1`, `MSUGS_VIS2`, ecc. | **Crea immagine finale…** |
+
+ORBYX non apre direttamente i dati grezzi CADU: vanno prima decodificati ed esportati con SatDump.
+
 ## Inizia qui — Ubuntu
 
 ORBYX è un programma con interfaccia grafica per allineare immagini satellitari e creare compositi Natural Color. Questa guida non richiede di conoscere CMake o di inserire percorsi personali.

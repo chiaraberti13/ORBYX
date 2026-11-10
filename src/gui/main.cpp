@@ -136,6 +136,7 @@ const QMap<QString, QString> italian = {
  {"Calibration file saved", "File di calibrazione salvato"},
  {"Open generated images", "Apri immagini generate"},
  {"Open calibrations", "Apri calibrazioni"},
+ {"Open automatic JPEG folder", "Apri cartella JPEG"},
  {"Choose aligned VIS channels", "Scegli i canali VIS allineati"},
  {"Save Natural Color PNG", "Salva PNG Natural Color"},
  {"Natural Color exported", "Natural Color esportato"},
@@ -152,7 +153,7 @@ class Window final : public QMainWindow {
     bool outputExplicit = false;
     QString lastOutput;
     QString demoResult;
-    QPushButton *demoButton{}, *simulateButton{}, *wizardButton{}, *finalImageButton{}, *watchButton{}, *updatesButton{}, *openImagesButton{}, *openCalibrationButton{};
+    QPushButton *demoButton{}, *simulateButton{}, *wizardButton{}, *finalImageButton{}, *watchButton{}, *updatesButton{}, *openImagesButton{}, *openCalibrationButton{}, *openAutoInputButton{};
     bool openFinalEditor=false;
     bool finalNaturalColour=true;
     QStringList finalSelectedProducts;
@@ -196,6 +197,7 @@ class Window final : public QMainWindow {
         finalImageButton->setAccessibleName(finalImageButton->text());
         openImagesButton->setText(trText("Open generated images"));openImagesButton->setAccessibleName(openImagesButton->text());
         openCalibrationButton->setText(trText("Open calibrations"));openCalibrationButton->setAccessibleName(openCalibrationButton->text());
+        openAutoInputButton->setText(trText("Open automatic JPEG folder"));openAutoInputButton->setAccessibleName(openAutoInputButton->text());
         demoButton->setText(trText("Automatic generation"));
         demoButton->setAccessibleName(trText("Automatic generation"));
         demoButton->setToolTip(trText("Process the six JPEGs placed in the automatic-generation folder, with no parameters."));
@@ -901,6 +903,8 @@ public:
         auto *userFolders=new QHBoxLayout;openImagesButton=new QPushButton;openImagesButton->setObjectName("openImagesButton");openCalibrationButton=new QPushButton;openCalibrationButton->setObjectName("openCalibrationButton");userFolders->addWidget(openImagesButton);userFolders->addWidget(openCalibrationButton);leftLayout->addLayout(userFolders);
         connect(openImagesButton,&QPushButton::clicked,this,[]{QDesktopServices::openUrl(QUrl::fromLocalFile(orbyx::gui::outputImagesRoot()));});
         connect(openCalibrationButton,&QPushButton::clicked,this,[]{QDesktopServices::openUrl(QUrl::fromLocalFile(orbyx::gui::calibrationRoot()));});
+        openAutoInputButton=new QPushButton;openAutoInputButton->setObjectName("openAutoInputButton");leftLayout->addWidget(openAutoInputButton);
+        connect(openAutoInputButton,&QPushButton::clicked,this,[this]{const QString folder=autoInputFolder();QDir().mkpath(folder);QDesktopServices::openUrl(QUrl::fromLocalFile(folder));});
         finalImageButton=new QPushButton;finalImageButton->setObjectName("finalImageButton");leftLayout->addWidget(finalImageButton);
         connect(finalImageButton,&QPushButton::clicked,this,[this]{
             const QString manualOutput=outputExplicit&& !output->text().isEmpty() ? output->text() : orbyx::gui::newOutputFolder("manual");
