@@ -11,7 +11,10 @@
 #include <QJsonObject>
 #include <QLabel>
 #include <QLineEdit>
+#include <QListWidget>
+#include <QListWidgetItem>
 #include <QPushButton>
+#include <QSet>
 #include <QStandardPaths>
 #include <QVBoxLayout>
 #include <QWizard>
@@ -29,6 +32,7 @@ class FinalImageWizard final : public QWizard {
     QLineEdit *input_{}, *profile_{}, *output_{};
     QComboBox *satellite_{}, *engine_{}, *colour_{};
     QLabel *joinSummary_{}, *reviewSummary_{}, *importSummary_{};
+    QListWidget *productList_{}; // Detected products the user can include/exclude (M2-08).
     QCheckBox *confirmed_{}, *queueChoice_{};
     QString projectFile_; // Autosaved resumable wizard state (M2-08).
 
@@ -81,7 +85,15 @@ class FinalImageWizard final : public QWizard {
     // names — any MSUGS_VIS* product (three channels) and already-aligned products.
     // This only reports what was found; it never modifies the SatDump export.
     void detectProducts() {
-        if (!importSummary_) return;
+        if (!importSummary_ || !productList_) return;
+        // Preserve the user's include/exclude choices across re-detection so that
+        // switching pages or editing the path does not reset a corrected grouping.
+        QSet<QString> excluded;
+        for (int i = 0; i < productList_->count(); ++i)
+            if (productList_->item(i)->checkState() == Qt::Unchecked)
+                excluded.insert(productList_->item(i)->data(Qt::UserRole).toString());
+        const QSignalBlocker blocker(productList_);
+        productList_->clear();
         int vis = 0, aligned = 0;
         const QDir root(input_->text());
         if (!input_->text().trimmed().isEmpty() && root.exists()) {
@@ -96,17 +108,32 @@ class FinalImageWizard final : public QWizard {
             for (const QString &name : names) {
                 const QFileInfo info(root.filePath(name));
                 if (info.isSymLink() || !hasThreeChannels(QDir(info.absoluteFilePath()))) continue;
-                if (name.contains("Aligned")) ++aligned; else ++vis;
+                const bool isAligned = name.contains("Aligned");
+                if (isAligned) ++aligned; else ++vis;
+                auto *item = new QListWidgetItem((isAligned ? text("Aligned: ", "Allineato: ") : text("VIS: ", "VIS: ")) + name);
+                item->setData(Qt::UserRole, name);
+                item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
+                item->setCheckState(excluded.contains(name) ? Qt::Unchecked : Qt::Checked);
+                productList_->addItem(item);
                 if (vis + aligned >= 64) break;
             }
         }
         setProperty("detectedVisProducts", vis);
         setProperty("detectedAlignedProducts", aligned);
-        importSummary_->setText(vis == 0 && aligned == 0
+        updateGroupingSummary();
+    }
+    void updateGroupingSummary() {
+        if (!importSummary_ || !productList_) return;
+        int selected = 0;
+        for (int i = 0; i < productList_->count(); ++i)
+            if (productList_->item(i)->checkState() == Qt::Checked) ++selected;
+        setProperty("selectedProductCount", selected);
+        importSummary_->setText(productList_->count() == 0
             ? text("No MSU-GS VIS products detected yet. Choose a SatDump export folder.",
                    "Nessun prodotto MSU-GS VIS rilevato. Scegli una cartella esportata da SatDump.")
-            : text("Detected %1 VIS product(s) and %2 already-aligned product(s). Grouping does not depend on SX/DX names.",
-                   "Rilevati %1 prodotti VIS e %2 prodotti già allineati. Il raggruppamento non dipende dai nomi SX/DX.").arg(vis).arg(aligned));
+            : text("Detected %1 product(s); %2 selected for processing. Untick any to exclude it (grouping does not depend on SX/DX names).",
+                   "Rilevati %1 prodotti; %2 selezionati per l'elaborazione. Deseleziona quelli da escludere (il raggruppamento non dipende dai nomi SX/DX).")
+                  .arg(productList_->count()).arg(selected));
     }
 
 public:
@@ -132,7 +159,11 @@ public:
         addPath(importLayout, profile_, text("Calibration profile", "Profilo di calibrazione"), true, false);
         addPath(importLayout, output_, text("New working folder", "Nuova cartella di lavoro"), false, true);
         importSummary_ = new QLabel; importSummary_->setObjectName("finalImportSummary");
-        importSummary_->setWordWrap(true); importLayout->addWidget(importSummary_); importLayout->addStretch();
+        importSummary_->setWordWrap(true); importLayout->addWidget(importSummary_);
+        productList_ = new QListWidget; productList_->setObjectName("finalProductList");
+        productList_->setAccessibleName(text("Detected products to include or exclude", "Prodotti rilevati da includere o escludere"));
+        productList_->setMaximumHeight(140); importLayout->addWidget(productList_); importLayout->addStretch();
+        connect(productList_, &QListWidget::itemChanged, this, [this] { updateGroupingSummary(); });
         addPage(importPage);
 
         auto *alignPage = new QWizardPage;
@@ -297,4 +328,12 @@ public:
     bool cpuOnly() const { return engine_->currentIndex() == 1; }
     bool naturalColour() const { return colour_->currentIndex() == 0; }
     bool queueInsteadOfRun() const { return queueChoice_->isChecked(); }
+    // The products the user has kept in the grouping (checked), by folder name.
+    QStringList selectedProducts() const {
+        QStringList out;
+        for (int i = 0; productList_ && i < productList_->count(); ++i)
+            if (productList_->item(i)->checkState() == Qt::Checked)
+                out << productList_->item(i)->data(Qt::UserRole).toString();
+        return out;
+    }
 };

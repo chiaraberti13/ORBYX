@@ -134,7 +134,18 @@ int main(int argc, char **argv) {
                 FinalImageWizard detector(lang=="it",QString::fromStdString(din.string()),"/orbyx/p.json","/orbyx/out","L2",true);
                 requireTest(detector.property("detectedVisProducts").toInt()==3,"Import detection missed generic VIS products beyond VIS1/VIS2");
                 requireTest(detector.property("detectedAlignedProducts").toInt()==1,"Import detection missed already-aligned products");
-                requireTest(detector.findChild<QLabel*>("finalImportSummary")->text().contains("3"),"Import summary did not report what was detected");
+                requireTest(detector.findChild<QLabel*>("finalImportSummary")->text().contains("4"),"Import summary did not report what was detected");
+                // Interactive grouping correction: all detected products start selected;
+                // unchecking one excludes it from the grouping without touching the export.
+                auto* products=detector.findChild<QListWidget*>("finalProductList");
+                requireTest(products&&products->count()==4,"Detected products were not listed for grouping correction");
+                requireTest(detector.property("selectedProductCount").toInt()==4&&detector.selectedProducts().size()==4,"Grouping did not start with every product selected");
+                QListWidgetItem* toExclude=nullptr;
+                for(int i=0;i<products->count();++i)if(products->item(i)->data(Qt::UserRole).toString()=="MSUGS_VIS3")toExclude=products->item(i);
+                requireTest(toExclude,"Generic VIS3 product was not offered for grouping");
+                toExclude->setCheckState(Qt::Unchecked);
+                requireTest(detector.property("selectedProductCount").toInt()==3&&!detector.selectedProducts().contains("MSUGS_VIS3"),"Excluding a product did not update the grouping");
+                requireTest(QFileInfo::exists((din/"MSUGS_VIS3"/"MSUGS-VIS-1.png").string().c_str()),"Grouping correction modified the source export");
             }
             // M2-08: finishing the guided wizard with the durable-queue option enqueues
             // the job instead of running it immediately (no editor, nothing executed).
