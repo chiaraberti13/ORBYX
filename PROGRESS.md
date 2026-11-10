@@ -1034,3 +1034,27 @@ con label `gpu` esclusa.
 Restano aperti, per M2-08: la correzione interattiva del raggruppamento dei
 prodotti rilevati e il salvataggio del risultato per singolo passaggio con
 verifica del digest.
+
+## 2026-11-10 — «Avvia demo immagini» → «Generazione automatica»
+
+Richiesta utente: trasformare il pulsante demo in una generazione automatica a
+cartella fissa, senza parametri. Il pulsante (già `demoButton`, scorciatoia
+Ctrl+Maiusc+D) è stato rinominato **«Generazione automatica»** (EN «Automatic
+generation») e ora elabora i sei JPEG `sx_/dx_ MSUGS-VIS-1/2/3.jpg` presenti in
+una cartella fissa `AppDataLocation/auto-input`, riusando la stessa pipeline reale
+della demo (registrazione fase/ECC, Natural Color, giunzione) tramite
+`orbyx::runImageDemo`. Nessun parametro richiesto all'utente.
+
+Comportamento: alla prima pressione la cartella viene creata e riempita con i sei
+JPEG inclusi come esempio, così funziona subito; l'utente poi li sostituisce con
+le proprie immagini e ripreme. Se mancano i sei file e non è disponibile
+l'esempio incluso, un messaggio EN/IT indica il percorso esatto in cui inserirli.
+Il percorso è registrato nel log Attività. Il pulsante «Simulazione immagini…»
+(cartella scelta manualmente) resta disponibile e invariato.
+
+Verifica effettiva (Ubuntu 24.04.5, Qt 6.4.2, OpenCV 4.6, offscreen):
+`gui-widget-flow` esteso EN/IT — il pulsante è rinominato, usa la cartella fissa
+`auto-input` (log), produce il composito 1428×1428 mostrato in anteprima, progress
+100, nessun errore. Suite completa 24/24 passata con label `gpu` esclusa;
+screenshot IT/scuro ispezionato («Generazione automatica» in intestazione).
+README aggiornato.

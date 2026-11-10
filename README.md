@@ -73,7 +73,7 @@ Si apre la finestra del programma. Puoi avviarlo nuovamente con lo stesso comand
 bash demo.sh
 ```
 
-Nell’app premi **Avvia demo immagini** (oppure **Ctrl+Maiusc+D**). La demo usa i sei JPEG inclusi, tre SX e tre DX: allinea i canali, compone i colori e mostra un’unica immagine. Non devi scegliere cartelle o inserire percorsi. I file vengono conservati e il riquadro Attività indica dove trovare risultato e log.
+Nell’app premi **Generazione automatica** (oppure **Ctrl+Maiusc+D**). Elabora i sei JPEG (tre SX e tre DX) presenti in una **cartella fissa** `~/.local/share/orbyx/auto-input`: allinea i canali, compone i colori e mostra un’unica immagine, **senza impostare alcun parametro**. Al primo avvio la cartella viene riempita automaticamente con i sei JPEG inclusi come esempio; per usare le tue immagini sostituiscile in quella cartella (nomi `sx_MSUGS-VIS-1/2/3.jpg` e `dx_MSUGS-VIS-1/2/3.jpg`) e premi di nuovo. Il percorso esatto compare nel riquadro Attività insieme a risultato e log.
 
 Il comando qui sopra apre direttamente questa stessa demo; `bash demo.sh --no-open` la esegue senza finestra e salva in **demo-output**, con log in **logs**. I JPEG sono anteprime a 8 bit: la demo non certifica geometria assoluta o colore radiometricamente calibrato. [Provenienza e dettagli](assets/demo-jpeg/SOURCE.md).
 
