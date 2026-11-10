@@ -280,7 +280,7 @@ progettazione, non dipendenze da integrare automaticamente.
 ## M2-08 — Procedura guidata “Da SatDump all’immagine finale”
 
 - Priorità: P0
-- Stato: in corso — due incrementi verificati. (1) Una sola azione desktop guida
+- Stato: in corso — cinque incrementi verificati. (1) Una sola azione desktop guida
   **Importa**, **Allinea canali**, **Unisci porzioni**, **Colore** ed **Esporta**,
   valida origine/profilo/destinazione, avvia il percorso reale e apre
   automaticamente il compositore senza cercare file intermedi. (2) **Ripresa del
@@ -297,9 +297,14 @@ progettazione, non dipendenze da integrare automaticamente.
   permette di aggiungere il lavoro guidato alla coda durevole e ripristinabile
   invece di avviarlo subito; la scelta è persistita nel progetto del wizard e,
   quando attiva, la finestra principale accoda il lavoro (`addToQueue`) senza
-  aprire l'editor. Restano da integrare la **correzione interattiva del
-  raggruppamento** dei prodotti rilevati (oltre al solo riconoscimento) e il
-  salvataggio del risultato per singolo passaggio con verifica digest.
+  aprire l'editor. (5) **Correzione interattiva del raggruppamento**: i prodotti
+  rilevati sono elencati come voci spuntabili (`finalProductList`); tutti partono
+  selezionati e l'utente può escluderne alcuni dall'elaborazione, senza dipendere
+  dai nomi SX/DX e senza toccare l'esportazione; `selectedProducts()` e
+  `selectedProductCount` espongono la scelta, conservata fra i cambi pagina.
+  Resta da integrare il salvataggio del risultato per singolo passaggio con
+  verifica del digest (e, a valle, l'uso del raggruppamento corretto nel percorso
+  di esecuzione, oggi limitato ai due VIS RDAS dal motore `generate`).
 - Dipendenze: M2-07, M3-04
 - Responsabile: Product Designer / Qt UX / SatDump Specialist / Accessibility / QA
 - Deliverable: procedura EN/IT accessibile dal desktop con percorso base in

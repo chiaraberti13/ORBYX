@@ -1058,3 +1058,27 @@ Verifica effettiva (Ubuntu 24.04.5, Qt 6.4.2, OpenCV 4.6, offscreen):
 100, nessun errore. Suite completa 24/24 passata con label `gpu` esclusa;
 screenshot IT/scuro ispezionato («Generazione automatica» in intestazione).
 README aggiornato.
+
+## 2026-11-10 — M2-08 quinto incremento: correzione interattiva del raggruppamento
+
+Continuazione roadmap (M2-08). Il passo «Importa» del wizard ora, oltre a
+rilevare i prodotti, li elenca come voci **spuntabili** (`finalProductList`):
+ogni prodotto `MSUGS_VIS*` (tre canali) e ogni prodotto già allineato è mostrato
+con etichetta EN/IT (VIS/Allineato) e il nome cartella, senza dipendere dai nomi
+SX/DX. Tutti partono selezionati; l'utente può **escluderne** alcuni
+dall'elaborazione. `selectedProducts()` e la proprietà `selectedProductCount`
+espongono la scelta; il riepilogo mostra «rilevati N; M selezionati». Le scelte
+di inclusione/esclusione sono conservate fra i cambi pagina e le ri-rilevazioni
+(snapshot degli esclusi); nessuna modifica all'esportazione SatDump.
+
+Verifica effettiva (Ubuntu 24.04.5, Qt 6.4.2, OpenCV 4.6, offscreen):
+`gui-widget-flow` esteso EN/IT — con una cartella `MSUGS_VIS1/2/3` + un
+`MSUGS_VIS-1_Aligned` la lista mostra 4 voci tutte selezionate
+(`selectedProductCount==4`); deselezionando `MSUGS_VIS3` il conteggio scende a 3,
+`selectedProducts()` non lo contiene più e il file sorgente resta intatto. Suite
+completa 24/24 passata con label `gpu` esclusa. Corretto anche il conteggio degli
+incrementi di M2-08 nella roadmap (ora cinque).
+
+Resta aperto, per M2-08: il salvataggio del risultato per singolo passaggio con
+verifica del digest e, a valle, l'uso del raggruppamento corretto nel percorso di
+esecuzione (oggi il motore `generate` è vincolato ai due VIS RDAS).
