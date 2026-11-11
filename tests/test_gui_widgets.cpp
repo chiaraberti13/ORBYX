@@ -349,7 +349,7 @@ int main(int argc, char **argv) {
             requireTest(!demo.findChild<QLabel*>("canvas")->pixmap().isNull(),"Automatic generation result not displayed");
             requireTest(demo.findChild<QProgressBar*>()->value()==100,"Automatic generation was not completed");
             bool automaticEditorOpened=false;QTimer editAutomatic;editAutomatic.setInterval(25);
-            QObject::connect(&editAutomatic,&QTimer::timeout,[&]{if(auto *dialog=dynamic_cast<MosaicDialog*>(QApplication::activeModalWidget()))if(!dialog->isBusy()&&dialog->state().size()==2){automaticEditorOpened=true;dialog->reject();}});
+            QObject::connect(&editAutomatic,&QTimer::timeout,[&]{if(auto *dialog=dynamic_cast<MosaicDialog*>(QApplication::activeModalWidget()))if(!dialog->isBusy()&&dialog->state().size()==2){const QString project=temporary.path()+"/automatic-editor.json";dialog->saveProject(project);automaticEditorOpened=QFileInfo::exists(project);dialog->reject();}});
             editAutomatic.start();clickVisible(demo.findChild<QPushButton*>("mosaicButton"));editAutomatic.stop();
             requireTest(automaticEditorOpened,"Automatic result could not continue in the manual editor");
             demo.close();
@@ -371,7 +371,7 @@ int main(int argc, char **argv) {
                     if(wizard->currentId()<4)QTest::mouseClick(wizard->button(QWizard::NextButton),Qt::LeftButton);
                     else {auto *confirm=wizard->findChild<QCheckBox*>("finalConfirm");if(!confirm->isChecked())QTest::mouseClick(confirm,Qt::LeftButton);QTest::mouseClick(wizard->button(QWizard::FinishButton),Qt::LeftButton);}
                 } else if(auto *dialog=dynamic_cast<MosaicDialog*>(QApplication::activeModalWidget())){
-                    if(!dialog->isBusy()&&dialog->state().size()==2){manualEditorOpened=true;dialog->reject();}
+                    if(!dialog->isBusy()&&dialog->state().size()==2){const QString project=temporary.path()+"/manual-editor.json";dialog->saveProject(project);manualEditorOpened=QFileInfo::exists(project);dialog->reject();}
                 }
             });
             driveManual.start();clickVisible(sim.findChild<QPushButton*>("finalImageButton"));
