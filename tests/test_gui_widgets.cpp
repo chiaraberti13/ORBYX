@@ -31,6 +31,13 @@ void clickVisible(QPushButton *button) {
     requireTest(button->isVisible()&&button->visibleRegion().contains(button->rect().center()),"Button clipped outside the visible viewport");
     QTest::mouseClick(button,Qt::LeftButton);
 }
+void showAdvanced(Window& window) {
+    auto *toggle=window.findChild<QPushButton*>("advancedToggle");
+    requireTest(toggle&&toggle->isVisible(),"Advanced-tools toggle missing");
+    if(!toggle->isChecked())clickVisible(toggle);
+    auto *setup=window.findChild<QGroupBox*>("advancedSetup");
+    requireTest(setup&&setup->isVisible(),"Advanced tools did not open");
+}
 QByteArray hashFile(const QString &path) {
     QFile file(path); requireTest(file.open(QIODevice::ReadOnly), "Output missing");
     return QCryptographicHash::hash(file.readAll(), QCryptographicHash::Sha256);
@@ -64,11 +71,14 @@ int main(int argc, char **argv) {
             requireTest(w.findChild<QPushButton*>("openImagesButton")&&w.findChild<QPushButton*>("openCalibrationButton")&&w.findChild<QPushButton*>("openAutoInputButton"),"Visible user-folder buttons are missing");
             auto *finalButton=w.findChild<QPushButton*>("finalImageButton");
             requireTest(finalButton&&finalButton->isVisible()&&!finalButton->accessibleName().isEmpty(),"Final-image guided action is not accessible");
+            requireTest(finalButton->text().contains(lang=="it"?"manuale":"manual",Qt::CaseInsensitive),"Main manual action is not clear");
+            requireTest(!w.findChild<QPushButton*>("simulateButton")->isVisible(),"Legacy simulation action still clutters the main menu");
             bool compositorOpened=false;
             QTimer closeCompositor;closeCompositor.setInterval(20);
             QObject::connect(&closeCompositor,&QTimer::timeout,[&]{if(auto* dialog=dynamic_cast<MosaicDialog*>(QApplication::activeModalWidget())){compositorOpened=true;dialog->reject();}});
             closeCompositor.start();clickVisible(w.findChild<QPushButton*>("mosaicButton"));closeCompositor.stop();
             requireTest(compositorOpened,"Main window compositor button did not open the production dialog");
+            showAdvanced(w);
             const QString result = temporary.path()+"/output-"+lang;
             w.loadArguments({"--input",fixture+"/input","--config",fixture+"/profile.json","--output",result,"--satellite","L2","--cpu"});
             auto *table=w.findChild<QTableWidget*>("queueTable");
@@ -307,6 +317,7 @@ int main(int argc, char **argv) {
         fake.setPermissions(QFileDevice::ReadOwner|QFileDevice::WriteOwner|QFileDevice::ExeOwner);
         const auto oldPath=qgetenv("PATH"); qputenv("PATH",fakeDir.toUtf8()+":"+oldPath);
         Window w;w.previewSettings("en","dark",{1280,1000});w.show();
+        showAdvanced(w);
         w.loadArguments({"--input",fixture+"/input","--config",fixture+"/profile.json","--output",temporary.path()+"/exec-fail","--satellite","L2","--cpu"});
         auto *failureTable=w.findChild<QTableWidget*>("queueTable");
         while(failureTable->rowCount()){failureTable->setCurrentCell(failureTable->rowCount()-1,0);clickVisible(w.findChild<QPushButton*>("queueRemove"));}
@@ -336,29 +347,60 @@ int main(int argc, char **argv) {
             requireTest(log.contains(temporary.path()+"/user-files/Output Images/automatic-"),"Automatic image was not written to the visible output folder");
             requireTest(!demo.findChild<QLabel*>("canvas")->pixmap().isNull(),"Automatic generation result not displayed");
             requireTest(demo.findChild<QProgressBar*>()->value()==100,"Automatic generation was not completed");
+            bool automaticEditorOpened=false;QTimer editAutomatic;editAutomatic.setInterval(25);
+            QObject::connect(&editAutomatic,&QTimer::timeout,[&]{if(auto *dialog=dynamic_cast<MosaicDialog*>(QApplication::activeModalWidget()))if(!dialog->isBusy()&&dialog->state().size()==2){automaticEditorOpened=true;dialog->reject();}});
+            editAutomatic.start();clickVisible(demo.findChild<QPushButton*>("mosaicButton"));editAutomatic.stop();
+            requireTest(automaticEditorOpened,"Automatic result could not continue in the manual editor");
             demo.close();
         }
-        // Manual image simulation: the dedicated button exists and is accessible,
-        // and running the pipeline on an explicitly chosen folder (the bundled
-        // demo images) produces the same composite — no RDAS data, no .json.
+        // Unified manual mode recognizes the six JPEGs, does not require SatDump
+        // or a calibration JSON, creates the chosen output and opens editable layers.
         {
             Window sim;sim.previewSettings("it","dark",{1280,1000});sim.show();
-            auto *simButton=sim.findChild<QPushButton*>("simulateButton");
-            requireTest(simButton&&simButton->isVisible()&&!simButton->accessibleName().isEmpty(),"Simulation button inaccessible");
             const QString folder=sim.demoFolderForTests();
             requireTest(!folder.isEmpty(),"Bundled demo folder not found for manual simulation");
-            sim.runImageSimulation(folder);
-            requireTest(until([&]{return simButton->isEnabled();},60000),"Manual simulation stuck busy");
+            const QString manualOutput=temporary.path()+"/unified-manual-jpeg";
+            sim.loadArguments({"--input",folder,"--config",fixture+"/profile.json","--output",manualOutput,"--satellite","L2","--cpu"});
+            bool manualEditorOpened=false,jpegRecognized=false,jpegProfileDisabled=false,satDumpExplained=false;QTimer driveManual;driveManual.setInterval(30);
+            QObject::connect(&driveManual,&QTimer::timeout,[&]{
+                if(auto *wizard=dynamic_cast<FinalImageWizard*>(QApplication::activeModalWidget())){
+                    jpegRecognized=wizard->jpegInput();
+                    jpegProfileDisabled=!wizard->findChild<QLineEdit*>("finalProfile")->isEnabled();
+                    satDumpExplained=!wizard->findChild<QLabel*>("satDumpStatus")->text().isEmpty();
+                    if(wizard->currentId()<4)QTest::mouseClick(wizard->button(QWizard::NextButton),Qt::LeftButton);
+                    else {auto *confirm=wizard->findChild<QCheckBox*>("finalConfirm");if(!confirm->isChecked())QTest::mouseClick(confirm,Qt::LeftButton);QTest::mouseClick(wizard->button(QWizard::FinishButton),Qt::LeftButton);}
+                } else if(auto *dialog=dynamic_cast<MosaicDialog*>(QApplication::activeModalWidget())){
+                    if(!dialog->isBusy()&&dialog->state().size()==2){manualEditorOpened=true;dialog->reject();}
+                }
+            });
+            driveManual.start();clickVisible(sim.findChild<QPushButton*>("finalImageButton"));
+            requireTest(until([&]{return manualEditorOpened;},60000),"Unified manual JPEG flow did not open the editor");driveManual.stop();
+            requireTest(jpegRecognized,"Manual wizard did not recognize the six JPEGs");
+            requireTest(jpegProfileDisabled,"JPEG mode still requires a calibration profile");
+            requireTest(satDumpExplained,"SatDump status is not explained");
             const auto simLog=sim.findChild<QTextEdit*>()->toPlainText();
-            requireTest(simLog.contains("1428x1428")&&!simLog.contains("ERROR:"),"Manual image simulation failed");
-            requireTest(simLog.contains(temporary.path()+"/user-files/Output Images/manual-"),"Manual image was not written to the visible output folder");
+            requireTest(simLog.contains("1428x1428")&&!simLog.contains("ERROR:"),"Unified manual JPEG processing failed");
+            requireTest(QFileInfo::exists(manualOutput+"/composite.png"),"Manual image was not written to the selected output folder");
             requireTest(!sim.findChild<QLabel*>("canvas")->pixmap().isNull(),"Manual simulation result not displayed");
             requireTest(sim.findChild<QProgressBar*>()->value()==100,"Manual simulation was not completed");
+            bool freshDestination=false;QTimer inspectNextRun;inspectNextRun.setInterval(20);
+            QObject::connect(&inspectNextRun,&QTimer::timeout,[&]{
+                if(auto *wizard=dynamic_cast<FinalImageWizard*>(QApplication::activeModalWidget())){
+                    auto *inputPath=wizard->findChild<QLineEdit*>("finalInput");
+                    auto *outputPath=wizard->findChild<QLineEdit*>("finalOutput");
+                    freshDestination=inputPath&&!inputPath->isReadOnly()&&outputPath&&!outputPath->isReadOnly()&&
+                        outputPath->text()!=manualOutput&&!QFileInfo::exists(outputPath->text());
+                    wizard->reject();
+                }
+            });
+            inspectNextRun.start();clickVisible(sim.findChild<QPushButton*>("finalImageButton"));inspectNextRun.stop();
+            requireTest(freshDestination,"A second manual run reused an existing output or locked the path fields");
             sim.close();
         }
 
         {
             Window first,second;first.previewSettings("en","dark",{1280,860});second.previewSettings("en","dark",{1280,860});first.show();second.show();
+            showAdvanced(first);showAdvanced(second);
             first.loadArguments({"--input",fixture+"/input","--config",fixture+"/profile.json","--output",temporary.path()+"/persist-first","--satellite","L2","--cpu"});
             second.loadArguments({"--input",fixture+"/input","--config",fixture+"/profile.json","--output",temporary.path()+"/persist-second","--satellite","L2","--cpu"});
             int before=second.findChild<QTableWidget*>("queueTable")->rowCount();
