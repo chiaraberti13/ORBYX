@@ -69,13 +69,12 @@ This is the most important part: **each button does a different thing**. Look at
 | Your situation | Press this | What you choose |
 |---|---|---|
 | **I just want to see how it works** (no data of my own) | **Automatic generation** (Ctrl+Shift+D) | Nothing. It starts on its own with the bundled example images. |
-| **I have 6 JPEG photos** named `sx_`/`dx_` MSUGS-VIS-1/2/3 | **Image simulation…** (Ctrl+Shift+S) | The folder containing the 6 photos. |
-| **I have real data decoded by SatDump** | **Create final image…** | A folder that **directly** contains the `MSUGS_VIS1`, `MSUGS_VIS2`, … subfolders. |
+| **I have 6 JPEG photos** named `sx_`/`dx_` MSUGS-VIS-1/2/3 | **Create image — manual mode…** | The folder containing the 6 photos and a new destination. |
+| **I have real data decoded by SatDump** | **Create image — manual mode…** | A folder that **directly** contains the `MSUGS_VIS1`, `MSUGS_VIS2`, … subfolders. |
 | **I want to compose or retouch portions by hand** | **Compose portions and colour…** → *Add editable demo portions* | Already-aligned images, or the bundled demo portions. |
 
-> ⚠️ **The most common mistake.** The **Create final image…** button only works with real SatDump data. If you point it at the **demo photos** (the six JPEGs) you get a red message like "this is not a SatDump VIS export": **that is expected**, that window is not meant for the demo photos. For the demo photos use **Automatic generation** or **Image simulation…**.
->
-> The difference: real SatDump data are **folders** (`MSUGS_VIS1`, `MSUGS_VIS2`, …) each holding three channels `MSUGS-VIS-1/2/3.png`; the demo photos are instead **six** `.jpg` files in one folder.
+> There is now one manual entry point. It recognizes either the six JPEGs or a
+> SatDump VIS export and enables only the required fields.
 
 **Not sure where to start?** Press **Automatic generation**: it is the fastest way to see an image right away, with nothing to set. When it finishes, the result appears by itself in the preview.
 
@@ -85,12 +84,12 @@ This is the most important part: **each button does a different thing**. Look at
 bash demo.sh --lang en
 ```
 
-Press **Automatic generation** in the app (Ctrl+Shift+D). Six bundled real JPEG previews, three SX and three DX, are composed into one image with no parameters to set. No manual paths are needed. The command opens the same built-in demo; `bash demo.sh --no-open` runs it offscreen into demo-output, with logs. To pick the folder yourself use **Image simulation…** (Ctrl+Shift+S). These are 8-bit previews, not absolute geometry or radiometrically calibrated true colour. [Source details](assets/demo-jpeg/SOURCE.md).
+Press **Automatic generation** in the app (Ctrl+Shift+D). Six bundled real JPEG previews, three SX and three DX, are composed into one image with no parameters to set. No manual paths are needed. The command opens the same built-in demo; `bash demo.sh --no-open` runs it offscreen into demo-output, with logs. Use **Create image — manual mode…** to choose a different six-JPEG folder and continue in the editor. These are 8-bit previews, not absolute geometry or radiometrically calibrated true colour. [Source details](assets/demo-jpeg/SOURCE.md).
 
 ### New desktop workflows
 
 - **Compose portions and colour…**: multiple editable layers, automatic overlap and uniform-border crop proposals, seam inspection with replace/feather/minimum-cost-seam/multiband blending, include/exclude polygon masks, visual brightness/colour matching between layers, single-channel presets, histogram and clipping readout, and a quality assessment that never declares an image "perfect". Save a portable project (relative paths) with autosave and recovery, export it as a self-contained package, and export one native-depth PNG with a reproducible report. No fixed left/right layout. [Guide](docs/COMPOSITOR.md).
-- **Create final image…**: five-step guided path **for real SatDump data** (not for the demo photos). At step 1 you must point to a folder that **directly** contains the `MSUGS_VIS1`, `MSUGS_VIS2`, … subfolders; choosing the wrong folder (such as the demo photos or your Documents folder) is reported and the wizard stops. Then review alignment/join/colour, start processing, and the editor opens automatically on the result. *To try it without SatDump data, use Automatic generation or Image simulation… instead (see "Which button do I press?").*
+- **Create image — manual mode…**: one five-step path accepts either the six JPEGs or a SatDump VIS export, detects the content, lets the user change source and new destination, processes it and opens the editable compositor. Satellite and calibration JSON are required only for SatDump data.
 
 - **Guided calibration…** validates input/destination and prepares ECC scale/satellite settings. Successful calibration selects the new profile for alignment.
 - **Monitor acquisitions…** discovers stable native SatDump products. Manual import and opt-in matching-satellite queueing never start processing automatically.

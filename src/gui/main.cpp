@@ -153,7 +153,8 @@ class Window final : public QMainWindow {
     bool outputExplicit = false;
     QString lastOutput;
     QString demoResult;
-    QPushButton *demoButton{}, *simulateButton{}, *wizardButton{}, *finalImageButton{}, *watchButton{}, *updatesButton{}, *openImagesButton{}, *openCalibrationButton{}, *openAutoInputButton{};
+    QString lastDemoInput;
+    QPushButton *demoButton{}, *simulateButton{}, *wizardButton{}, *finalImageButton{}, *watchButton{}, *updatesButton{}, *openImagesButton{}, *openCalibrationButton{}, *openAutoInputButton{}, *advancedToggle{};
     bool openFinalEditor=false;
     bool finalNaturalColour=true;
     QStringList finalSelectedProducts;
@@ -163,7 +164,7 @@ class Window final : public QMainWindow {
     double guidedScale=1.0;
     QPixmap image;
     double zoom = 1.0;
-    QLabel *subtitle{}, *eyebrow{}, *inputLabel{}, *configLabel{}, *outputLabel{}, *satLabel{}, *modeLabel{}, *engineLabel{}, *hint{}, *previewTitle{}, *empty{}, *status{}, *activityTitle{}, *languageLabel{}, *themeLabel{}, *previewNote{};
+    QLabel *subtitle{}, *eyebrow{}, *inputLabel{}, *configLabel{}, *outputLabel{}, *satLabel{}, *modeLabel{}, *engineLabel{}, *hint{}, *previewTitle{}, *empty{}, *status{}, *activityTitle{}, *languageLabel{}, *themeLabel{}, *previewNote{}, *manualHint{};
     QGroupBox *setup{};
     QLineEdit *input{}, *config{}, *output{};
     QPushButton *inputBrowse{}, *configBrowse{}, *outputBrowse{}, *start{}, *fit{}, *plus{}, *minus{}, *clear{};
@@ -193,19 +194,19 @@ class Window final : public QMainWindow {
         watchButton->setText(it?"Monitora acquisizioni…":"Monitor acquisitions…");watchButton->setAccessibleName(watchButton->text());
         wizardButton->setText(it?"Calibrazione guidata…":"Guided calibration…");
         wizardButton->setAccessibleName(wizardButton->text());
-        finalImageButton->setText(it?"Crea immagine finale…":"Create final image…");
+        finalImageButton->setText(it?"Crea immagine — modalità manuale…":"Create image — manual mode…");
         finalImageButton->setAccessibleName(finalImageButton->text());
         openImagesButton->setText(trText("Open generated images"));openImagesButton->setAccessibleName(openImagesButton->text());
         openCalibrationButton->setText(trText("Open calibrations"));openCalibrationButton->setAccessibleName(openCalibrationButton->text());
         openAutoInputButton->setText(trText("Open automatic JPEG folder"));openAutoInputButton->setAccessibleName(openAutoInputButton->text());
-        demoButton->setText(trText("Automatic generation"));
-        demoButton->setAccessibleName(trText("Automatic generation"));
+        demoButton->setText(it?"Generazione automatica (1 clic)":"Automatic generation (1 click)");
+        demoButton->setAccessibleName(demoButton->text());
         demoButton->setToolTip(trText("Process the six JPEGs placed in the automatic-generation folder, with no parameters."));
-        simulateButton->setText(it?"Simulazione immagini…":"Image simulation…");
+        simulateButton->setText(it?"Percorso JPEG precedente":"Legacy JPEG flow");
         simulateButton->setAccessibleName(simulateButton->text());
         simulateButton->setToolTip(trText("Run the image demo on a chosen folder of six JPEGs; defaults to the bundled demo images."));
-        setup->setTitle(trText("Processing setup"));
-        inputLabel->setText(trText("RDAS input folder")); configLabel->setText(trText("Calibration profile (included)")); outputLabel->setText(trText("New output folder"));
+        setup->setTitle(it?"Strumenti avanzati SatDump / RDAS":"Advanced SatDump / RDAS tools");
+        inputLabel->setText(trText("RDAS input folder")); configLabel->setText(trText("Calibration profile (included)")); outputLabel->setText(it?"Nuova destinazione (verrà creata)":"New destination (will be created)");
         satLabel->setText(trText("Satellite")); modeLabel->setText(trText("Operation")); engineLabel->setText(trText("Processing engine"));
         for (auto *b : {inputBrowse, configBrowse, outputBrowse}) b->setText(trText("Select…"));
         inputBrowse->setAccessibleName(trText("Browse the RDAS input folder")); configBrowse->setAccessibleName(trText("Browse calibration profiles")); outputBrowse->setAccessibleName(trText("Choose a parent folder and edit the new destination name"));
@@ -229,8 +230,12 @@ class Window final : public QMainWindow {
         queueBox->setToolTip(trText("The queue runs jobs in order with durable, resumable state. Existing outputs are never overwritten."));
         queueAdd->setText(trText("Add to queue")); queueRemove->setText(trText("Remove")); queueRun->setText(trText("Run queue"));
         profileDup->setText(trText("Duplicate profile…"));
-        mosaicButton->setText(it?"Componi porzioni e colore…":"Compose portions and colour…");
+        mosaicButton->setText(lastDemoInput.isEmpty()?(it?"Apri editor manuale…":"Open manual editor…"):(it?"Modifica il risultato nell’editor manuale…":"Edit the result in the manual editor…"));
         mosaicButton->setAccessibleName(mosaicButton->text());
+        manualHint->setText(it
+            ? "Scegli liberamente una cartella con sei JPEG oppure un’esportazione SatDump. ORBYX riconosce il contenuto, ti fa scegliere la destinazione e apre l’editor finale."
+            : "Choose either a folder with six JPEGs or a SatDump export. ORBYX detects the content, lets you choose the destination and opens the final editor.");
+        advancedToggle->setText(advancedToggle->isChecked()?(it?"Nascondi strumenti avanzati":"Hide advanced tools"):(it?"Mostra strumenti avanzati":"Show advanced tools"));
         naturalExport->setText(trText("Export Natural Color…"));
         naturalExport->setAccessibleName(trText("Export Natural Color…"));
         naturalExport->setToolTip(trText("RGB321 hue rendering preserves 8/16-bit depth. Select one aligned VIS product. This is not calibrated true colour."));
@@ -428,7 +433,7 @@ class Window final : public QMainWindow {
         log->append(trText("Replace the images in that folder with your own (sx_/dx_ MSUGS-VIS-1/2/3.jpg) and press again.").toHtmlEscaped());
         executeImageDemo({},folder,"automatic");
     }
-    void executeImageDemo(const QString &requestedOutput = {}, const QString &sampleFolder = {}, const QString &kind = "manual") {
+    void executeImageDemo(const QString &requestedOutput = {}, const QString &sampleFolder = {}, const QString &kind = "manual", bool openEditorAfter = false) {
         if (busy) return;
         const QString sample = hasDemoImages(sampleFolder) ? sampleFolder : bundledDemoFolder();
         const QString token=QDateTime::currentDateTimeUtc().toString("yyyyMMddTHHmmssZ")+"-"+QUuid::createUuid().toString(QUuid::WithoutBraces);
@@ -436,7 +441,7 @@ class Window final : public QMainWindow {
         const QString logPath=QDir(orbyx::gui::logsRoot()).filePath("image-"+token+".log");
         setProperty("demoFinished",false);
         demoMode=true;setQueueBusy(true);progress->setRange(0,0);applyText();status->setText(trText("Processing…"));
-        auto *worker=QThread::create([this,sample,destination,logPath] {
+        auto *worker=QThread::create([this,sample,destination,logPath,openEditorAfter] {
             QString error;QStringList entries;
             try {
                 orbyx::runImageDemo(sample.toStdString(),destination.toStdString(),[this,&entries](const std::string &line) {
@@ -451,15 +456,17 @@ class Window final : public QMainWindow {
                 diagnosticFile.write(entries.join('\n').toUtf8())<0) {
                 if(error.isEmpty())error="Could not save demo log";
             }
-            QMetaObject::invokeMethod(this,[this,error,destination,logPath] {
+            QMetaObject::invokeMethod(this,[this,error,destination,logPath,sample,openEditorAfter] {
                 setProperty("demoFinished",true);setProperty("demoSucceeded",error.isEmpty());
                 setQueueBusy(false);progress->setRange(0,100);progress->setValue(error.isEmpty()?100:0);applyText();
                 status->setText(trText(error.isEmpty()?"Completed":"Processing failed"));
                 if(error.isEmpty()) {
-                    lastOutput=destination;demoResult=QDir(destination).filePath("composite.png");
+                    lastOutput=destination;demoResult=QDir(destination).filePath("composite.png");lastDemoInput=sample;
                     source->setCurrentIndex(1);loadPreview();
                     log->append((trText("Demo image saved")+": "+demoResult).toHtmlEscaped());
                     log->append((trText("User images folder")+": "+orbyx::gui::outputImagesRoot()).toHtmlEscaped());
+                    applyText();
+                    if(openEditorAfter)QTimer::singleShot(0,this,[this]{openMosaic();});
                 } else log->append(error.toHtmlEscaped());
                 log->append(("Log: "+logPath).toHtmlEscaped());
                 if(quitAfterRun)QApplication::exit(error.isEmpty()?0:2);
@@ -479,6 +486,7 @@ class Window final : public QMainWindow {
         const QDir generated(lastOutput);
         bool hasEditable=false;for(const auto& name:generated.entryList({"MSUGS_VIS-*_Aligned"},QDir::Dirs|QDir::NoDotAndDotDot))if(QFileInfo(generated.filePath(name+"/MSUGS-VIS-1.png")).isFile()){hasEditable=true;break;}
         if(hasEditable)dialog.appendGeneratedProducts(lastOutput,config->text(),satellite->currentText(),natural);
+        else if(!lastDemoInput.isEmpty()&&hasDemoImages(lastDemoInput))dialog.appendDemo(lastDemoInput);
         dialog.exec();
     }
     void execute() {
@@ -847,13 +855,13 @@ public:
         demoButton=new QPushButton;demoButton->setObjectName("demoButton");
         demoButton->setShortcut(QKeySequence("Ctrl+Shift+D"));header->addWidget(demoButton);
         connect(demoButton,&QPushButton::clicked,this,[this]{runAutomaticGeneration();});
-        simulateButton=new QPushButton;simulateButton->setObjectName("simulateButton");
-        simulateButton->setShortcut(QKeySequence("Ctrl+Shift+S"));header->addWidget(simulateButton);
+        simulateButton=new QPushButton(this);simulateButton->setObjectName("simulateButton");
+        simulateButton->setShortcut(QKeySequence("Ctrl+Shift+S"));simulateButton->hide();
         connect(simulateButton,&QPushButton::clicked,this,[this]{imageSimulationDialog();});
         header->addWidget(languageLabel); header->addWidget(language); header->addSpacing(12); header->addWidget(themeLabel); header->addWidget(theme); page->addWidget(headerWidget);
         auto *splitter = new QSplitter; page->addWidget(splitter,1);
         auto *left = new QWidget; left->setObjectName("root"); left->setMinimumWidth(360); auto *leftLayout = new QVBoxLayout(left); leftLayout->setContentsMargins(0,0,16,0); leftLayout->setSpacing(8);
-        setup=new QGroupBox; auto *form = new QVBoxLayout(setup); form->setSpacing(4); form->setContentsMargins(8,12,8,8);
+        setup=new QGroupBox; setup->setObjectName("advancedSetup"); auto *form = new QVBoxLayout(setup); form->setSpacing(4); form->setContentsMargins(8,12,8,8);
         inputLabel=label(); input=new QLineEdit(settings.value("input").toString()); inputBrowse=new QPushButton; form->addWidget(inputLabel); form->addLayout(pathRow(input,inputBrowse));
         configLabel=label();
         QString savedProfile=settings.value("config").toString();
@@ -906,12 +914,21 @@ public:
         openAutoInputButton=new QPushButton;openAutoInputButton->setObjectName("openAutoInputButton");leftLayout->addWidget(openAutoInputButton);
         connect(openAutoInputButton,&QPushButton::clicked,this,[this]{const QString folder=autoInputFolder();QDir().mkpath(folder);QDesktopServices::openUrl(QUrl::fromLocalFile(folder));});
         finalImageButton=new QPushButton;finalImageButton->setObjectName("finalImageButton");leftLayout->addWidget(finalImageButton);
+        leftLayout->removeWidget(finalImageButton);leftLayout->insertWidget(0,finalImageButton);
+        manualHint=label("muted");manualHint->setWordWrap(true);leftLayout->insertWidget(1,manualHint);
         connect(finalImageButton,&QPushButton::clicked,this,[this]{
-            const QString manualOutput=outputExplicit&& !output->text().isEmpty() ? output->text() : orbyx::gui::newOutputFolder("manual");
+            const QString currentOutput=output->text().trimmed();
+            const QString manualOutput=outputExplicit&&!currentOutput.isEmpty()&&!QFileInfo::exists(currentOutput)
+                ? currentOutput : orbyx::gui::newOutputFolder("manual");
             const QString profile=validProfile(config->text())?config->text():visibleDefaultProfile();
             FinalImageWizard wizard(it,input->text(),profile,manualOutput,satellite->currentText(),engine->currentIndex()==1,this);
             if(wizard.exec()!=QDialog::Accepted)return;
             input->setText(wizard.inputPath());config->setText(wizard.profilePath());output->setText(wizard.outputPath());outputExplicit=true;
+            if(wizard.jpegInput()){
+                finalNaturalColour=wizard.naturalColour();finalSelectedProducts.clear();
+                executeImageDemo(wizard.outputPath(),wizard.inputPath(),"manual",true);
+                return;
+            }
             if(satellite->findText(wizard.satelliteId())<0)satellite->addItem(wizard.satelliteId());
             satellite->setCurrentText(wizard.satelliteId());engine->setCurrentIndex(wizard.cpuOnly()?1:0);mode->setCurrentIndex(0);
             finalNaturalColour=wizard.naturalColour();finalSelectedProducts=wizard.selectedProducts();loadPreview();
@@ -922,7 +939,9 @@ public:
         });
         start=new QPushButton; start->setObjectName("start"); start->setShortcut(QKeySequence("Ctrl+Return")); leftLayout->addWidget(start);
         mosaicButton=new QPushButton; mosaicButton->setObjectName("mosaicButton");leftLayout->addWidget(mosaicButton);
+        leftLayout->removeWidget(mosaicButton);leftLayout->insertWidget(2,mosaicButton);
         connect(mosaicButton,&QPushButton::clicked,this,[this]{openMosaic();});
+        advancedToggle=new QPushButton;advancedToggle->setObjectName("advancedToggle");advancedToggle->setCheckable(true);leftLayout->insertWidget(3,advancedToggle);
         naturalExport=new QPushButton; naturalExport->setObjectName("naturalExport");
         naturalExport->setShortcut(QKeySequence("Ctrl+Shift+N"));leftLayout->addWidget(naturalExport);
         status=label("status"); leftLayout->addWidget(status); progress=new QProgressBar; progress->setTextVisible(false); progress->setValue(0); leftLayout->addWidget(progress);
@@ -933,6 +952,10 @@ public:
         auto *queueButtons=new QHBoxLayout; queueAdd=new QPushButton; queueRemove=new QPushButton; queueRun=new QPushButton; queueRun->setEnabled(false);
         queueButtons->addWidget(queueAdd); queueButtons->addWidget(queueRemove); queueButtons->addStretch(); queueButtons->addWidget(queueRun); queueLayout->addLayout(queueButtons);
         leftLayout->addWidget(queueBox); leftLayout->addStretch();
+        setup->hide();start->hide();naturalExport->hide();queueBox->hide();openCalibrationButton->hide();
+        connect(advancedToggle,&QPushButton::toggled,this,[this](bool visible){
+            setup->setVisible(visible);start->setVisible(visible);naturalExport->setVisible(visible);queueBox->setVisible(visible);openCalibrationButton->setVisible(visible);applyText();
+        });
         auto *setupScroll = new QScrollArea; setupScroll->setObjectName("setupScroll"); setupScroll->setWidgetResizable(true); setupScroll->setFrameShape(QFrame::NoFrame); setupScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff); setupScroll->setMinimumWidth(390); setupScroll->setMaximumWidth(490); setupScroll->setWidget(left); splitter->addWidget(setupScroll);
         auto *right = new QFrame; right->setObjectName("panel"); auto *preview = new QVBoxLayout(right); preview->setContentsMargins(16,16,16,16); auto *tools = new QHBoxLayout;
         previewTitle=label("section"); preview->addWidget(previewTitle); source=new QComboBox; source->addItems({"Input","Output"}); channel=new QComboBox; channel->addItems({"CH1","CH2","CH3"}); channel->setCurrentIndex(settings.value("previewChannel",0).toInt()); fit=new QPushButton; minus=new QPushButton("−"); plus=new QPushButton("+");
@@ -949,7 +972,7 @@ public:
         connect(satellite,qOverload<int>(&QComboBox::currentIndexChanged),this,[this]{applyText();});
         connect(inputBrowse,&QPushButton::clicked,this,[this]{const auto p=QFileDialog::getExistingDirectory(this,trText("Choose RDAS folder"),input->text());if(!p.isEmpty()) selectInput(p);});
         connect(configBrowse,&QPushButton::clicked,this,[this]{const auto p=QFileDialog::getOpenFileName(this,trText("Choose calibration profile"),config->text(),"JSON (*.json)");if(!p.isEmpty())config->setText(p);});
-        connect(outputBrowse,&QPushButton::clicked,this,[this]{const auto p=QFileDialog::getExistingDirectory(this,trText("Select output parent folder"),QFileInfo(output->text()).absolutePath());if(!p.isEmpty()){output->setText(QDir(p).filePath("orbyx-output"));outputExplicit=true;}});
+        connect(outputBrowse,&QPushButton::clicked,this,[this]{const auto p=QFileDialog::getExistingDirectory(this,trText("Select output parent folder"),QFileInfo(output->text()).absolutePath());if(!p.isEmpty()){const QString suffix=QDateTime::currentDateTime().toString("yyyyMMdd-HHmmss")+"-"+QUuid::createUuid().toString(QUuid::WithoutBraces).left(8);output->setText(QDir(p).filePath("orbyx-output-"+suffix));outputExplicit=true;}});
         connect(output,&QLineEdit::textEdited,this,[this]{outputExplicit=true;});
         connect(input,&QLineEdit::textEdited,this,[this]{importedFingerprint.clear();finalSelectedProducts.clear();});
         connect(input,&QLineEdit::editingFinished,this,[this]{loadPreview();}); connect(source,qOverload<int>(&QComboBox::currentIndexChanged),this,[this]{loadPreview();});

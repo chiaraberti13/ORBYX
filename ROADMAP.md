@@ -572,6 +572,29 @@ progettazione, non dipendenze da integrare automaticamente.
 - Accettazione: un progetto può essere spostato insieme alle immagini e riaperto
   senza perdere livelli, maschere, punti, strategia, colore e cronologia essenziale
 
+## M2-14 — Percorso manuale unico e navigazione semplificata
+
+- Priorità: P0
+- Stato: implementato, verifica CI in corso — il comando duplicato **Simulazione
+  immagini** è stato rimosso dalla navigazione principale; **Crea immagine —
+  modalità manuale** riconosce sia i sei JPEG sia un'esportazione VIS di SatDump,
+  abilita soltanto i campi necessari e apre il compositore dopo l'elaborazione.
+  Anche il risultato della generazione automatica può essere riaperto come due
+  livelli modificabili. I controlli tecnici RDAS, calibrazione, coda e monitor
+  sono raccolti sotto **Mostra strumenti avanzati**. La destinazione resta sempre
+  nuova ma ora il suo percorso completo è visibile e modificabile.
+- Dipendenze: M2-08, M2-13
+- Responsabile: Product Design / Qt UX / SatDump Specialist / QA
+- SatDump: rilevamento informativo dell'eseguibile; ORBYX legge una cartella già
+  esportata e non dichiara integrazione diretta con CADU o dati grezzi. Il monitor
+  di una cartella usata da SatDump rimane disponibile fra gli strumenti avanzati.
+- Test: riconoscimento sei JPEG senza JSON, riconoscimento prodotti SatDump,
+  modifica origine/destinazione, apertura automatica dell'editor, riapertura del
+  risultato automatico e assenza del vecchio comando duplicato.
+- Accettazione: dalla schermata iniziale un principiante sceglie chiaramente fra
+  **Generazione automatica (1 clic)** e **Crea immagine — modalità manuale**;
+  nessun risultato automatico obbliga a uscire da ORBYX per le correzioni.
+
 ### Ordine proposto e gate decisionali
 
 1. **Compatibilità e percorso unico:** M2-07, poi M2-08. È il minimo necessario

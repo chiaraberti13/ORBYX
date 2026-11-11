@@ -4,15 +4,18 @@ Questa guida accompagna dall’installazione all’immagine finale. Non è neces
 
 ## Prima di iniziare: quale tipo di file hai?
 
-ORBYX offre due percorsi diversi. Scegline uno in base ai tuoi file.
+ORBYX ha un solo percorso manuale per creare l'immagine. Riconosce automaticamente
+quale tipo di cartella hai scelto.
 
 | File disponibili | Percorso da usare |
 |---|---|
-| Sei JPEG chiamati `sx_...` e `dx_...` | **Generazione automatica** oppure **Simulazione immagini…** |
-| Una cartella esportata da SatDump con `MSUGS_VIS1`, `MSUGS_VIS2`, ecc. | **Crea immagine finale…** |
+| Sei JPEG chiamati `sx_...` e `dx_...` | **Crea immagine — modalità manuale…** oppure **Generazione automatica (1 clic)** |
+| Una cartella esportata da SatDump con `MSUGS_VIS1`, `MSUGS_VIS2`, ecc. | **Crea immagine — modalità manuale…** |
 | Un file grezzo ricevuto dal satellite, per esempio CADU | Prima deve essere decodificato ed esportato con SatDump |
 
-I due percorsi non vanno mescolati. I sei JPEG della demo non possono essere caricati nel percorso **Crea immagine finale…**. Una cartella generica come Documenti non è un’esportazione SatDump.
+Non devi scegliere in anticipo un percorso diverso: selezioni la cartella e ORBYX
+ti dice se ha riconosciuto i sei JPEG oppure i prodotti VIS di SatDump. Una
+cartella generica come Documenti, invece, non contiene immagini elaborabili.
 
 ## 1. Installazione su Ubuntu
 
@@ -65,7 +68,8 @@ Questo percorso serve anche per sei JPEG personali organizzati come tre immagini
 1. Apri ORBYX con `bash start.sh`.
 2. Premi **Generazione automatica**.
 3. Al primo utilizzo ORBYX prepara sei JPEG dimostrativi, li elabora e mostra il risultato.
-4. Premi **Apri immagini generate** per aprire la cartella contenente il PNG finale.
+4. Premi **Modifica il risultato nell’editor manuale…** se vuoi correggere sovrapposizione, posizione, colore o giunzione.
+5. Premi **Apri immagini generate** per aprire la cartella contenente il PNG finale.
 
 Il file principale si chiama `composite.png`. ORBYX conserva anche intermedi e report nella stessa sottocartella.
 
@@ -92,7 +96,11 @@ Ogni elaborazione crea una nuova sottocartella: i risultati precedenti non vengo
 
 ### Scegliere manualmente una cartella con sei JPEG
 
-Premi **Simulazione immagini…**, scegli la cartella e attendi il completamento. I nomi richiesti sono gli stessi elencati sopra. Questo pulsante non richiede SatDump né un file JSON.
+1. Premi **Crea immagine — modalità manuale…**.
+2. In **Cartella di origine** seleziona la cartella che contiene i sei JPEG.
+3. Quando compare **Rilevati sei JPEG**, scegli la nuova destinazione e premi **Avanti**.
+4. Completa i passaggi: non sono richiesti SatDump né un file JSON.
+5. Premi **Elabora e apri l’editor manuale**. ORBYX crea la prima composizione e apre le due porzioni come livelli modificabili.
 
 ## 3. Creare un’immagine finale da un’esportazione SatDump
 
@@ -118,9 +126,9 @@ Devi selezionare `cartella-del-passaggio`, cioè la cartella che contiene dirett
 ### Procedura guidata
 
 1. Apri ORBYX.
-2. Premi **Crea immagine finale…**.
+2. Premi **Crea immagine — modalità manuale…**.
 3. Nella pagina **1. Importa**:
-   - in **Cartella esportata da SatDump**, scegli la cartella descritta sopra;
+   - in **Cartella di origine**, scegli la cartella descritta sopra;
    - lascia il **Profilo di calibrazione** proposto, se valido per il satellite;
    - lascia la **Nuova cartella di lavoro** proposta;
    - controlla che sotto i campi compaiano i prodotti VIS rilevati;
@@ -144,7 +152,7 @@ Il campo **Profilo di calibrazione** contiene un percorso reale. Puoi aprire la 
 
 Se ORBYX segnala che il profilo non supporta il satellite o i prodotti selezionati:
 
-1. chiudi il percorso **Crea immagine finale…**;
+1. chiudi il percorso **Crea immagine — modalità manuale…**;
 2. nella finestra principale scegli la cartella SatDump corretta;
 3. seleziona il satellite;
 4. premi **Calibrazione guidata…**;
@@ -161,7 +169,7 @@ Al termine ORBYX:
 - lo seleziona automaticamente;
 - prepara una nuova destinazione per l’allineamento.
 
-A questo punto puoi premere **Crea immagine finale…** e seguire il percorso del capitolo precedente.
+A questo punto puoi premere **Crea immagine — modalità manuale…** e seguire il percorso del capitolo precedente.
 
 Non esiste un profilo L4 universale valido per ogni acquisizione. Per L4 può essere necessario calcolare la calibrazione usando i dati effettivi del passaggio.
 

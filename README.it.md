@@ -73,14 +73,15 @@ Questa è la parte più importante: **ogni pulsante serve a una cosa diversa**. 
 
 | La tua situazione | Premi questo | Cosa devi scegliere |
 |---|---|---|
-| **Voglio solo vedere come funziona** (non ho dati miei) | **Generazione automatica** (Ctrl+Maiusc+D) | Niente. Parte da sola con le immagini di esempio. |
-| **Ho 6 foto JPEG** chiamate `sx_`/`dx_` MSUGS-VIS-1/2/3 | **Simulazione immagini…** (Ctrl+Maiusc+S) | La cartella che contiene le 6 foto. |
-| **Ho dati veri decodificati da SatDump** | **Crea immagine finale…** | Una cartella che contiene **direttamente** le sottocartelle `MSUGS_VIS1`, `MSUGS_VIS2`, ecc. |
-| **Voglio comporre o ritoccare le porzioni a mano** | **Componi porzioni e colore…** → *Aggiungi porzioni demo modificabili* | Immagini già allineate, oppure le porzioni demo incluse. |
+| **Voglio solo vedere come funziona** (non ho dati miei) | **Generazione automatica (1 clic)** | Niente. Parte da sola con le immagini di esempio. |
+| **Ho 6 foto JPEG** chiamate `sx_`/`dx_` MSUGS-VIS-1/2/3 | **Crea immagine — modalità manuale…** | La cartella che contiene le 6 foto e una nuova destinazione. |
+| **Ho dati veri decodificati da SatDump** | **Crea immagine — modalità manuale…** | La cartella che contiene **direttamente** le sottocartelle `MSUGS_VIS1`, `MSUGS_VIS2`, ecc. |
+| **Ho già creato un risultato automatico e voglio correggerlo** | **Modifica il risultato nell’editor manuale…** | Nulla: vengono riaperte le porzioni appena elaborate. |
 
-> ⚠️ **L'errore più comune.** Il pulsante **Crea immagine finale…** funziona *soltanto* con i dati veri di SatDump. Se gli indichi la cartella delle **foto demo** (i sei JPEG), compare un messaggio rosso del tipo «non è un'esportazione VIS di SatDump»: **è normale**, quella finestra non è pensata per le foto demo. Per le foto demo usa **Generazione automatica** oppure **Simulazione immagini…**.
->
-> La differenza: i dati veri di SatDump sono **cartelle** (`MSUGS_VIS1`, `MSUGS_VIS2`, …) con dentro tre canali `MSUGS-VIS-1/2/3.png`; le foto demo sono invece **sei file** `.jpg` tutti nella stessa cartella.
+> **Non devi più scegliere fra due finestre manuali.** La modalità manuale riconosce
+> sia i sei JPEG sia una cartella VIS esportata da SatDump e abilita soltanto i
+> campi necessari. Se **Avanti** resta disabilitato, il messaggio nella stessa
+> pagina indica esattamente quale file o cartella manca.
 
 **Non sai da dove iniziare?** Premi **Generazione automatica**: è il modo più veloce per vedere subito un'immagine, senza impostare nulla. Appena finisce, il risultato compare da solo nell'anteprima.
 
@@ -94,17 +95,17 @@ Nell’app premi **Generazione automatica** (oppure **Ctrl+Maiusc+D**). Elabora 
 
 Il comando qui sopra apre direttamente questa stessa demo; `bash demo.sh --no-open` la esegue senza finestra e salva in **demo-output**, con log in **logs**. I JPEG sono anteprime a 8 bit: la demo non certifica geometria assoluta o colore radiometricamente calibrato. [Provenienza e dettagli](assets/demo-jpeg/SOURCE.md).
 
-**Simulazione manuale:** premi **Simulazione immagini…** (oppure **Ctrl+Maiusc+S**) per eseguire la stessa elaborazione scegliendo tu la cartella: parte dalla cartella demo inclusa, ma puoi indicarne una tua con sei JPEG chiamati `sx_MSUGS-VIS-1/2/3.jpg` e `dx_MSUGS-VIS-1/2/3.jpg`. Non servono dati RDAS né file `.json`.
+**Modalità manuale:** premi **Crea immagine — modalità manuale…**, scegli la cartella con i sei JPEG e una nuova destinazione. Non servono dati RDAS né file `.json`; al termine si apre l’editor con le porzioni modificabili.
 
 **Niente file JSON da caricare:** il **Profilo di calibrazione** è già incluso e preselezionato (lo vedi scritto «(incluso)»). Normalmente scegli solo la **Cartella RDAS di origine** e una **Nuova cartella di destinazione**; il profilo lo lasci com’è. Se lo svuoti per errore, l’app rimette da sola quello incluso.
 
 ### Nuove funzioni nell’app
 
-- **Componi porzioni e colore…**: aggiungi più porzioni come livelli, proponi automaticamente sovrapposizioni e ritaglio dei grandi bordi uniformi, controlla le giunzioni con sostituzione, sfumatura, percorso a costo minimo o blending multibanda, disegna maschere poligonali includi/escludi, uniforma visualmente luminosità e colore fra livelli, usa i preset di canale singolo, leggi istogramma e clipping e una valutazione qualità che non dichiara mai «perfetta» un’immagine. Salva un progetto portabile (percorsi relativi) con autosalvataggio e recupero, esportalo come pacchetto autonomo ed esporta un solo PNG con report riproducibile. Dopo **Genera**, le porzioni allineate vengono aperte direttamente con le ROI del profilo come punto di partenza modificabile, senza alterare il risultato storico. Non è limitato a SX/DX. [Guida passo passo](docs/COMPOSITOR.md).
-- **Crea immagine finale…**: percorso guidato in cinque passaggi **per i dati veri di SatDump** (non per le foto demo). Al passo 1 devi indicare una cartella che contiene **direttamente** le sottocartelle `MSUGS_VIS1`, `MSUGS_VIS2`, ecc.; se scegli la cartella sbagliata (per esempio quella delle foto demo o la cartella Documenti) la procedura te lo segnala e non prosegue. Poi controlla allineamento/unione/colore, avvia l’elaborazione e l’editor si apre automaticamente sul risultato, senza cercare file intermedi. *Per provare senza dati SatDump usa invece Generazione automatica o Simulazione immagini… (vedi «Quale pulsante premo?»).*
+- **Editor manuale**: aggiungi più porzioni come livelli, proponi automaticamente sovrapposizioni e ritaglio dei grandi bordi uniformi, controlla le giunzioni con sostituzione, sfumatura, percorso a costo minimo o blending multibanda, disegna maschere poligonali includi/escludi e uniforma luminosità e colore. Dopo un’elaborazione automatica il pulsante diventa **Modifica il risultato nell’editor manuale…**. [Guida passo passo](docs/COMPOSITOR.md).
+- **Crea immagine — modalità manuale…**: un unico percorso guidato accetta i sei JPEG oppure i prodotti VIS esportati da SatDump, riconosce il contenuto, consente di cambiare origine e nuova destinazione, elabora e apre automaticamente l’editor. Il profilo JSON e il satellite sono richiesti soltanto per i dati SatDump.
 
 - **Calibrazione guidata…**: scegli dati e destinazione, controlla satellite e scala, poi avvia il calcolo. Il nuovo profilo viene selezionato per l’allineamento.
-- **Monitora acquisizioni…**: scegli la cartella di SatDump. Puoi importare un prodotto pronto o attivare l’accodamento automatico dei prodotti compatibili; l’elaborazione parte solo con **Avvia coda**.
+- **SatDump**: ORBYX segnala se trova l’eseguibile, ma lavora sulla **cartella esportata**. Non controlla SatDump e non apre direttamente CADU o altri dati grezzi. In **Mostra strumenti avanzati** puoi usare **Monitora acquisizioni…** su una cartella in cui SatDump salva i prodotti.
 - La coda viene conservata alla chiusura. Alla riapertura i risultati sono **Da verificare** finché la ripresa non riconferma i digest. Un doppio click su un lavoro ne mostra i parametri.
 - **Aggiornamenti verificati…**: installa un pacchetto con provenienza firmata o ripristina la versione precedente. [Guida semplice](docs/UPDATES.md).
 
