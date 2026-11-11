@@ -575,7 +575,8 @@ progettazione, non dipendenze da integrare automaticamente.
 ## M2-14 — Percorso manuale unico e navigazione semplificata
 
 - Priorità: P0
-- Stato: implementato, verifica CI in corso — il comando duplicato **Simulazione
+- Stato: verificato su Ubuntu 22.04/24.04/26.04 e AppImage nel
+  [run 42976235734](https://github.com/chiaraberti13/ORBYX/actions/runs/42976235734) — il comando duplicato **Simulazione
   immagini** è stato rimosso dalla navigazione principale; **Crea immagine —
   modalità manuale** riconosce sia i sei JPEG sia un'esportazione VIS di SatDump,
   abilita soltanto i campi necessari e apre il compositore dopo l'elaborazione.
