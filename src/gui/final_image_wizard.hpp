@@ -204,7 +204,11 @@ public:
         profile_ = new QLineEdit(profile); profile_->setObjectName("finalProfile");
         output_ = new QLineEdit(output); output_->setObjectName("finalOutput");
         addPath(importLayout, input_, text("Source folder: six JPEGs or SatDump export", "Cartella di origine: sei JPEG oppure esportazione SatDump"), false, false);
-        profileChoose_ = addPath(importLayout, profile_, text("Calibration profile (SatDump data only)", "Profilo di calibrazione (solo dati SatDump)"), true, false);
+        profileChoose_ = addPath(importLayout, profile_, text("Calibration profile (SatDump only; preselected and editable)", "Profilo di calibrazione (solo SatDump; precompilato e modificabile)"), true, false);
+        auto *profileNote = new QLabel(text(
+            "For a SatDump export, ORBYX proposes the included JSON automatically. You can edit the path or choose another JSON. For six JPEGs this field is disabled because it is not used.",
+            "Per un’esportazione SatDump, ORBYX propone automaticamente il JSON incluso. Puoi modificare il percorso oppure selezionare un altro JSON. Con i sei JPEG il campo viene disattivato perché non viene usato."));
+        profileNote->setObjectName("finalProfileNote"); profileNote->setWordWrap(true); importLayout->addWidget(profileNote);
         addPath(importLayout, output_, text("New working folder (ORBYX will create it)", "Nuova cartella di lavoro (verrà creata da ORBYX)"), false, true);
         auto *outputNote = new QLabel(text(
             "Choose the parent folder, then edit the complete destination shown above if desired. The destination must not already exist, so existing results are never overwritten.",
