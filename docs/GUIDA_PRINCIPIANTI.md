@@ -121,15 +121,16 @@ cartella-del-passaggio/
 └── eventuali altre porzioni MSUGS_VIS...
 ```
 
-Devi selezionare `cartella-del-passaggio`, cioè la cartella che contiene direttamente le cartelle `MSUGS_VIS...`. Non selezionare Documenti, una singola cartella `MSUGS_VIS1` o la cartella dei sei JPEG.
+Devi selezionare personalmente `cartella-del-passaggio`, cioè la cartella che contiene direttamente le cartelle `MSUGS_VIS...`. ORBYX non decide automaticamente quale acquisizione usare. Non selezionare Documenti, una singola cartella `MSUGS_VIS1` o la cartella dei sei JPEG.
 
 ### Procedura guidata
 
 1. Apri ORBYX.
 2. Premi **Crea immagine — modalità manuale…**.
 3. Nella pagina **1. Importa**:
-   - in **Cartella di origine**, scegli la cartella descritta sopra;
-   - lascia il **Profilo di calibrazione** proposto, se valido per il satellite;
+   - in **Cartella di origine**, premi **Seleziona…** e scegli tu la cartella descritta sopra;
+   - **Profilo di calibrazione** è già compilato automaticamente con il JSON incluso;
+   - se vuoi usare una calibrazione diversa, modifica direttamente il percorso oppure premi il relativo **Seleziona…** e scegli un altro `calibration.json`;
    - lascia la **Nuova cartella di lavoro** proposta;
    - controlla che sotto i campi compaiano i prodotti VIS rilevati;
    - premi **Avanti**.
@@ -145,6 +146,11 @@ Devi selezionare `cartella-del-passaggio`, cioè la cartella che contiene dirett
 8. Attendi: ORBYX allinea i canali e apre automaticamente il compositore.
 
 Se **Avanti** non procede, leggi il messaggio rosso mostrato nella stessa pagina. Il caso più comune è la selezione della cartella sbagliata.
+
+In sintesi: ORBYX propone automaticamente il profilo JSON, ma non impone quel
+file e non sceglie la cartella SatDump al posto tuo. Entrambi i percorsi rimangono
+visibili; la cartella di origine e il JSON possono essere cambiati prima di
+premere **Avanti**.
 
 ## 4. Quando serve la calibrazione
 

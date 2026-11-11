@@ -75,7 +75,7 @@ Questa è la parte più importante: **ogni pulsante serve a una cosa diversa**. 
 |---|---|---|
 | **Voglio solo vedere come funziona** (non ho dati miei) | **Generazione automatica (1 clic)** | Niente. Parte da sola con le immagini di esempio. |
 | **Ho 6 foto JPEG** chiamate `sx_`/`dx_` MSUGS-VIS-1/2/3 | **Crea immagine — modalità manuale…** | La cartella che contiene le 6 foto e una nuova destinazione. |
-| **Ho dati veri decodificati da SatDump** | **Crea immagine — modalità manuale…** | La cartella che contiene **direttamente** le sottocartelle `MSUGS_VIS1`, `MSUGS_VIS2`, ecc. |
+| **Ho dati veri decodificati da SatDump** | **Crea immagine — modalità manuale…** | Scegli tu la cartella che contiene **direttamente** `MSUGS_VIS1`, `MSUGS_VIS2`, ecc. Il profilo JSON viene proposto automaticamente, ma puoi cambiarlo. |
 | **Ho già creato un risultato automatico e voglio correggerlo** | **Modifica il risultato nell’editor manuale…** | Nulla: vengono riaperte le porzioni appena elaborate. |
 
 > **Non devi più scegliere fra due finestre manuali.** La modalità manuale riconosce
@@ -97,12 +97,12 @@ Il comando qui sopra apre direttamente questa stessa demo; `bash demo.sh --no-op
 
 **Modalità manuale:** premi **Crea immagine — modalità manuale…**, scegli la cartella con i sei JPEG e una nuova destinazione. Non servono dati RDAS né file `.json`; al termine si apre l’editor con le porzioni modificabili.
 
-**Niente file JSON da caricare:** il **Profilo di calibrazione** è già incluso e preselezionato (lo vedi scritto «(incluso)»). Normalmente scegli solo la **Cartella RDAS di origine** e una **Nuova cartella di destinazione**; il profilo lo lasci com’è. Se lo svuoti per errore, l’app rimette da sola quello incluso.
+**Come funziona il profilo JSON:** con i sei JPEG non viene utilizzato e il campo è disattivato. Se scegli un’esportazione SatDump, ORBYX compila automaticamente **Profilo di calibrazione** con il JSON incluso. Non sei obbligata a mantenerlo: puoi scrivere un altro percorso nel campo oppure premere **Seleziona…** e scegliere un altro `calibration.json`. La cartella SatDump, invece, non viene scelta al posto tuo: devi selezionare tu la cartella del passaggio che contiene direttamente `MSUGS_VIS1`, `MSUGS_VIS2`, ecc.
 
 ### Nuove funzioni nell’app
 
 - **Editor manuale**: aggiungi più porzioni come livelli, proponi automaticamente sovrapposizioni e ritaglio dei grandi bordi uniformi, controlla le giunzioni con sostituzione, sfumatura, percorso a costo minimo o blending multibanda, disegna maschere poligonali includi/escludi e uniforma luminosità e colore. Dopo un’elaborazione automatica il pulsante diventa **Modifica il risultato nell’editor manuale…**. [Guida passo passo](docs/COMPOSITOR.md).
-- **Crea immagine — modalità manuale…**: un unico percorso guidato accetta i sei JPEG oppure i prodotti VIS esportati da SatDump, riconosce il contenuto, consente di cambiare origine e nuova destinazione, elabora e apre automaticamente l’editor. Il profilo JSON e il satellite sono richiesti soltanto per i dati SatDump.
+- **Crea immagine — modalità manuale…**: un unico percorso guidato accetta i sei JPEG oppure i prodotti VIS esportati da SatDump, riconosce il contenuto, consente di cambiare origine e nuova destinazione, elabora e apre automaticamente l’editor. Per SatDump scegli personalmente la cartella di origine; ORBYX propone il JSON incluso, che rimane modificabile o sostituibile. Il profilo JSON e il satellite sono richiesti soltanto per i dati SatDump.
 
 - **Calibrazione guidata…**: scegli dati e destinazione, controlla satellite e scala, poi avvia il calcolo. Il nuovo profilo viene selezionato per l’allineamento.
 - **SatDump**: ORBYX segnala se trova l’eseguibile, ma lavora sulla **cartella esportata**. Non controlla SatDump e non apre direttamente CADU o altri dati grezzi. In **Mostra strumenti avanzati** puoi usare **Monitora acquisizioni…** su una cartella in cui SatDump salva i prodotti.

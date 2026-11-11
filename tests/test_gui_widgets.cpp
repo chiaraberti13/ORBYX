@@ -266,6 +266,9 @@ int main(int argc, char **argv) {
                                     temporary.path()+QString("/final-wizard-%1").arg(italian?"it":"en"),"L2",true);
             wizard.show();QTest::qWait(20);
             requireTest(wizard.pageIds().size()==5&&wizard.button(QWizard::FinishButton)->text().contains(italian?"editor":"editor",Qt::CaseInsensitive),"Final-image wizard does not expose five guided stages");
+            auto *satDumpProfile=wizard.findChild<QLineEdit*>("finalProfile");
+            requireTest(satDumpProfile&&satDumpProfile->isEnabled()&&!satDumpProfile->isReadOnly()&&satDumpProfile->text()==fixture+"/profile.json","SatDump profile was not preselected and editable");
+            requireTest(wizard.findChild<QLabel*>("finalProfileNote")&&!wizard.findChild<QLabel*>("finalProfileNote")->text().isEmpty(),"SatDump profile behaviour is not explained in the wizard");
             QTest::mouseClick(wizard.button(QWizard::NextButton),Qt::LeftButton);
             requireTest(wizard.currentId()==1,"Final-image wizard rejected a complete SatDump export");
             QTest::mouseClick(wizard.button(QWizard::NextButton),Qt::LeftButton);
