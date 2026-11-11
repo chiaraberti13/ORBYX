@@ -72,7 +72,8 @@ int main(int argc, char **argv) {
             auto *finalButton=w.findChild<QPushButton*>("finalImageButton");
             requireTest(finalButton&&finalButton->isVisible()&&!finalButton->accessibleName().isEmpty(),"Final-image guided action is not accessible");
             requireTest(finalButton->text().contains(lang=="it"?"manuale":"manual",Qt::CaseInsensitive),"Main manual action is not clear");
-            requireTest(!w.findChild<QPushButton*>("simulateButton")->isVisible(),"Legacy simulation action still clutters the main menu");
+            auto *legacySimulation=w.findChild<QPushButton*>("simulateButton");
+            requireTest(!legacySimulation||!legacySimulation->isVisible(),"Legacy simulation action still clutters the main menu");
             bool compositorOpened=false;
             QTimer closeCompositor;closeCompositor.setInterval(20);
             QObject::connect(&closeCompositor,&QTimer::timeout,[&]{if(auto* dialog=dynamic_cast<MosaicDialog*>(QApplication::activeModalWidget())){compositorOpened=true;dialog->reject();}});

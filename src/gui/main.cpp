@@ -855,7 +855,7 @@ public:
         demoButton=new QPushButton;demoButton->setObjectName("demoButton");
         demoButton->setShortcut(QKeySequence("Ctrl+Shift+D"));header->addWidget(demoButton);
         connect(demoButton,&QPushButton::clicked,this,[this]{runAutomaticGeneration();});
-        simulateButton=new QPushButton;simulateButton->setObjectName("simulateButton");
+        simulateButton=new QPushButton(this);simulateButton->setObjectName("simulateButton");
         simulateButton->setShortcut(QKeySequence("Ctrl+Shift+S"));simulateButton->hide();
         connect(simulateButton,&QPushButton::clicked,this,[this]{imageSimulationDialog();});
         header->addWidget(languageLabel); header->addWidget(language); header->addSpacing(12); header->addWidget(themeLabel); header->addWidget(theme); page->addWidget(headerWidget);
