@@ -89,6 +89,29 @@ int main(int argc,char **argv) {
             const auto lraw=cv::imread((lout/"composite-raw.png").string(),cv::IMREAD_UNCHANGED);
             check(lraw.type()==CV_8UC3&&lraw.size()==cv::Size(2*ls.width,ls.height),"Large composite has wrong size or depth at full resolution");
         }
+        // Export enlargement: scale 2 produces a 2x larger composite (interpolated).
+        {
+            const fs::path sout=root/"scaled-out";
+            orbyx::runImageDemo(input,sout,{},2);
+            const auto sraw=cv::imread((sout/"composite-raw.png").string(),cv::IMREAD_UNCHANGED);
+            check(sraw.type()==CV_8UC3&&sraw.size()==cv::Size(2856,2856),"Export scale did not enlarge the composite");
+            Json::Value sreport;std::ifstream sf(sout/"demo-report.json");sf>>sreport;
+            check(sreport["display"]["export_scale"].asInt()==2,"Export scale not recorded");
+        }
+        // PNG inputs (lossless, e.g. SatDump exports) are accepted alongside JPEG.
+        {
+            const fs::path pin=root/"png",pout=root/"png-out";
+            fs::create_directory(pin);
+            const cv::Size ps(500,1400);
+            for(const auto *side:{"sx","dx"})for(int c=1;c<=3;++c) {
+                const cv::Mat body=cv::imread((input/(std::string(side)+"_MSUGS-VIS-"+std::to_string(c)+".jpg")).string(),cv::IMREAD_GRAYSCALE)(cv::Rect(0,80,714,1968));
+                cv::Mat small;cv::resize(body,small,ps,0,0,cv::INTER_AREA);
+                check(cv::imwrite((pin/(std::string(side)+"_MSUGS-VIS-"+std::to_string(c)+".png")).string(),small),"Could not encode PNG demo input");
+            }
+            orbyx::runImageDemo(pin,pout);
+            const auto praw=cv::imread((pout/"composite-raw.png").string(),cv::IMREAD_UNCHANGED);
+            check(praw.type()==CV_8UC3&&praw.size()==cv::Size(2*ps.width,ps.height),"PNG demo input produced wrong composite");
+        }
         const auto reject=[&](const fs::path& source,const fs::path& destination) {
             try {orbyx::runImageDemo(source,destination);}catch(const std::exception&){return true;}return false;
         };

@@ -15,38 +15,50 @@ namespace {
 void checkDemo(bool condition,const char *message) {
     if(!condition) throw std::runtime_error(message);
 }
-cv::Mat readDemoJpeg(const std::filesystem::path& source) {
+cv::Mat readDemoImage(const std::filesystem::path& source) {
     checkDemo(std::filesystem::is_regular_file(std::filesystem::symlink_status(source)),"Demo input must be a regular file");
     const auto size=std::filesystem::file_size(source);
-    checkDemo(size>=4&&size<=40*1024*1024,"Demo JPEG size exceeds bounds");
+    checkDemo(size>=4&&size<=40*1024*1024,"Demo image size exceeds bounds");
     std::vector<unsigned char> bytes(size);
     std::ifstream stream(source,std::ios::binary);stream.read(reinterpret_cast<char*>(bytes.data()),bytes.size());
-    checkDemo(size_t(stream.gcount())==size&&stream.peek()==std::char_traits<char>::eof(),"Demo JPEG changed while reading");
-    checkDemo(bytes[0]==255&&bytes[1]==216,"Demo input is not JPEG");
-    bool dimensions=false;
-    for(size_t offset=2;offset+3<bytes.size();) {
-        checkDemo(bytes[offset++]==255,"Invalid JPEG marker");
-        while(offset<bytes.size()&&bytes[offset]==255)++offset;
-        if(offset>=bytes.size())throw std::runtime_error("Incomplete JPEG marker");
-        auto marker=bytes.at(offset++);
-        if(marker==0xda||marker==0xd9)break;
-        if(marker==0x01||(marker>=0xd0&&marker<=0xd7))continue;
-        checkDemo(offset+2<=bytes.size(),"Incomplete JPEG length");
-        size_t length=(unsigned(bytes[offset])<<8)|bytes[offset+1];
-        checkDemo(length>=2&&length<=bytes.size()-offset,"Invalid JPEG segment length");
-        if(marker==0xc0||marker==0xc1||marker==0xc2) {
-            checkDemo(length>=8,"Incomplete JPEG dimensions");
-            int h=(unsigned(bytes[offset+3])<<8)|bytes[offset+4],w=(unsigned(bytes[offset+5])<<8)|bytes[offset+6];
-            checkDemo(bytes[offset+2]==8,"Demo requires 8-bit JPEGs");
-            checkDemo(w>0&&h>0&&w<=20000&&h<=20000&&static_cast<long long>(w)*h<=150000000,
-                "Demo JPEG resolution out of range (max 20000 per side, 150 Mpx)");
-            dimensions=true;break;
+    checkDemo(size_t(stream.gcount())==size&&stream.peek()==std::char_traits<char>::eof(),"Demo image changed while reading");
+    const bool isJpeg=bytes[0]==255&&bytes[1]==216;
+    const bool isPng=size>=33&&bytes[0]==0x89&&bytes[1]==0x50&&bytes[2]==0x4E&&bytes[3]==0x47&&
+        bytes[4]==0x0D&&bytes[5]==0x0A&&bytes[6]==0x1A&&bytes[7]==0x0A;
+    checkDemo(isJpeg||isPng,"Demo input must be a JPEG or PNG image");
+    int w=0,h=0;
+    if(isJpeg) {
+        bool dimensions=false;
+        for(size_t offset=2;offset+3<bytes.size();) {
+            checkDemo(bytes[offset++]==255,"Invalid JPEG marker");
+            while(offset<bytes.size()&&bytes[offset]==255)++offset;
+            if(offset>=bytes.size())throw std::runtime_error("Incomplete JPEG marker");
+            auto marker=bytes.at(offset++);
+            if(marker==0xda||marker==0xd9)break;
+            if(marker==0x01||(marker>=0xd0&&marker<=0xd7))continue;
+            checkDemo(offset+2<=bytes.size(),"Incomplete JPEG length");
+            size_t length=(unsigned(bytes[offset])<<8)|bytes[offset+1];
+            checkDemo(length>=2&&length<=bytes.size()-offset,"Invalid JPEG segment length");
+            if(marker==0xc0||marker==0xc1||marker==0xc2) {
+                checkDemo(length>=8,"Incomplete JPEG dimensions");
+                h=(unsigned(bytes[offset+3])<<8)|bytes[offset+4];w=(unsigned(bytes[offset+5])<<8)|bytes[offset+6];
+                checkDemo(bytes[offset+2]==8,"Demo requires 8-bit JPEGs");
+                dimensions=true;break;
+            }
+            offset+=length;
         }
-        offset+=length;
+        checkDemo(dimensions,"JPEG dimensions not found");
+    } else {
+        // PNG: validate the IHDR chunk and read the declared dimensions. Any bit
+        // depth is accepted; IMREAD_GRAYSCALE normalises it to 8-bit for the demo.
+        checkDemo(bytes[12]=='I'&&bytes[13]=='H'&&bytes[14]=='D'&&bytes[15]=='R',"Invalid PNG header");
+        w=int((unsigned(bytes[16])<<24)|(unsigned(bytes[17])<<16)|(unsigned(bytes[18])<<8)|unsigned(bytes[19]));
+        h=int((unsigned(bytes[20])<<24)|(unsigned(bytes[21])<<16)|(unsigned(bytes[22])<<8)|unsigned(bytes[23]));
     }
-    checkDemo(dimensions,"JPEG dimensions not found");
+    checkDemo(w>0&&h>0&&w<=20000&&h<=20000&&static_cast<long long>(w)*h<=150000000,
+        "Demo image resolution out of range (max 20000 per side, 150 Mpx)");
     auto image=cv::imdecode(bytes,cv::IMREAD_GRAYSCALE|cv::IMREAD_IGNORE_ORIENTATION);
-    checkDemo(!image.empty()&&image.type()==CV_8UC1,"Cannot decode demo JPEG");
+    checkDemo(!image.empty()&&image.type()==CV_8UC1&&image.cols==w&&image.rows==h,"Cannot decode demo image");
     return image;
 }
 void saveDemo(const std::filesystem::path& file,const cv::Mat& image) {
@@ -79,7 +91,7 @@ std::pair<int,double> seamShift(const cv::Mat& left,const cv::Mat& right,bool bu
     return {shift,best};
 }
 }
-void runImageDemo(const std::filesystem::path& input,const std::filesystem::path& output,const Log& log) {
+void runImageDemo(const std::filesystem::path& input,const std::filesystem::path& output,const Log& log,int exportScale) {
     namespace fs=std::filesystem;
     // Output creation is exclusive. Never delete a destination owned by someone else.
     checkDemo(fs::create_directory(output),"Demo output already exists");
@@ -94,9 +106,12 @@ void runImageDemo(const std::filesystem::path& input,const std::filesystem::path
             std::array<cv::Mat,3> images;
             std::array<fs::path,3> files;
             for(int c=0;c<3;++c) {
-                const auto source=input/(name+"_MSUGS-VIS-"+std::to_string(c+1)+".jpg");
+                const std::string stem=name+"_MSUGS-VIS-"+std::to_string(c+1);
+                // Accept either a lossless PNG (preferred for SatDump exports) or a JPEG.
+                fs::path source=input/(stem+".jpg");
+                if(!fs::is_regular_file(fs::symlink_status(source)))source=input/(stem+".png");
                 checkDemo(!fs::is_symlink(fs::symlink_status(source)),"Demo image must not be a symlink");
-                auto image=readDemoJpeg(source);
+                auto image=readDemoImage(source);
                 if(baseSize.width<0) {
                     baseSize=image.size();
                     bundled=(baseSize==cv::Size(714,2048));
@@ -161,6 +176,13 @@ void runImageDemo(const std::filesystem::path& input,const std::filesystem::path
         // MSU-GS VIS previews are acquired South-up; present the finished composite
         // North-up. Rotation is applied to the whole composed frame after cropping.
         cv::rotate(raw,raw,cv::ROTATE_180);
+        // Optional export enlargement (1..4, interpolated: more pixels, not more
+        // detail). Clamp the factor so the enlarged output stays bounded in memory.
+        int scale=std::clamp(exportScale,1,4);
+        while(scale>1&&(static_cast<long long>(raw.cols)*scale>20000||static_cast<long long>(raw.rows)*scale>20000||
+              static_cast<long long>(raw.cols)*raw.rows*scale*scale>200000000))--scale;
+        if(scale>1)cv::resize(raw,raw,cv::Size(raw.cols*scale,raw.rows*scale),0,0,cv::INTER_CUBIC);
+        report["display"]["export_scale"]=scale;
         saveDemo(output/"composite-raw.png",raw);
         cv::Mat display;raw.convertTo(display,CV_32F,1./180.,-8./180.);
         cv::max(display,0,display);cv::min(display,1,display);cv::pow(display,.8,display);display.convertTo(display,CV_8U,255);

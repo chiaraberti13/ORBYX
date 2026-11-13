@@ -71,9 +71,9 @@ const QMap<QString, QString> italian = {
  {"Calibration profile (included)", "Profilo di calibrazione (incluso)"},
  {"Run the image demo on a chosen folder of six JPEGs; defaults to the bundled demo images.",
   "Esegue la demo su una cartella di sei JPEG a tua scelta; predefinita la cartella demo inclusa."},
- {"Choose six demo JPEGs (sx_/dx_ MSUGS-VIS-1/2/3)", "Scegli sei JPEG demo (sx_/dx_ MSUGS-VIS-1/2/3)"},
- {"This folder does not contain the six JPEGs sx_/dx_ MSUGS-VIS-1/2/3.",
-  "Questa cartella non contiene i sei JPEG sx_/dx_ MSUGS-VIS-1/2/3."},
+ {"Choose six demo images (sx_/dx_ MSUGS-VIS-1/2/3, JPEG or PNG)", "Scegli sei immagini demo (sx_/dx_ MSUGS-VIS-1/2/3, JPEG o PNG)"},
+ {"This folder does not contain the six images sx_/dx_ MSUGS-VIS-1/2/3 (JPEG or PNG).",
+  "Questa cartella non contiene le sei immagini sx_/dx_ MSUGS-VIS-1/2/3 (JPEG o PNG)."},
  {"New output folder", "Nuova cartella di destinazione"},
  {"Select…", "Seleziona…"}, {"Satellite", "Satellite"}, {"Operation", "Operazione"},
  {"Align channels", "Allinea canali"}, {"Calculate calibration", "Calcola calibrazione"},
@@ -124,11 +124,11 @@ const QMap<QString, QString> italian = {
  {"Automatic generation", "Generazione automatica"},
  {"Process the six JPEGs placed in the automatic-generation folder, with no parameters.",
   "Elabora i sei JPEG inseriti nella cartella di generazione automatica, senza alcun parametro."},
- {"Put the six JPEGs sx_/dx_ MSUGS-VIS-1/2/3 in this folder, then press Automatic generation again:",
-  "Inserisci i sei JPEG sx_/dx_ MSUGS-VIS-1/2/3 in questa cartella, poi premi di nuovo Generazione automatica:"},
+ {"Put the six images sx_/dx_ MSUGS-VIS-1/2/3 (JPEG or PNG) in this folder, then press Automatic generation again:",
+  "Inserisci le sei immagini sx_/dx_ MSUGS-VIS-1/2/3 (JPEG o PNG) in questa cartella, poi premi di nuovo Generazione automatica:"},
  {"Automatic generation from", "Generazione automatica da"},
- {"Replace the images in that folder with your own (sx_/dx_ MSUGS-VIS-1/2/3.jpg) and press again.",
-  "Sostituisci le immagini in quella cartella con le tue (sx_/dx_ MSUGS-VIS-1/2/3.jpg) e premi di nuovo."},
+ {"Replace the images in that folder with your own (sx_/dx_ MSUGS-VIS-1/2/3, .jpg or .png — PNG is lossless) and press again.",
+  "Sostituisci le immagini in quella cartella con le tue (sx_/dx_ MSUGS-VIS-1/2/3, .jpg o .png — il PNG è senza perdita) e premi di nuovo."},
  {"Real JPEG demo — six channels, one image", "Demo JPEG reali — sei canali, un’unica immagine"},
  {"Align the six bundled JPEGs and join the left and right halves.", "Allinea i sei JPEG inclusi e unisce le metà sinistra e destra."},
  {"Demo image saved", "Immagine demo salvata"},
@@ -164,11 +164,11 @@ class Window final : public QMainWindow {
     double guidedScale=1.0;
     QPixmap image;
     double zoom = 1.0;
-    QLabel *subtitle{}, *eyebrow{}, *inputLabel{}, *configLabel{}, *outputLabel{}, *satLabel{}, *modeLabel{}, *engineLabel{}, *hint{}, *previewTitle{}, *empty{}, *status{}, *activityTitle{}, *languageLabel{}, *themeLabel{}, *previewNote{}, *manualHint{};
+    QLabel *subtitle{}, *eyebrow{}, *inputLabel{}, *configLabel{}, *outputLabel{}, *satLabel{}, *modeLabel{}, *engineLabel{}, *hint{}, *previewTitle{}, *empty{}, *status{}, *activityTitle{}, *languageLabel{}, *themeLabel{}, *previewNote{}, *manualHint{}, *exportScaleLabel{};
     QGroupBox *setup{};
     QLineEdit *input{}, *config{}, *output{};
     QPushButton *inputBrowse{}, *configBrowse{}, *outputBrowse{}, *start{}, *fit{}, *plus{}, *minus{}, *clear{};
-    QComboBox *satellite{}, *mode{}, *engine{}, *language{}, *theme{}, *source{}, *channel{};
+    QComboBox *satellite{}, *mode{}, *engine{}, *language{}, *theme{}, *source{}, *channel{}, *exportScale{};
     QProgressBar *progress{};
     QScrollArea *scroll{};
     QLabel *canvas{};
@@ -222,6 +222,9 @@ class Window final : public QMainWindow {
         previewNote->setText(trText("Full-resolution exports are unchanged; preview is limited to 2048 pixels."));
         fit->setText(trText("Fit")); plus->setAccessibleName(trText("Zoom in")); minus->setAccessibleName(trText("Zoom out"));
         activityTitle->setText(trText("Activity")); clear->setText(trText("Clear")); languageLabel->setText(trText("Language")); themeLabel->setText(trText("Theme"));
+        exportScaleLabel->setText(it?"Ingrandimento":"Enlarge");
+        exportScale->setAccessibleName(it?"Ingrandimento dell'immagine finale":"Final image enlargement");
+        exportScale->setToolTip(it?"Ingrandisce il risultato in esportazione (interpolato: più pixel, non più dettaglio).":"Enlarges the exported result (interpolated: more pixels, not more detail).");
         log->setAccessibleName(trText("Technical diagnostics from the processing engine"));
         satellite->setAccessibleName(trText("Satellite")); mode->setAccessibleName(trText("Operation")); engine->setAccessibleName(trText("Processing engine"));
         language->setAccessibleName(trText("Language")); theme->setAccessibleName(trText("Theme")); source->setAccessibleName(trText("Image preview")); channel->setAccessibleName(trText("Preview channel"));
@@ -382,9 +385,10 @@ class Window final : public QMainWindow {
     }
     bool hasDemoImages(const QString &folder) const {
         if (folder.isEmpty()) return false;
-        for (const QString &name : {"sx_MSUGS-VIS-1.jpg","sx_MSUGS-VIS-2.jpg","sx_MSUGS-VIS-3.jpg",
-             "dx_MSUGS-VIS-1.jpg","dx_MSUGS-VIS-2.jpg","dx_MSUGS-VIS-3.jpg"})
-            if (!QFileInfo(QDir(folder).filePath(name)).isFile()) return false;
+        for (const QString &stem : {"sx_MSUGS-VIS-1","sx_MSUGS-VIS-2","sx_MSUGS-VIS-3",
+             "dx_MSUGS-VIS-1","dx_MSUGS-VIS-2","dx_MSUGS-VIS-3"})
+            if (!QFileInfo(QDir(folder).filePath(stem+".jpg")).isFile() &&
+                !QFileInfo(QDir(folder).filePath(stem+".png")).isFile()) return false;
         return true;
     }
     // Manual image simulation: run the real image pipeline on a folder of six
@@ -441,13 +445,14 @@ class Window final : public QMainWindow {
         const QString logPath=QDir(orbyx::gui::logsRoot()).filePath("image-"+token+".log");
         setProperty("demoFinished",false);
         demoMode=true;setQueueBusy(true);progress->setRange(0,0);applyText();status->setText(trText("Processing…"));
-        auto *worker=QThread::create([this,sample,destination,logPath,openEditorAfter] {
+        const int scale=exportScale?exportScale->currentIndex()+1:1;
+        auto *worker=QThread::create([this,sample,destination,logPath,openEditorAfter,scale] {
             QString error;QStringList entries;
             try {
                 orbyx::runImageDemo(sample.toStdString(),destination.toStdString(),[this,&entries](const std::string &line) {
                     const auto text=QString::fromStdString(line);entries.append(text);
                     QMetaObject::invokeMethod(this,[this,text]{log->append(text.toHtmlEscaped());},Qt::QueuedConnection);
-                });
+                },scale);
             } catch (const std::exception &e) {error=QString::fromUtf8(e.what());}
             catch (...) {error="Unknown processing exception";}
             if (!error.isEmpty())entries.append("ERROR: "+error);
@@ -855,6 +860,10 @@ public:
         demoButton=new QPushButton;demoButton->setObjectName("demoButton");
         demoButton->setShortcut(QKeySequence("Ctrl+Shift+D"));header->addWidget(demoButton);
         connect(demoButton,&QPushButton::clicked,this,[this]{runAutomaticGeneration();});
+        exportScaleLabel=label("muted");exportScale=new QComboBox;exportScale->setObjectName("exportScale");
+        exportScale->addItems({"1×","2×","3×","4×"});exportScale->setCurrentIndex(qBound(1,settings.value("exportScale",1).toInt(),4)-1);
+        connect(exportScale,qOverload<int>(&QComboBox::currentIndexChanged),this,[this](int i){settings.setValue("exportScale",i+1);});
+        header->addWidget(exportScaleLabel);header->addWidget(exportScale);
         simulateButton=new QPushButton(this);simulateButton->setObjectName("simulateButton");
         simulateButton->setShortcut(QKeySequence("Ctrl+Shift+S"));simulateButton->hide();
         connect(simulateButton,&QPushButton::clicked,this,[this]{imageSimulationDialog();});
