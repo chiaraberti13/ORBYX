@@ -161,7 +161,6 @@ Per iniziare non è necessario usare i comandi di elaborazione: puoi scegliere d
 
 ## Informazioni sul progetto
 
-- [Funzioni ancora da completare](ROADMAP.md) e [lavoro già verificato](PROGRESS.md).
 - [Verifiche su dati reali, piattaforme e limiti](docs/VERIFICATION_STATUS.md). GPU effettiva e geometria assoluta non sono certificate.
 - [Elaborazione batch](docs/BATCH.md), [Natural Color](docs/NATURAL_COLOR.md) e [architettura](docs/ADR-001-language.md).
 - [Segnalazioni di sicurezza](SECURITY.md).

@@ -134,6 +134,6 @@ Beginners can choose inputs and outputs in the desktop instead.
 
 ## Project information
 
-[Roadmap](ROADMAP.md) · [Observed progress](PROGRESS.md) · [Real validation status](docs/VERIFICATION_STATUS.md) · [Batch](docs/BATCH.md) · [Natural Color](docs/NATURAL_COLOR.md) · [Security](SECURITY.md).
+[Real validation status](docs/VERIFICATION_STATUS.md) · [Batch](docs/BATCH.md) · [Natural Color](docs/NATURAL_COLOR.md) · [Security](SECURITY.md).
 
 Actual GPU execution and absolute geometry remain uncertified. ORBYX derives from [Digitelektro's RDAS Layer Aligner](https://github.com/Digitelektro/rdas_layer_aligner), using C++17/OpenCV and Qt6. [GPLv3](LICENSE); [third-party notices](THIRD_PARTY_NOTICES.md). Originals remain separate from results.
