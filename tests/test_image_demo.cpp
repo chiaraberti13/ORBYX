@@ -73,6 +73,22 @@ int main(int argc,char **argv) {
             Json::Value greport;std::ifstream gf(gout/"demo-report.json");gf>>greport;
             check(!greport["geometry"]["bundled_sample"].asBool()&&greport["geometry"]["output_width"].asInt()==2*gs.width,"Generic report geometry wrong");
         }
+        // Large resolution (>2048 px long side): exercises the bounded-estimate path
+        // (ECC and seam measured on a reduced image, then applied at full resolution)
+        // and confirms the final composite is produced at full 2W x H size.
+        {
+            const fs::path lin=root/"large",lout=root/"large-out";
+            fs::create_directory(lin);
+            const cv::Size ls(1400,3000);
+            for(size_t i=0;i<names.size();++i) {
+                const cv::Mat body=cv::imread((input/names[i]).string(),cv::IMREAD_GRAYSCALE)(cv::Rect(0,80,714,1968));
+                cv::Mat big;cv::resize(body,big,ls,0,0,cv::INTER_LINEAR);
+                check(cv::imwrite((lin/names[i]).string(),big,{cv::IMWRITE_JPEG_QUALITY,95}),"Could not encode large JPEG");
+            }
+            orbyx::runImageDemo(lin,lout);
+            const auto lraw=cv::imread((lout/"composite-raw.png").string(),cv::IMREAD_UNCHANGED);
+            check(lraw.type()==CV_8UC3&&lraw.size()==cv::Size(2*ls.width,ls.height),"Large composite has wrong size or depth at full resolution");
+        }
         const auto reject=[&](const fs::path& source,const fs::path& destination) {
             try {orbyx::runImageDemo(source,destination);}catch(const std::exception&){return true;}return false;
         };

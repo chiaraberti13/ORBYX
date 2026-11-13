@@ -38,8 +38,8 @@ cv::Mat readDemoJpeg(const std::filesystem::path& source) {
             checkDemo(length>=8,"Incomplete JPEG dimensions");
             int h=(unsigned(bytes[offset+3])<<8)|bytes[offset+4],w=(unsigned(bytes[offset+5])<<8)|bytes[offset+6];
             checkDemo(bytes[offset+2]==8,"Demo requires 8-bit JPEGs");
-            checkDemo(w>0&&h>0&&w<=20000&&h<=20000&&static_cast<long long>(w)*h<=64000000,
-                "Demo JPEG resolution out of range (max 20000 per side, 64 Mpx)");
+            checkDemo(w>0&&h>0&&w<=20000&&h<=20000&&static_cast<long long>(w)*h<=150000000,
+                "Demo JPEG resolution out of range (max 20000 per side, 150 Mpx)");
             dimensions=true;break;
         }
         offset+=length;
@@ -109,15 +109,24 @@ void runImageDemo(const std::filesystem::path& input,const std::filesystem::path
                 files[c]=output/(name+"-ch"+std::to_string(c+1)+".png");
             }
             reference[side]=images[0].clone();
-            cv::Mat ref;images[0].convertTo(ref,CV_32F);
+            // Estimate the per-channel registration on a bounded working image
+            // (<=2048 px long side) to keep CPU and memory sane on large inputs;
+            // the resulting transform is rescaled and applied at full resolution.
+            // The bundled 1968-px halves (and any image already <=2048) use est=1,
+            // so their estimation and byte output are unchanged.
+            const double est=std::min(1.0,2048.0/std::max(images[0].cols,images[0].rows));
+            auto reduced=[&](const cv::Mat& m){cv::Mat r=m;if(est<1.0)cv::resize(m,r,{},est,est,cv::INTER_AREA);cv::Mat f;r.convertTo(f,CV_32F);return f;};
+            cv::Mat ref=reduced(images[0]);
             for(int c=1;c<3;++c) {
-                cv::Mat target;images[c].convertTo(target,CV_32F);
+                cv::Mat target=reduced(images[c]);
                 double response=0;auto shift=cv::phaseCorrelate(ref,target,cv::noArray(),&response);
                 checkDemo(response>.2&&std::isfinite(shift.x)&&std::isfinite(shift.y),"Unreliable demo channel displacement");
                 cv::Mat warp=(cv::Mat_<float>(2,3)<<1,0,float(shift.x),0,1,float(shift.y));
                 const double score=cv::findTransformECC(ref,target,warp,cv::MOTION_AFFINE,
                     cv::TermCriteria(cv::TermCriteria::COUNT|cv::TermCriteria::EPS,100,1e-6),cv::noArray(),5);
                 checkDemo(std::isfinite(score)&&score>.85&&cv::checkRange(warp),"Demo ECC registration failed");
+                // Translations were measured in the reduced frame; rescale to full pixels.
+                warp.at<float>(0,2)=float(warp.at<float>(0,2)/est);warp.at<float>(1,2)=float(warp.at<float>(1,2)/est);
                 const double maxTx=bundled?20.0:0.1*baseSize.width;
                 const double maxTy=bundled?500.0:0.3*(baseSize.height-header);
                 checkDemo(std::abs(warp.at<float>(0,0)-1)<.03&&std::abs(warp.at<float>(1,1)-1)<.03&&
@@ -132,7 +141,14 @@ void runImageDemo(const std::filesystem::path& input,const std::filesystem::path
             composeNaturalColor(files,output/(name+"-natural.png"));
             natural[side]=cv::imread((output/(name+"-natural.png")).string());
         }
-        auto [shift,score]=seamShift(reference[0],reference[1],bundled);
+        // Estimate the seam on a bounded working image as well (bundled halves are
+        // <=2048 px, so seamEst=1 and the measured seam is byte-identical); the
+        // integer shift is then scaled back to full-resolution pixels.
+        const double seamEst=std::min(1.0,2048.0/std::max({reference[0].rows,reference[0].cols,reference[1].rows,reference[1].cols}));
+        cv::Mat seamL=reference[0],seamR=reference[1];
+        if(seamEst<1.0){cv::resize(reference[0],seamL,{},seamEst,seamEst,cv::INTER_AREA);cv::resize(reference[1],seamR,{},seamEst,seamEst,cv::INTER_AREA);}
+        auto [shiftEst,score]=seamShift(seamL,seamR,bundled);
+        const int shift=int(std::lround(shiftEst/seamEst));
         report["seam"]["right_down_pixels"]=-shift;report["seam"]["edge_correlation"]=score;
         report["seam"]["horizontal_overlap_pixels"]=0;
         cv::Mat adjusted;
