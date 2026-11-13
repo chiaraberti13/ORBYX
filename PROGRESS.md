@@ -1453,6 +1453,16 @@ inclusa byte-identica:
   intermedi e i file `*-natural.png` restano nell'orientamento sorgente, quindi la
   riapertura nell'editor manuale mostra per ora le porzioni non ruotate (allineamento
   dell'editor da valutare se richiesto).
+- **Immagini grandi senza OOM**: limite risoluzione per JPEG demo alzato da 64 a **150 Mpx**
+  (coerente con `readImage`, `engine.cpp:129`; il precedente 64 Mpx era incoerente col limite
+  peso di 40 MB). L'allineamento ECC e la giunzione sono ora **stimati su un'immagine ridotta
+  ≤2048 px** (`cv::resize` + riscalatura di traslazioni e shift) e applicati a **piena
+  risoluzione** in export, per contenere CPU e memoria su input grandi. Il bundled 714×1968 e
+  ogni immagine con lato ≤2048 px usano `est=1`, quindi stima e byte restano invariati.
+  Prova end-to-end: sei JPEG 3000×8000 → composite **6000×8000 (48 Mpx, 27 MB)** in ~11 s;
+  `image-demo-regression` esteso con un caso >2048 px (1400×3000 → 2800×3000) oltre a bundled
+  e generico piccolo. L'immagine finale resta a piena risoluzione = 2·larghezza·altezza
+  dell'input (nessuna riduzione in export; solo l'anteprima a schermo è limitata a 2048 px).
 
 Verifica effettiva locale (Ubuntu 24.04, OpenCV 4.6.0, Qt 6.4.2, GCC 13.3):
 - Core: `image-demo-regression` verde con nuovo caso a risoluzione non-standard
