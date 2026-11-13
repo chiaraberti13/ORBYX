@@ -94,6 +94,13 @@ dx_MSUGS-VIS-3.jpg
 
 Ogni elaborazione crea una nuova sottocartella: i risultati precedenti non vengono sovrascritti.
 
+> **Requisiti delle immagini.** Le sei immagini devono avere tutte la stessa
+> risoluzione, essere JPEG a 8 bit e pesare al massimo 40 MB ciascuna. Non è più
+> richiesta la risoluzione fissa 714×2048: puoi usare le tue dimensioni. Con
+> immagini diverse da quelle dimostrative incluse, ORBYX non applica il ritaglio
+> automatico del disco e la giunzione fra le due metà potrebbe richiedere un
+> ritocco in **Modifica il risultato nell'editor manuale…**.
+
 ### Scegliere manualmente una cartella con sei JPEG
 
 1. Premi **Crea immagine — modalità manuale…**.

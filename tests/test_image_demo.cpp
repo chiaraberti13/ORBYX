@@ -49,6 +49,30 @@ int main(int argc,char **argv) {
         for(const auto *side:{"sx","dx"})for(const auto *channel:{"2","3"})
             check(report["alignment"][side][channel]["ecc"].asDouble()>.94,"Registration below reference threshold");
         check(report["seam"]["right_down_pixels"].asInt()==4,"Wrong measured seam shift");
+        // Non-bundled resolution: the same imagery resized to a different size must
+        // run through the generic path and yield a full 2W x H composite with the
+        // channels kept whole (no fixed 80-row header removed, no disk crop).
+        {
+            const fs::path gin=root/"generic",gout=root/"generic-out";
+            fs::create_directory(gin);
+            const cv::Size gs(500,1400);
+            for(size_t i=0;i<names.size();++i) {
+                // Exclude the 80-row calibration ramp first, then resize: a user's own
+                // images would not carry that ramp, so the fixture must not either.
+                const cv::Mat body=cv::imread((input/names[i]).string(),cv::IMREAD_GRAYSCALE)(cv::Rect(0,80,714,1968));
+                cv::Mat small;cv::resize(body,small,gs,0,0,cv::INTER_AREA);
+                check(cv::imwrite((gin/names[i]).string(),small,{cv::IMWRITE_JPEG_QUALITY,95}),"Could not encode generic JPEG");
+            }
+            orbyx::runImageDemo(gin,gout);
+            const auto graw=cv::imread((gout/"composite-raw.png").string(),cv::IMREAD_UNCHANGED);
+            check(graw.type()==CV_8UC3&&graw.size()==cv::Size(2*gs.width,gs.height),"Generic composite has wrong size or depth");
+            for(const auto *side:{"sx","dx"}) {
+                const auto ch=cv::imread((gout/(std::string(side)+"-ch1.png")).string(),cv::IMREAD_UNCHANGED);
+                check(ch.type()==CV_8UC1&&ch.size()==gs,"Generic channel not kept whole at input size");
+            }
+            Json::Value greport;std::ifstream gf(gout/"demo-report.json");gf>>greport;
+            check(!greport["geometry"]["bundled_sample"].asBool()&&greport["geometry"]["output_width"].asInt()==2*gs.width,"Generic report geometry wrong");
+        }
         const auto reject=[&](const fs::path& source,const fs::path& destination) {
             try {orbyx::runImageDemo(source,destination);}catch(const std::exception&){return true;}return false;
         };
@@ -64,13 +88,13 @@ int main(int argc,char **argv) {
         // analysis highlighted. It must throw before accessing another byte.
         write(bad/names[0],{char(255),char(216),char(255),char(255),char(255),char(255)});
         check(reject(bad,failed)&&!fs::exists(failed),"Incomplete marker accepted");
-        write(bad/names[0],std::vector<char>(1024*1024+1,'x'));
+        write(bad/names[0],std::vector<char>(40*1024*1024+1,'x'));
         check(reject(bad,failed)&&!fs::exists(failed),"Oversized JPEG accepted");
         fs::remove(bad/names[0]);fs::create_symlink(fs::absolute(input/names[0]),bad/names[0]);
         check(reject(bad,failed)&&!fs::exists(failed),"Symlink input accepted");
         fs::remove(bad/names[0]);
         check(reject(bad,failed)&&!fs::exists(failed),"Missing channel accepted");
-        std::cout<<"Real six-JPEG composition, source preservation, measured seam, truncation bounds, size limits, symlink rejection and rollback passed\n";
+        std::cout<<"Real six-JPEG composition, generic-resolution path, source preservation, measured seam, truncation bounds, size limits, symlink rejection and rollback passed\n";
         fs::remove_all(root);return 0;
     }catch(const std::exception& error) {
         if(!root.empty()){std::error_code ignored;fs::remove_all(root,ignored);}

@@ -1423,3 +1423,41 @@ repository su GitHub) e italiano in `README.it.md`. Spostato il contenuto ingles
 `README.en.md` a `README.md` (rename, storia conservata), ripuntati i link di lingua
 all'inglese su `README.md` in entrambi i file. `README.en.md` rimosso. Restano due
 soli README: `README.md` (EN) e `README.it.md` (IT).
+
+## 2026-11-13 — Limiti demo rilassati su richiesta (peso, risoluzione, satellite L3)
+
+Su richiesta dell'utente (errore reale «Demo JPEG size exceeds bounds» nella
+Generazione automatica) rilassati i vincoli rigidi della demo, mantenendo la demo
+inclusa byte-identica:
+
+- **Peso**: il limite per JPEG demo passa da 1 MiB a **40 MiB** (`src/core/image_demo.cpp`,
+  `readDemoJpeg`). Il test del limite in `tests/test_image_demo.cpp` è aggiornato a
+  40 MiB + 1 (rifiuto effettivo).
+- **Risoluzione libera**: tolto il vincolo fisso 714×2048; si accettano sei JPEG **8 bit
+  di qualunque risoluzione uguale tra loro** (limiti di sanità ≤20000 px/lato, ≤64 Mpx).
+  La demo inclusa 714×2048 segue un **branch dedicato byte-identico** (crop rampe 80 px,
+  framing disco 1428×1428, banda seam 140..1380/±12 invariate, seam misurato = 4); le
+  altre dimensioni usano un percorso proporzionale: niente ritaglio del disco, esclusione
+  rampe disattivata, soglie geometriche e banda del seam scalate. `demo-report.json`
+  espone ora `geometry` (input/output, `bundled_sample`).
+- **Riapertura come livelli** (`src/gui/mosaic_dialog.hpp`, `appendDemo`): usa la geometria
+  reale del risultato; la demo 714×1968 mantiene offset/crop documentati, le altre aprono
+  come due livelli a piena immagine affiancati.
+- **Satellite predefinito → L3** (`src/gui/main.cpp`): il default di fabbrica passa da L2
+  a L3 (`settings.value("satellite","L3")`); le preferenze salvate restano rispettate.
+
+Verifica effettiva locale (Ubuntu 24.04, OpenCV 4.6.0, Qt 6.4.2, GCC 13.3):
+- Core: `image-demo-regression` verde con nuovo caso a risoluzione non-standard
+  (500×1400 → composite 1000×1400, canali interi) oltre al percorso bundled byte-identico;
+  `engine-regression`, `mosaic-regression`, `color-cli-flow`, `simulation-flow` verdi.
+- GUI (offscreen): `gui-widget-flow` (Generazione automatica, log 1428×1428),
+  `mosaic-widget-flow`, `gui-product-flow`, `gui-smoke` verdi.
+- Prova end-to-end aggiuntiva: sei JPEG 600×1680 → `composite.png` 1200×1680, ECC
+  0,96–0,99, seam `edge_correlation` 0,83. È una verifica su immagini sintetiche
+  (ridimensionate dalle demo), non una nuova acquisizione reale.
+
+Limiti: allineamento ECC e controllo del seam restano pensati per tre bande della stessa
+scena con piccolo disallineamento; immagini molto diverse possono essere legittimamente
+rifiutate («Unexpected demo geometry» / «no reliable adjacent-edge alignment»). La resa di
+contrasto (black 8 / white 188 / gamma 0,8) resta tarata sulla demo. Nessuna rete o shell
+introdotta. CI remota da osservare.
