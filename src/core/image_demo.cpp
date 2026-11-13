@@ -142,11 +142,15 @@ void runImageDemo(const std::filesystem::path& input,const std::filesystem::path
         // The bundled sample is framed to the documented disk crop without rescaling;
         // user images of any other size keep the full joined frame (seam may need manual touch-up).
         cv::Mat raw=bundled?joined(cv::Rect(0,45,1428,1428)).clone():joined.clone();
+        // MSU-GS VIS previews are acquired South-up; present the finished composite
+        // North-up. Rotation is applied to the whole composed frame after cropping.
+        cv::rotate(raw,raw,cv::ROTATE_180);
         saveDemo(output/"composite-raw.png",raw);
         cv::Mat display;raw.convertTo(display,CV_32F,1./180.,-8./180.);
         cv::max(display,0,display);cv::min(display,1,display);cv::pow(display,.8,display);display.convertTo(display,CV_8U,255);
         saveDemo(output/"composite.png",display);
         report["display"]["black"]=8;report["display"]["white"]=188;report["display"]["gamma_exponent"]=.8;
+        report["display"]["rotated_180"]=true;
         report["display"]["crop_after_header"]=Json::arrayValue;
         const std::array<int,4> crop=bundled?std::array<int,4>{0,45,1428,1428}:std::array<int,4>{0,0,raw.cols,raw.rows};
         for(int v:crop)report["display"]["crop_after_header"].append(v);

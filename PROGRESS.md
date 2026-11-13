@@ -1445,6 +1445,14 @@ inclusa byte-identica:
   come due livelli a piena immagine affiancati.
 - **Satellite predefinito → L3** (`src/gui/main.cpp`): il default di fabbrica passa da L2
   a L3 (`settings.value("satellite","L3")`); le preferenze salvate restano rispettate.
+- **Orientamento Nord-up**: le anteprime MSU-GS VIS sono acquisite Sud-up; il composite
+  finale della Generazione automatica viene ora **ruotato di 180°** dopo il ritaglio
+  (`cv::rotate(raw,ROTATE_180)`), sia per la demo inclusa sia per il percorso generico;
+  `demo-report.json` espone `display.rotated_180`. La rotazione è applicata al frame già
+  composto (non alle singole porzioni, che altrimenti si scambierebbero di lato). I canali
+  intermedi e i file `*-natural.png` restano nell'orientamento sorgente, quindi la
+  riapertura nell'editor manuale mostra per ora le porzioni non ruotate (allineamento
+  dell'editor da valutare se richiesto).
 
 Verifica effettiva locale (Ubuntu 24.04, OpenCV 4.6.0, Qt 6.4.2, GCC 13.3):
 - Core: `image-demo-regression` verde con nuovo caso a risoluzione non-standard
