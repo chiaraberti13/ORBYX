@@ -89,6 +89,15 @@ int main(int argc,char **argv) {
             const auto lraw=cv::imread((lout/"composite-raw.png").string(),cv::IMREAD_UNCHANGED);
             check(lraw.type()==CV_8UC3&&lraw.size()==cv::Size(2*ls.width,ls.height),"Large composite has wrong size or depth at full resolution");
         }
+        // Export enlargement: scale 2 produces a 2x larger composite (interpolated).
+        {
+            const fs::path sout=root/"scaled-out";
+            orbyx::runImageDemo(input,sout,{},2);
+            const auto sraw=cv::imread((sout/"composite-raw.png").string(),cv::IMREAD_UNCHANGED);
+            check(sraw.type()==CV_8UC3&&sraw.size()==cv::Size(2856,2856),"Export scale did not enlarge the composite");
+            Json::Value sreport;std::ifstream sf(sout/"demo-report.json");sf>>sreport;
+            check(sreport["display"]["export_scale"].asInt()==2,"Export scale not recorded");
+        }
         const auto reject=[&](const fs::path& source,const fs::path& destination) {
             try {orbyx::runImageDemo(source,destination);}catch(const std::exception&){return true;}return false;
         };

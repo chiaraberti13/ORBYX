@@ -164,11 +164,11 @@ class Window final : public QMainWindow {
     double guidedScale=1.0;
     QPixmap image;
     double zoom = 1.0;
-    QLabel *subtitle{}, *eyebrow{}, *inputLabel{}, *configLabel{}, *outputLabel{}, *satLabel{}, *modeLabel{}, *engineLabel{}, *hint{}, *previewTitle{}, *empty{}, *status{}, *activityTitle{}, *languageLabel{}, *themeLabel{}, *previewNote{}, *manualHint{};
+    QLabel *subtitle{}, *eyebrow{}, *inputLabel{}, *configLabel{}, *outputLabel{}, *satLabel{}, *modeLabel{}, *engineLabel{}, *hint{}, *previewTitle{}, *empty{}, *status{}, *activityTitle{}, *languageLabel{}, *themeLabel{}, *previewNote{}, *manualHint{}, *exportScaleLabel{};
     QGroupBox *setup{};
     QLineEdit *input{}, *config{}, *output{};
     QPushButton *inputBrowse{}, *configBrowse{}, *outputBrowse{}, *start{}, *fit{}, *plus{}, *minus{}, *clear{};
-    QComboBox *satellite{}, *mode{}, *engine{}, *language{}, *theme{}, *source{}, *channel{};
+    QComboBox *satellite{}, *mode{}, *engine{}, *language{}, *theme{}, *source{}, *channel{}, *exportScale{};
     QProgressBar *progress{};
     QScrollArea *scroll{};
     QLabel *canvas{};
@@ -222,6 +222,9 @@ class Window final : public QMainWindow {
         previewNote->setText(trText("Full-resolution exports are unchanged; preview is limited to 2048 pixels."));
         fit->setText(trText("Fit")); plus->setAccessibleName(trText("Zoom in")); minus->setAccessibleName(trText("Zoom out"));
         activityTitle->setText(trText("Activity")); clear->setText(trText("Clear")); languageLabel->setText(trText("Language")); themeLabel->setText(trText("Theme"));
+        exportScaleLabel->setText(it?"Ingrandimento":"Enlarge");
+        exportScale->setAccessibleName(it?"Ingrandimento dell'immagine finale":"Final image enlargement");
+        exportScale->setToolTip(it?"Ingrandisce il risultato in esportazione (interpolato: più pixel, non più dettaglio).":"Enlarges the exported result (interpolated: more pixels, not more detail).");
         log->setAccessibleName(trText("Technical diagnostics from the processing engine"));
         satellite->setAccessibleName(trText("Satellite")); mode->setAccessibleName(trText("Operation")); engine->setAccessibleName(trText("Processing engine"));
         language->setAccessibleName(trText("Language")); theme->setAccessibleName(trText("Theme")); source->setAccessibleName(trText("Image preview")); channel->setAccessibleName(trText("Preview channel"));
@@ -441,13 +444,14 @@ class Window final : public QMainWindow {
         const QString logPath=QDir(orbyx::gui::logsRoot()).filePath("image-"+token+".log");
         setProperty("demoFinished",false);
         demoMode=true;setQueueBusy(true);progress->setRange(0,0);applyText();status->setText(trText("Processing…"));
-        auto *worker=QThread::create([this,sample,destination,logPath,openEditorAfter] {
+        const int scale=exportScale?exportScale->currentIndex()+1:1;
+        auto *worker=QThread::create([this,sample,destination,logPath,openEditorAfter,scale] {
             QString error;QStringList entries;
             try {
                 orbyx::runImageDemo(sample.toStdString(),destination.toStdString(),[this,&entries](const std::string &line) {
                     const auto text=QString::fromStdString(line);entries.append(text);
                     QMetaObject::invokeMethod(this,[this,text]{log->append(text.toHtmlEscaped());},Qt::QueuedConnection);
-                });
+                },scale);
             } catch (const std::exception &e) {error=QString::fromUtf8(e.what());}
             catch (...) {error="Unknown processing exception";}
             if (!error.isEmpty())entries.append("ERROR: "+error);
@@ -855,6 +859,10 @@ public:
         demoButton=new QPushButton;demoButton->setObjectName("demoButton");
         demoButton->setShortcut(QKeySequence("Ctrl+Shift+D"));header->addWidget(demoButton);
         connect(demoButton,&QPushButton::clicked,this,[this]{runAutomaticGeneration();});
+        exportScaleLabel=label("muted");exportScale=new QComboBox;exportScale->setObjectName("exportScale");
+        exportScale->addItems({"1×","2×","3×","4×"});exportScale->setCurrentIndex(qBound(1,settings.value("exportScale",1).toInt(),4)-1);
+        connect(exportScale,qOverload<int>(&QComboBox::currentIndexChanged),this,[this](int i){settings.setValue("exportScale",i+1);});
+        header->addWidget(exportScaleLabel);header->addWidget(exportScale);
         simulateButton=new QPushButton(this);simulateButton->setObjectName("simulateButton");
         simulateButton->setShortcut(QKeySequence("Ctrl+Shift+S"));simulateButton->hide();
         connect(simulateButton,&QPushButton::clicked,this,[this]{imageSimulationDialog();});

@@ -1463,6 +1463,14 @@ inclusa byte-identica:
   `image-demo-regression` esteso con un caso >2048 px (1400×3000 → 2800×3000) oltre a bundled
   e generico piccolo. L'immagine finale resta a piena risoluzione = 2·larghezza·altezza
   dell'input (nessuna riduzione in export; solo l'anteprima a schermo è limitata a 2048 px).
+- **Ingrandimento in esportazione (menu 1×–4×)**: nuovo controllo GUI nell'intestazione
+  (`exportScale`, persistito EN/IT «Enlarge»/«Ingrandimento») che ingrandisce il composite
+  finale per interpolazione (`cv::INTER_CUBIC`) con fattore 1–4. `runImageDemo` ha un parametro
+  `exportScale` (default 1, clampato 1–4 e con tetto 20000 px/lato e ~200 Mpx per restare in
+  memoria). È interpolazione **dichiarata** (più pixel, non più dettaglio): la demo inclusa resta
+  1428×1428 a 1× e diventa 2856/4284/5712 a 2/3/4×; `demo-report.json` espone `display.export_scale`.
+  Default 1×, quindi nessun cambiamento se non lo si tocca. `image-demo-regression` (caso ×2 →
+  2856×2856), `gui-widget-flow` e `gui-smoke` verdi.
 
 Verifica effettiva locale (Ubuntu 24.04, OpenCV 4.6.0, Qt 6.4.2, GCC 13.3):
 - Core: `image-demo-regression` verde con nuovo caso a risoluzione non-standard

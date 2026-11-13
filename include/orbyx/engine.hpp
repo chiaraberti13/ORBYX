@@ -65,7 +65,9 @@ void composeSingleChannel(const std::array<std::filesystem::path, 3>& channels,
                           const std::filesystem::path& destination, int index);
 // Curated six-JPEG desktop demo; measures channel registration and joins adjacent
 // sx/dx halves. Output must be new; source images remain unchanged. Not RDAS input.
+// exportScale (1..4) enlarges the final composite by interpolation on export;
+// it adds pixels, not real detail, and is clamped so the output stays bounded.
 void runImageDemo(const std::filesystem::path& input, const std::filesystem::path& output,
-                  const Log& log = {});
+                  const Log& log = {}, int exportScale = 1);
 
 }

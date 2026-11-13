@@ -79,7 +79,7 @@ std::pair<int,double> seamShift(const cv::Mat& left,const cv::Mat& right,bool bu
     return {shift,best};
 }
 }
-void runImageDemo(const std::filesystem::path& input,const std::filesystem::path& output,const Log& log) {
+void runImageDemo(const std::filesystem::path& input,const std::filesystem::path& output,const Log& log,int exportScale) {
     namespace fs=std::filesystem;
     // Output creation is exclusive. Never delete a destination owned by someone else.
     checkDemo(fs::create_directory(output),"Demo output already exists");
@@ -161,6 +161,13 @@ void runImageDemo(const std::filesystem::path& input,const std::filesystem::path
         // MSU-GS VIS previews are acquired South-up; present the finished composite
         // North-up. Rotation is applied to the whole composed frame after cropping.
         cv::rotate(raw,raw,cv::ROTATE_180);
+        // Optional export enlargement (1..4, interpolated: more pixels, not more
+        // detail). Clamp the factor so the enlarged output stays bounded in memory.
+        int scale=std::clamp(exportScale,1,4);
+        while(scale>1&&(static_cast<long long>(raw.cols)*scale>20000||static_cast<long long>(raw.rows)*scale>20000||
+              static_cast<long long>(raw.cols)*raw.rows*scale*scale>200000000))--scale;
+        if(scale>1)cv::resize(raw,raw,cv::Size(raw.cols*scale,raw.rows*scale),0,0,cv::INTER_CUBIC);
+        report["display"]["export_scale"]=scale;
         saveDemo(output/"composite-raw.png",raw);
         cv::Mat display;raw.convertTo(display,CV_32F,1./180.,-8./180.);
         cv::max(display,0,display);cv::min(display,1,display);cv::pow(display,.8,display);display.convertTo(display,CV_8U,255);
