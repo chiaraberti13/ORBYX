@@ -904,7 +904,7 @@ public:
         outputLabel=label(); output=new QLineEdit(orbyx::gui::newOutputFolder("aligned")); outputBrowse=new QPushButton; form->addWidget(outputLabel); form->addLayout(pathRow(output,outputBrowse));
         satLabel=label(); satellite=new QComboBox; satellite->addItems({"L2","L3","L4","L5","M1","M2"});
         for(const auto& name:settings.value("customSatellites").toStringList().mid(0,128))if(QRegularExpression("^[A-Z0-9_]{1,32}$").match(name).hasMatch()&&satellite->findText(name)<0)satellite->addItem(name);
-        satellite->setCurrentText(settings.value("satellite","L2").toString()); form->addWidget(satLabel); form->addWidget(satellite);
+        satellite->setCurrentText(settings.value("satellite","L3").toString()); form->addWidget(satLabel); form->addWidget(satellite);
         modeLabel=label(); mode=new QComboBox; mode->addItems({"Align channels","Calculate calibration"}); form->addWidget(modeLabel); form->addWidget(mode);
         engineLabel=label(); engine=new QComboBox; engine->addItems({"Automatic CPU / OpenCL","CPU only"}); form->addWidget(engineLabel); form->addWidget(engine);
         hint=label("muted"); hint->setWordWrap(true); hint->setMinimumHeight(48); hint->setSizePolicy(QSizePolicy::Preferred,QSizePolicy::Minimum); form->addWidget(hint); leftLayout->addWidget(setup);

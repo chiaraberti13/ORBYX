@@ -7,6 +7,8 @@
 #include <json/json.h>
 #include <fstream>
 #include <cmath>
+#include <algorithm>
+#include <array>
 #include <stdexcept>
 namespace orbyx {
 namespace {
@@ -16,7 +18,7 @@ void checkDemo(bool condition,const char *message) {
 cv::Mat readDemoJpeg(const std::filesystem::path& source) {
     checkDemo(std::filesystem::is_regular_file(std::filesystem::symlink_status(source)),"Demo input must be a regular file");
     const auto size=std::filesystem::file_size(source);
-    checkDemo(size>=4&&size<=1024*1024,"Demo JPEG size exceeds bounds");
+    checkDemo(size>=4&&size<=40*1024*1024,"Demo JPEG size exceeds bounds");
     std::vector<unsigned char> bytes(size);
     std::ifstream stream(source,std::ios::binary);stream.read(reinterpret_cast<char*>(bytes.data()),bytes.size());
     checkDemo(size_t(stream.gcount())==size&&stream.peek()==std::char_traits<char>::eof(),"Demo JPEG changed while reading");
@@ -35,14 +37,16 @@ cv::Mat readDemoJpeg(const std::filesystem::path& source) {
         if(marker==0xc0||marker==0xc1||marker==0xc2) {
             checkDemo(length>=8,"Incomplete JPEG dimensions");
             int h=(unsigned(bytes[offset+3])<<8)|bytes[offset+4],w=(unsigned(bytes[offset+5])<<8)|bytes[offset+6];
-            checkDemo(bytes[offset+2]==8&&w==714&&h==2048,"Demo requires bundled 714x2048 8-bit JPEGs");
+            checkDemo(bytes[offset+2]==8,"Demo requires 8-bit JPEGs");
+            checkDemo(w>0&&h>0&&w<=20000&&h<=20000&&static_cast<long long>(w)*h<=64000000,
+                "Demo JPEG resolution out of range (max 20000 per side, 64 Mpx)");
             dimensions=true;break;
         }
         offset+=length;
     }
     checkDemo(dimensions,"JPEG dimensions not found");
     auto image=cv::imdecode(bytes,cv::IMREAD_GRAYSCALE|cv::IMREAD_IGNORE_ORIENTATION);
-    checkDemo(!image.empty()&&image.cols==714&&image.rows==2048&&image.type()==CV_8UC1,"Cannot decode demo JPEG");
+    checkDemo(!image.empty()&&image.type()==CV_8UC1,"Cannot decode demo JPEG");
     return image;
 }
 void saveDemo(const std::filesystem::path& file,const cv::Mat& image) {
@@ -50,11 +54,19 @@ void saveDemo(const std::filesystem::path& file,const cv::Mat& image) {
 }
 // Correlate adjacent edge profiles. These halves have no verified overlap, so
 // never estimate a homography or fabricate intermediate pixels.
-std::pair<int,double> seamShift(const cv::Mat& left,const cv::Mat& right) {
+std::pair<int,double> seamShift(const cv::Mat& left,const cv::Mat& right,bool bundled) {
+    const int rows=std::min(left.rows,right.rows);
+    // The bundled sample keeps the documented fixed band (140..1380, ±12) so its
+    // measured seam stays identical; other sizes scale the same proportions.
+    const int y0=bundled?140:static_cast<int>(std::lround(0.07*rows));
+    const int y1=bundled?1380:static_cast<int>(std::lround(0.70*rows));
+    const int dyMax=bundled?12:std::clamp(static_cast<int>(std::lround(0.02*rows)),4,64);
+    const int lo=std::max(y0,dyMax+1),hi=std::min(y1,rows-dyMax);
+    checkDemo(left.cols>=5&&right.cols>=5&&hi-lo>50,"Demo halves too small for seam estimation");
     double best=-2; int shift=0;
-    for(int dy=-12;dy<=12;++dy) {
+    for(int dy=-dyMax;dy<=dyMax;++dy) {
         std::vector<double> a,b;
-        for(int y=140;y<1380;++y) {
+        for(int y=lo;y<hi;++y) {
             a.push_back(cv::mean(left(cv::Rect(left.cols-5,y,5,1)))[0]-cv::mean(left(cv::Rect(left.cols-5,y-1,5,1)))[0]);
             b.push_back(cv::mean(right(cv::Rect(0,y+dy,5,1)))[0]-cv::mean(right(cv::Rect(0,y+dy-1,5,1)))[0]);
         }
@@ -73,9 +85,10 @@ void runImageDemo(const std::filesystem::path& input,const std::filesystem::path
     checkDemo(fs::create_directory(output),"Demo output already exists");
     try {
         fs::permissions(output,fs::perms::owner_all,fs::perm_options::replace);
-        Json::Value report;report["schema_version"]=1;report["source"]="six user-supplied 714x2048 JPEG previews";
+        Json::Value report;report["schema_version"]=1;
         report["limitations"]="JPEG 8-bit; no CBOR, absolute geometry or radiometric true colour validation; adjacent halves, no verified overlap";
         std::array<cv::Mat,2> natural,reference;
+        cv::Size baseSize(-1,-1);bool bundled=false;int header=0;
         for(int side=0;side<2;++side) {
             const std::string name=side==0?"sx":"dx";
             std::array<cv::Mat,3> images;
@@ -84,7 +97,15 @@ void runImageDemo(const std::filesystem::path& input,const std::filesystem::path
                 const auto source=input/(name+"_MSUGS-VIS-"+std::to_string(c+1)+".jpg");
                 checkDemo(!fs::is_symlink(fs::symlink_status(source)),"Demo image must not be a symlink");
                 auto image=readDemoJpeg(source);
-                images[c]=image(cv::Rect(0,80,714,1968)).clone(); // exclude calibration ramps
+                if(baseSize.width<0) {
+                    baseSize=image.size();
+                    bundled=(baseSize==cv::Size(714,2048));
+                    // Only the bundled 714x2048 previews carry an 80-row calibration
+                    // ramp to exclude; user images of any other size are used whole.
+                    header=bundled?80:0;
+                }
+                checkDemo(image.size()==baseSize,"The six demo JPEGs must share identical dimensions");
+                images[c]=image(cv::Rect(0,header,baseSize.width,baseSize.height-header)).clone();
                 files[c]=output/(name+"-ch"+std::to_string(c+1)+".png");
             }
             reference[side]=images[0].clone();
@@ -97,9 +118,11 @@ void runImageDemo(const std::filesystem::path& input,const std::filesystem::path
                 const double score=cv::findTransformECC(ref,target,warp,cv::MOTION_AFFINE,
                     cv::TermCriteria(cv::TermCriteria::COUNT|cv::TermCriteria::EPS,100,1e-6),cv::noArray(),5);
                 checkDemo(std::isfinite(score)&&score>.85&&cv::checkRange(warp),"Demo ECC registration failed");
+                const double maxTx=bundled?20.0:0.1*baseSize.width;
+                const double maxTy=bundled?500.0:0.3*(baseSize.height-header);
                 checkDemo(std::abs(warp.at<float>(0,0)-1)<.03&&std::abs(warp.at<float>(1,1)-1)<.03&&
                     std::abs(warp.at<float>(1,0))<.03&&std::abs(warp.at<float>(0,1))<.03&&
-                    std::abs(warp.at<float>(0,2))<20&&std::abs(warp.at<float>(1,2))<500,"Unexpected demo geometry");
+                    std::abs(warp.at<float>(0,2))<maxTx&&std::abs(warp.at<float>(1,2))<maxTy,"Unexpected demo geometry");
                 cv::warpAffine(images[c],images[c],warp,images[0].size(),cv::INTER_LINEAR|cv::WARP_INVERSE_MAP);
                 auto& entry=report["alignment"][name][std::to_string(c+1)];entry["ecc"]=score;entry["phase_response"]=response;
                 for(int y=0;y<2;++y)for(int x=0;x<3;++x)entry["inverse_affine"].append(warp.at<float>(y,x));
@@ -109,25 +132,30 @@ void runImageDemo(const std::filesystem::path& input,const std::filesystem::path
             composeNaturalColor(files,output/(name+"-natural.png"));
             natural[side]=cv::imread((output/(name+"-natural.png")).string());
         }
-        auto [shift,score]=seamShift(reference[0],reference[1]);
+        auto [shift,score]=seamShift(reference[0],reference[1],bundled);
         report["seam"]["right_down_pixels"]=-shift;report["seam"]["edge_correlation"]=score;
         report["seam"]["horizontal_overlap_pixels"]=0;
         cv::Mat adjusted;
         cv::Mat seamWarp=(cv::Mat_<double>(2,3)<<1,0,0,0,1,-shift);
         cv::warpAffine(natural[1],adjusted,seamWarp,natural[1].size(),cv::INTER_LINEAR,cv::BORDER_CONSTANT,cv::Scalar(8,8,8));
         cv::Mat joined;cv::hconcat(natural[0],adjusted,joined);
-        // Fixed framing of the complete disk in this documented sample, without rescaling.
-        cv::Mat raw=joined(cv::Rect(0,45,1428,1428)).clone();
+        // The bundled sample is framed to the documented disk crop without rescaling;
+        // user images of any other size keep the full joined frame (seam may need manual touch-up).
+        cv::Mat raw=bundled?joined(cv::Rect(0,45,1428,1428)).clone():joined.clone();
         saveDemo(output/"composite-raw.png",raw);
         cv::Mat display;raw.convertTo(display,CV_32F,1./180.,-8./180.);
         cv::max(display,0,display);cv::min(display,1,display);cv::pow(display,.8,display);display.convertTo(display,CV_8U,255);
         saveDemo(output/"composite.png",display);
         report["display"]["black"]=8;report["display"]["white"]=188;report["display"]["gamma_exponent"]=.8;
         report["display"]["crop_after_header"]=Json::arrayValue;
-        for(int v:{0,45,1428,1428})report["display"]["crop_after_header"].append(v);
+        const std::array<int,4> crop=bundled?std::array<int,4>{0,45,1428,1428}:std::array<int,4>{0,0,raw.cols,raw.rows};
+        for(int v:crop)report["display"]["crop_after_header"].append(v);
+        report["geometry"]["input_width"]=baseSize.width;report["geometry"]["input_height"]=baseSize.height;
+        report["geometry"]["bundled_sample"]=bundled;report["geometry"]["output_width"]=raw.cols;report["geometry"]["output_height"]=raw.rows;
+        report["source"]=bundled?"six bundled 714x2048 JPEG previews":"six user-supplied JPEG previews";
         Json::StreamWriterBuilder writer;std::ofstream stream(output/"demo-report.json");stream<<Json::writeString(writer,report);stream.close();
         checkDemo(!stream.fail(),"Could not save demo report");
-        if(log)log("6 JPEG -> 1 composite.png (1428x1428), RGB321 / Natural Color; display contrast recorded");
+        if(log)log("6 JPEG -> 1 composite.png ("+std::to_string(raw.cols)+"x"+std::to_string(raw.rows)+"), RGB321 / Natural Color; display contrast recorded");
     } catch(...) {fs::remove_all(output);throw;}
 }
 }
