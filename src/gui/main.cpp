@@ -71,9 +71,9 @@ const QMap<QString, QString> italian = {
  {"Calibration profile (included)", "Profilo di calibrazione (incluso)"},
  {"Run the image demo on a chosen folder of six JPEGs; defaults to the bundled demo images.",
   "Esegue la demo su una cartella di sei JPEG a tua scelta; predefinita la cartella demo inclusa."},
- {"Choose six demo JPEGs (sx_/dx_ MSUGS-VIS-1/2/3)", "Scegli sei JPEG demo (sx_/dx_ MSUGS-VIS-1/2/3)"},
- {"This folder does not contain the six JPEGs sx_/dx_ MSUGS-VIS-1/2/3.",
-  "Questa cartella non contiene i sei JPEG sx_/dx_ MSUGS-VIS-1/2/3."},
+ {"Choose six demo images (sx_/dx_ MSUGS-VIS-1/2/3, JPEG or PNG)", "Scegli sei immagini demo (sx_/dx_ MSUGS-VIS-1/2/3, JPEG o PNG)"},
+ {"This folder does not contain the six images sx_/dx_ MSUGS-VIS-1/2/3 (JPEG or PNG).",
+  "Questa cartella non contiene le sei immagini sx_/dx_ MSUGS-VIS-1/2/3 (JPEG o PNG)."},
  {"New output folder", "Nuova cartella di destinazione"},
  {"Select…", "Seleziona…"}, {"Satellite", "Satellite"}, {"Operation", "Operazione"},
  {"Align channels", "Allinea canali"}, {"Calculate calibration", "Calcola calibrazione"},
@@ -124,11 +124,11 @@ const QMap<QString, QString> italian = {
  {"Automatic generation", "Generazione automatica"},
  {"Process the six JPEGs placed in the automatic-generation folder, with no parameters.",
   "Elabora i sei JPEG inseriti nella cartella di generazione automatica, senza alcun parametro."},
- {"Put the six JPEGs sx_/dx_ MSUGS-VIS-1/2/3 in this folder, then press Automatic generation again:",
-  "Inserisci i sei JPEG sx_/dx_ MSUGS-VIS-1/2/3 in questa cartella, poi premi di nuovo Generazione automatica:"},
+ {"Put the six images sx_/dx_ MSUGS-VIS-1/2/3 (JPEG or PNG) in this folder, then press Automatic generation again:",
+  "Inserisci le sei immagini sx_/dx_ MSUGS-VIS-1/2/3 (JPEG o PNG) in questa cartella, poi premi di nuovo Generazione automatica:"},
  {"Automatic generation from", "Generazione automatica da"},
- {"Replace the images in that folder with your own (sx_/dx_ MSUGS-VIS-1/2/3.jpg) and press again.",
-  "Sostituisci le immagini in quella cartella con le tue (sx_/dx_ MSUGS-VIS-1/2/3.jpg) e premi di nuovo."},
+ {"Replace the images in that folder with your own (sx_/dx_ MSUGS-VIS-1/2/3, .jpg or .png — PNG is lossless) and press again.",
+  "Sostituisci le immagini in quella cartella con le tue (sx_/dx_ MSUGS-VIS-1/2/3, .jpg o .png — il PNG è senza perdita) e premi di nuovo."},
  {"Real JPEG demo — six channels, one image", "Demo JPEG reali — sei canali, un’unica immagine"},
  {"Align the six bundled JPEGs and join the left and right halves.", "Allinea i sei JPEG inclusi e unisce le metà sinistra e destra."},
  {"Demo image saved", "Immagine demo salvata"},
@@ -385,9 +385,10 @@ class Window final : public QMainWindow {
     }
     bool hasDemoImages(const QString &folder) const {
         if (folder.isEmpty()) return false;
-        for (const QString &name : {"sx_MSUGS-VIS-1.jpg","sx_MSUGS-VIS-2.jpg","sx_MSUGS-VIS-3.jpg",
-             "dx_MSUGS-VIS-1.jpg","dx_MSUGS-VIS-2.jpg","dx_MSUGS-VIS-3.jpg"})
-            if (!QFileInfo(QDir(folder).filePath(name)).isFile()) return false;
+        for (const QString &stem : {"sx_MSUGS-VIS-1","sx_MSUGS-VIS-2","sx_MSUGS-VIS-3",
+             "dx_MSUGS-VIS-1","dx_MSUGS-VIS-2","dx_MSUGS-VIS-3"})
+            if (!QFileInfo(QDir(folder).filePath(stem+".jpg")).isFile() &&
+                !QFileInfo(QDir(folder).filePath(stem+".png")).isFile()) return false;
         return true;
     }
     // Manual image simulation: run the real image pipeline on a folder of six

@@ -1471,6 +1471,16 @@ inclusa byte-identica:
   1428×1428 a 1× e diventa 2856/4284/5712 a 2/3/4×; `demo-report.json` espone `display.export_scale`.
   Default 1×, quindi nessun cambiamento se non lo si tocca. `image-demo-regression` (caso ×2 →
   2856×2856), `gui-widget-flow` e `gui-smoke` verdi.
+- **Generazione automatica: PNG oltre a JPEG**: `readDemoImage` (ex `readDemoJpeg`) accetta ora sia
+  JPEG sia **PNG** (validazione firma + chunk IHDR per le dimensioni; qualunque profondità →
+  normalizzata a 8-bit da `IMREAD_GRAYSCALE`); `runImageDemo` cerca `<stem>.jpg` e in mancanza
+  `<stem>.png`. Così si usano le esportazioni SatDump a piena risoluzione **senza ricompressione
+  JPEG** (nessuna perdita di dettaglio reale). GUI: `hasDemoImages` riconosce entrambi i formati;
+  messaggi EN/IT aggiornati («.jpg o .png — il PNG è senza perdita»). `image-demo-regression` esteso
+  con un caso PNG; prova end-to-end: sei PNG 3000×8000 → composite 6000×8000 (48 Mpx).
+  `gui-widget-flow`, `mosaic-widget-flow`, `gui-smoke` verdi. Resta il modo più fedele in assoluto il
+  flusso «Crea immagine — modalità manuale» coi PNG SatDump, ma ora anche la Generazione automatica
+  non impone più la perdita del JPEG.
 
 Verifica effettiva locale (Ubuntu 24.04, OpenCV 4.6.0, Qt 6.4.2, GCC 13.3):
 - Core: `image-demo-regression` verde con nuovo caso a risoluzione non-standard
