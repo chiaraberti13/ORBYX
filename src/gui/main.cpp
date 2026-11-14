@@ -470,41 +470,21 @@ class Window final : public QMainWindow {
             QString error;QStringList entries;
             auto logger=[this,&entries](const std::string &line){const auto t=QString::fromStdString(line);entries.append(t);QMetaObject::invokeMethod(this,[this,t]{log->append(t.toHtmlEscaped());},Qt::QueuedConnection);};
             try {
-                // Channel registration AND the two-half junction, best of both:
-                // (1) Always calibrate the channel transforms with ECC on the user's own
-                //     data (scale 0.25). The fixed bundled transforms leave a ~1.3 px CH2
-                //     offset on a given acquisition — visible magenta/green fringing — which
-                //     a per-acquisition fit reduces to ~1 px (the rest is local MSU-GS
-                //     residual a global affine cannot remove).
-                // (2) Inject the bundled per-satellite merge ROI into that freshly
-                //     calibrated profile, so the core still butt-joins the two halves
-                //     geometrically into MSUGS_VIS_Aligned (the clean seam). Satellites
-                //     with no bundled ROI (e.g. L4) keep the separate halves joined
-                //     visually below.
-                orbyx::RunOptions cal;cal.satellite=sat.toStdString();cal.input=folder.toStdString();cal.output=(dest+"/calibrated").toStdString();cal.calibrate=true;cal.calibrationScale=0.25;cal.cpu=true;cal.language=italian?"it":"en";
+                // Channel registration AND the two-half junction, best of both. The
+                // bundled profile is the calibration STARTING point: calibrate overwrites
+                // CH2/CH3 with an ECC fit on the user's own data (scale 0.25) — removing the
+                // ~1.3 px CH2 offset of the fixed transforms, i.e. the magenta/green
+                // fringing — while PRESERVING the bundled per-satellite merge ROI in the
+                // written calibration.json, so generate still butt-joins the two halves
+                // geometrically (the clean seam). Satellites absent from the bundled profile
+                // (e.g. L4) get transforms but no ROI -> separate halves joined visually.
+                // calibrate requires a config path even for a fresh fit, so when the bundled
+                // profile is missing we hand it an empty object.
+                QString calConfig=profile;
+                if(calConfig.isEmpty()){calConfig=dest+"/empty-config.json";QFile ec(calConfig);if(ec.open(QIODevice::WriteOnly|QIODevice::NewOnly)){ec.write("{}\n");ec.close();}}
+                orbyx::RunOptions cal;cal.satellite=sat.toStdString();cal.input=folder.toStdString();cal.output=(dest+"/calibrated").toStdString();cal.config=calConfig.toStdString();cal.calibrate=true;cal.calibrationScale=0.25;cal.cpu=true;cal.language=italian?"it":"en";
                 orbyx::run(cal,logger);
-                QString config=dest+"/calibrated/calibration.json";
-                if(!profile.isEmpty()){
-                    QFile pf(profile),cf(config);
-                    if(pf.open(QIODevice::ReadOnly)&&cf.open(QIODevice::ReadOnly)){
-                        auto bundledDoc=QJsonDocument::fromJson(pf.readAll()).object();
-                        auto calibrated=QJsonDocument::fromJson(cf.readAll()).object();cf.close();pf.close();
-                        bool injected=false;
-                        for(const QString vis:{sat+"VIS1",sat+"VIS2"}){
-                            if(bundledDoc.value(vis).toObject().contains("ROI")&&calibrated.contains(vis)){
-                                auto section=calibrated.value(vis).toObject();
-                                section["ROI"]=bundledDoc.value(vis).toObject().value("ROI");
-                                calibrated[vis]=section;injected=true;
-                            }
-                        }
-                        if(injected){
-                            const QString combined=dest+"/calibrated/calibration-roi.json";
-                            QFile out(combined);
-                            if(out.open(QIODevice::WriteOnly|QIODevice::NewOnly)&&out.write(QJsonDocument(calibrated).toJson())>0){out.close();config=combined;}
-                        }
-                    }
-                }
-                orbyx::RunOptions gen;gen.satellite=sat.toStdString();gen.input=folder.toStdString();gen.output=(dest+"/aligned").toStdString();gen.config=config.toStdString();gen.cpu=true;gen.language=italian?"it":"en";
+                orbyx::RunOptions gen;gen.satellite=sat.toStdString();gen.input=folder.toStdString();gen.output=(dest+"/aligned").toStdString();gen.config=(dest+"/calibrated/calibration.json").toStdString();gen.cpu=true;gen.language=italian?"it":"en";
                 orbyx::run(gen,logger);
                 auto natural=[&](const QString &adir,const QString &out){std::array<std::filesystem::path,3> ch={(adir+"/MSUGS-VIS-1.png").toStdString(),(adir+"/MSUGS-VIS-2.png").toStdString(),(adir+"/MSUGS-VIS-3.png").toStdString()};orbyx::composeNaturalColor(ch,out.toStdString());};
                 // Produce the 16-bit scientific Natural Color (not rotated) first; the
