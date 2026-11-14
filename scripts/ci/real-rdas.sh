@@ -39,12 +39,12 @@ satdump_libraries="$work/squashfs-root/usr/lib/x86_64-linux-gnu/satdump/plugins:
   cd "$work/runtime"
   env XDG_CONFIG_HOME="$work/config" LD_LIBRARY_PATH="$satdump_libraries" \
     timeout 600 "$satdump" pipeline elektro_rdas cadu "$work/elektro_rdas.cadu" "$work/decoded" \
-    --satellite_number=4 --apply_correction=false > "$work/decode.log" 2>&1
+    --satellite_number=3 --apply_correction=false > "$work/decode.log" 2>&1
 )
 (cd "$work/decoded" && find MSUGS_VIS1 MSUGS_VIS2 -type f ! -name '.*' -print0 | sort -z | xargs -0 sha256sum) > "$work/decoded.sha256"
-"$binary" calibrate -s L4 -d "$work/decoded" --config "$work/empty.json" \
+"$binary" calibrate -s L3 -d "$work/decoded" --config "$work/empty.json" \
   --output "$work/calibrated" --cpu --calibration-scale 0.125 > "$work/calibrate.log" 2>&1
-"$binary" generate -s L4 -d "$work/decoded" --config "$work/calibrated/calibration.json" \
+"$binary" generate -s L3 -d "$work/decoded" --config "$work/calibrated/calibration.json" \
   --output "$work/aligned" --cpu > "$work/generate.log" 2>&1
 for vis in 1 2; do
   channels="$work/aligned/MSUGS_VIS-${vis}_Aligned"

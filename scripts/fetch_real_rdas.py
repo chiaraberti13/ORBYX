@@ -9,7 +9,7 @@ from pathlib import Path
 import tempfile
 import urllib.request
 
-MANIFEST = Path(__file__).resolve().parents[1] / "test-data/real/elektro_l4_rdas.json"
+MANIFEST = Path(__file__).resolve().parents[1] / "test-data/real/elektro_l3_rdas.json"
 
 
 def verify(path: Path, size: int, digest: str) -> None:
