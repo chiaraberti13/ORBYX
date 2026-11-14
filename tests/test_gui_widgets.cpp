@@ -340,6 +340,8 @@ int main(int argc, char **argv) {
         // bundled examples on first use), with no parameters.
         for(const QString lang : {"en","it"}) {
             Window demo;demo.previewSettings(lang,"dark",{1280,1000});demo.show();
+            // The user puts their own images in the source folder (no demo seeding now).
+            {QDir().mkpath(demo.autoInputFolderForTests());for(const QString& n:{QStringLiteral("sx_MSUGS-VIS-1.jpg"),QStringLiteral("sx_MSUGS-VIS-2.jpg"),QStringLiteral("sx_MSUGS-VIS-3.jpg"),QStringLiteral("dx_MSUGS-VIS-1.jpg"),QStringLiteral("dx_MSUGS-VIS-2.jpg"),QStringLiteral("dx_MSUGS-VIS-3.jpg")})QFile::copy(QDir(demo.demoFolderForTests()).filePath(n),QDir(demo.autoInputFolderForTests()).filePath(n));}
             auto *button=demo.findChild<QPushButton*>("demoButton");
             requireTest(button&&button->isVisible()&&!button->accessibleName().isEmpty(),"Automatic generation button inaccessible");
             requireTest(button->text().contains(lang=="it"?"Generazione":"Automatic"),"Button was not renamed to Automatic generation");
