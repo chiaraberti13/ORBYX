@@ -1519,6 +1519,13 @@ chiaro o utile) e un allineamento della giunzione più preciso (stima a piena ri
   ridotta (`renderMosaic(state,1200)`), l'export usa `previewEdge=0` (piena risoluzione nativa).
   `mosaic-regression`, `image-demo-regression`, `engine-regression` verdi. La risoluzione finale non
   è mai fissa: nasce dalle dimensioni reali delle immagini di origine.
+- **Decodifica CADU sempre aggiornata**: nuovo `scripts/satdump_decode.sh` user-facing che scarica la
+  nightly SatDump **corrente** (non il pin fisso del test CI, che si rompe quando l'upstream cambia),
+  verifica che il download sia un ELF/AppImage reale (non una pagina d'errore), **registra** lo SHA
+  ottenuto per tracciabilità senza fallire, estrae senza FUSE e decodifica il CADU in
+  `MSUGS_VIS1`/`MSUGS_VIS2` a piena risoluzione. Il test CI `scripts/ci/real-rdas.sh` resta pinnato per
+  riproducibilità. ORBYX continua a non decodificare il CADU: è un passo esplicito, fuori dai workflow
+  della GUI (nessuna rete/shell implicita). Uso: `bash scripts/satdump_decode.sh CADU OUTPUT [sat]`.
 
 Verifica effettiva locale (Ubuntu 24.04, OpenCV 4.6.0, Qt 6.4.2, GCC 13.3):
 - Core: `image-demo-regression` verde con nuovo caso a risoluzione non-standard
