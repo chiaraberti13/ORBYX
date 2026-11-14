@@ -487,20 +487,25 @@ class Window final : public QMainWindow {
                 orbyx::RunOptions gen;gen.satellite=sat.toStdString();gen.input=folder.toStdString();gen.output=(dest+"/aligned").toStdString();gen.config=config.toStdString();gen.cpu=true;gen.language=italian?"it":"en";
                 orbyx::run(gen,logger);
                 auto natural=[&](const QString &adir,const QString &out){std::array<std::filesystem::path,3> ch={(adir+"/MSUGS-VIS-1.png").toStdString(),(adir+"/MSUGS-VIS-2.png").toStdString(),(adir+"/MSUGS-VIS-3.png").toStdString()};orbyx::composeNaturalColor(ch,out.toStdString());};
-                QImage composed;
+                // Produce the 16-bit scientific Natural Color (not rotated) first; the
+                // presentation deliverables are derived from it below.
+                const QString naturalRaw=dest+"/natural-raw.png";
                 if(QDir(dest+"/aligned/MSUGS_VIS_Aligned").exists()){
-                    natural(dest+"/aligned/MSUGS_VIS_Aligned",dest+"/natural-raw.png");
-                    if(!composed.load(dest+"/natural-raw.png"))throw std::runtime_error("Natural Color output missing");
+                    natural(dest+"/aligned/MSUGS_VIS_Aligned",naturalRaw);
                 } else {
                     natural(dest+"/aligned/MSUGS_VIS-1_Aligned",dest+"/natural-vis1.png");
                     natural(dest+"/aligned/MSUGS_VIS-2_Aligned",dest+"/natural-vis2.png");
                     QImage a,b;if(!a.load(dest+"/natural-vis1.png")||!b.load(dest+"/natural-vis2.png"))throw std::runtime_error("Natural Color output missing");
                     const int h=std::min(a.height(),b.height());
-                    composed=QImage(a.width()+b.width(),h,QImage::Format_RGB888);composed.fill(Qt::black);
+                    QImage composed(a.width()+b.width(),h,QImage::Format_RGB888);composed.fill(Qt::black);
                     QPainter p(&composed);p.drawImage(0,0,a);p.drawImage(a.width(),0,b);p.end();
+                    if(!composed.save(naturalRaw))throw std::runtime_error("Could not save joined Natural Color");
                 }
-                composed=composed.mirrored(true,true); // 180° — North-up
-                if(!composed.save(dest+"/composite.png"))throw std::runtime_error("Could not save composite");
+                // Presentation deliverables: 8-bit PNG (quality master) + JPEG q95 (small,
+                // opens anywhere), both rotated 180° North-up. Replaces the previous 16-bit
+                // composite (~565 MB, hard to open) with ~105 MB PNG + ~18 MB JPEG.
+                orbyx::writeDisplayImages(naturalRaw.toStdString(),(dest+"/composite.png").toStdString(),
+                                          (dest+"/composite.jpg").toStdString(),true);
             } catch(const std::exception &e){error=QString::fromUtf8(e.what());}
             catch(...){error="Unknown processing exception";}
             if(!error.isEmpty())entries.append("ERROR: "+error);
@@ -509,7 +514,7 @@ class Window final : public QMainWindow {
                 setProperty("demoFinished",true);setProperty("demoSucceeded",error.isEmpty());
                 setQueueBusy(false);progress->setRange(0,100);progress->setValue(error.isEmpty()?100:0);applyText();
                 status->setText(trText(error.isEmpty()?"Completed":"Processing failed"));
-                if(error.isEmpty()){lastOutput=dest;demoResult=QDir(dest).filePath("composite.png");source->setCurrentIndex(1);loadPreview();log->append((trText("Demo image saved")+": "+demoResult).toHtmlEscaped());log->append((trText("User images folder")+": "+orbyx::gui::outputImagesRoot()).toHtmlEscaped());}
+                if(error.isEmpty()){lastOutput=dest;demoResult=QDir(dest).filePath("composite.png");source->setCurrentIndex(1);loadPreview();log->append((trText("Demo image saved")+": "+demoResult).toHtmlEscaped());log->append((trText("Demo image saved")+" (JPEG): "+QDir(dest).filePath("composite.jpg")).toHtmlEscaped());log->append((trText("User images folder")+": "+orbyx::gui::outputImagesRoot()).toHtmlEscaped());}
                 else log->append(error.toHtmlEscaped());
                 log->append(("Log: "+logPath).toHtmlEscaped());
                 if(quitAfterRun)QApplication::exit(error.isEmpty()?0:2);
