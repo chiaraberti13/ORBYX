@@ -470,19 +470,39 @@ class Window final : public QMainWindow {
             QString error;QStringList entries;
             auto logger=[this,&entries](const std::string &line){const auto t=QString::fromStdString(line);entries.append(t);QMetaObject::invokeMethod(this,[this,t]{log->append(t.toHtmlEscaped());},Qt::QueuedConnection);};
             try {
-                // Prefer the bundled per-satellite profile: it carries the hand-tuned
-                // merge ROIs (and channel transforms) that let the core butt-join the two
-                // VIS halves geometrically into MSUGS_VIS_Aligned — the only way to get a
-                // clean seam. Self-calibration cannot produce ROIs, so it is a fallback
-                // only for satellites absent from the bundled profile (e.g. L4).
-                bool bundled=false;
-                if(!profile.isEmpty()){QFile pf(profile);if(pf.open(QIODevice::ReadOnly)){const auto doc=QJsonDocument::fromJson(pf.readAll());if(doc.isObject()&&doc.object().contains(sat+"VIS1"))bundled=true;}}
-                QString config;
-                if(bundled){config=profile;}
-                else{
-                    orbyx::RunOptions cal;cal.satellite=sat.toStdString();cal.input=folder.toStdString();cal.output=(dest+"/calibrated").toStdString();cal.calibrate=true;cal.calibrationScale=0.125;cal.cpu=true;cal.language=italian?"it":"en";
-                    orbyx::run(cal,logger);
-                    config=dest+"/calibrated/calibration.json";
+                // Channel registration AND the two-half junction, best of both:
+                // (1) Always calibrate the channel transforms with ECC on the user's own
+                //     data (scale 0.25). The fixed bundled transforms leave a ~1.3 px CH2
+                //     offset on a given acquisition — visible magenta/green fringing — which
+                //     a per-acquisition fit reduces to ~1 px (the rest is local MSU-GS
+                //     residual a global affine cannot remove).
+                // (2) Inject the bundled per-satellite merge ROI into that freshly
+                //     calibrated profile, so the core still butt-joins the two halves
+                //     geometrically into MSUGS_VIS_Aligned (the clean seam). Satellites
+                //     with no bundled ROI (e.g. L4) keep the separate halves joined
+                //     visually below.
+                orbyx::RunOptions cal;cal.satellite=sat.toStdString();cal.input=folder.toStdString();cal.output=(dest+"/calibrated").toStdString();cal.calibrate=true;cal.calibrationScale=0.25;cal.cpu=true;cal.language=italian?"it":"en";
+                orbyx::run(cal,logger);
+                QString config=dest+"/calibrated/calibration.json";
+                if(!profile.isEmpty()){
+                    QFile pf(profile),cf(config);
+                    if(pf.open(QIODevice::ReadOnly)&&cf.open(QIODevice::ReadOnly)){
+                        auto bundledDoc=QJsonDocument::fromJson(pf.readAll()).object();
+                        auto calibrated=QJsonDocument::fromJson(cf.readAll()).object();cf.close();pf.close();
+                        bool injected=false;
+                        for(const QString vis:{sat+"VIS1",sat+"VIS2"}){
+                            if(bundledDoc.value(vis).toObject().contains("ROI")&&calibrated.contains(vis)){
+                                auto section=calibrated.value(vis).toObject();
+                                section["ROI"]=bundledDoc.value(vis).toObject().value("ROI");
+                                calibrated[vis]=section;injected=true;
+                            }
+                        }
+                        if(injected){
+                            const QString combined=dest+"/calibrated/calibration-roi.json";
+                            QFile out(combined);
+                            if(out.open(QIODevice::WriteOnly|QIODevice::NewOnly)&&out.write(QJsonDocument(calibrated).toJson())>0){out.close();config=combined;}
+                        }
+                    }
                 }
                 orbyx::RunOptions gen;gen.satellite=sat.toStdString();gen.input=folder.toStdString();gen.output=(dest+"/aligned").toStdString();gen.config=config.toStdString();gen.cpu=true;gen.language=italian?"it":"en";
                 orbyx::run(gen,logger);
