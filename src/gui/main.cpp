@@ -449,13 +449,26 @@ class Window final : public QMainWindow {
         setProperty("demoFinished",false);
         demoMode=true;setQueueBusy(true);progress->setRange(0,0);applyText();status->setText(trText("Processing…"));
         const bool italian=it;
-        auto *worker=QThread::create([this,folder,dest,sat,logPath,italian] {
+        const QString profile=bundledProfile();
+        auto *worker=QThread::create([this,folder,dest,sat,logPath,italian,profile] {
             QString error;QStringList entries;
             auto logger=[this,&entries](const std::string &line){const auto t=QString::fromStdString(line);entries.append(t);QMetaObject::invokeMethod(this,[this,t]{log->append(t.toHtmlEscaped());},Qt::QueuedConnection);};
             try {
-                orbyx::RunOptions cal;cal.satellite=sat.toStdString();cal.input=folder.toStdString();cal.output=(dest+"/calibrated").toStdString();cal.calibrate=true;cal.calibrationScale=0.125;cal.cpu=true;cal.language=italian?"it":"en";
-                orbyx::run(cal,logger);
-                orbyx::RunOptions gen;gen.satellite=sat.toStdString();gen.input=folder.toStdString();gen.output=(dest+"/aligned").toStdString();gen.config=(dest+"/calibrated/calibration.json").toStdString();gen.cpu=true;gen.language=italian?"it":"en";
+                // Prefer the bundled per-satellite profile: it carries the hand-tuned
+                // merge ROIs (and channel transforms) that let the core butt-join the two
+                // VIS halves geometrically into MSUGS_VIS_Aligned — the only way to get a
+                // clean seam. Self-calibration cannot produce ROIs, so it is a fallback
+                // only for satellites absent from the bundled profile (e.g. L4).
+                bool bundled=false;
+                if(!profile.isEmpty()){QFile pf(profile);if(pf.open(QIODevice::ReadOnly)){const auto doc=QJsonDocument::fromJson(pf.readAll());if(doc.isObject()&&doc.object().contains(sat+"VIS1"))bundled=true;}}
+                QString config;
+                if(bundled){config=profile;}
+                else{
+                    orbyx::RunOptions cal;cal.satellite=sat.toStdString();cal.input=folder.toStdString();cal.output=(dest+"/calibrated").toStdString();cal.calibrate=true;cal.calibrationScale=0.125;cal.cpu=true;cal.language=italian?"it":"en";
+                    orbyx::run(cal,logger);
+                    config=dest+"/calibrated/calibration.json";
+                }
+                orbyx::RunOptions gen;gen.satellite=sat.toStdString();gen.input=folder.toStdString();gen.output=(dest+"/aligned").toStdString();gen.config=config.toStdString();gen.cpu=true;gen.language=italian?"it":"en";
                 orbyx::run(gen,logger);
                 auto natural=[&](const QString &adir,const QString &out){std::array<std::filesystem::path,3> ch={(adir+"/MSUGS-VIS-1.png").toStdString(),(adir+"/MSUGS-VIS-2.png").toStdString(),(adir+"/MSUGS-VIS-3.png").toStdString()};orbyx::composeNaturalColor(ch,out.toStdString());};
                 QImage composed;
