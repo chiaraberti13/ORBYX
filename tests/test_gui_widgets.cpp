@@ -359,6 +359,32 @@ int main(int argc, char **argv) {
             requireTest(automaticEditorOpened,"Automatic result could not continue in the manual editor");
             demo.close();
         }
+        // Regression (M2-15): the Automatic generation RDAS path must CREATE its output
+        // folder before the core writes into it. It used to pass newOutputFolder()'s
+        // name straight to the core without creating it, so the very first run failed
+        // with "Output parent directory must exist". We seed a real SatDump-style VIS
+        // export (the native-geometry fixture halves) into the source folder and press
+        // Automatic with satellite L3 (bundled profile). The narrow fixture makes the
+        // core legitimately stop later at the per-satellite ROI check; the guard is that
+        // it must get that far — the output folder was created and the parent-directory
+        // error never appears (that error would mean dest was not created).
+        {
+            Window demo;demo.previewSettings("it","dark",{1280,1000});demo.show();
+            const QString autoIn=demo.autoInputFolderForTests();QDir().mkpath(autoIn);
+            for(const QString& n:{QStringLiteral("sx_MSUGS-VIS-1.jpg"),QStringLiteral("sx_MSUGS-VIS-2.jpg"),QStringLiteral("sx_MSUGS-VIS-3.jpg"),QStringLiteral("dx_MSUGS-VIS-1.jpg"),QStringLiteral("dx_MSUGS-VIS-2.jpg"),QStringLiteral("dx_MSUGS-VIS-3.jpg")})QFile::remove(QDir(autoIn).filePath(n));
+            for(int vis=1;vis<=2;++vis){const QString d=QDir(autoIn).filePath(QString("MSUGS_VIS%1").arg(vis));QDir().mkpath(d);for(int c=1;c<=3;++c){QFile::remove(d+QString("/MSUGS-VIS-%1.png").arg(c));requireTest(QFile::copy(fixture+QString("/input/MSUGS_VIS%1/MSUGS-VIS-%2.png").arg(vis).arg(c),d+QString("/MSUGS-VIS-%1.png").arg(c)),"RDAS fixture seed failed");}QFile cbor(d+"/product.cbor");requireTest(cbor.open(QIODevice::WriteOnly|QIODevice::Truncate)&&cbor.write(QByteArray::fromHex("a0"))==1,"RDAS cbor placeholder failed");cbor.close();}
+            if(auto *sat=demo.findChild<QComboBox*>("satelliteSelect"))sat->setCurrentText("L3");
+            const QString outRoot=temporary.path()+"/user-files/Output Images";
+            const int before=QDir(outRoot).entryList({"automatic-*"},QDir::Dirs).size();
+            auto *button=demo.findChild<QPushButton*>("demoButton");
+            clickVisible(button);
+            requireTest(until([&]{return button->isEnabled();},60000),"Automatic RDAS run stuck busy");
+            const auto log=demo.findChild<QTextEdit*>()->toPlainText();
+            requireTest(log.contains("auto-input"),"Automatic RDAS run did not read the source folder");
+            requireTest(!log.contains("Output parent directory must exist")&&!log.contains("La cartella che conterr"),"Automatic RDAS path did not create its output folder (parent-directory regression)");
+            requireTest(QDir(outRoot).entryList({"automatic-*"},QDir::Dirs).size()>before,"Automatic RDAS run did not create the output folder");
+            demo.close();
+        }
         // Unified manual mode recognizes the six JPEGs, does not require SatDump
         // or a calibration JSON, creates the chosen output and opens editable layers.
         {

@@ -635,10 +635,11 @@ percorso ROI storico.
      con barra. Fa ciò che oggi si fa a mano nel percorso RDAS/compositore.
   3. **Satellite**: predefinito **L3**, con scelta L2/L3/L4/L5/M1/M2 in **entrambe** le modalità;
      in automatica tutti gli altri settaggi sono **disabilitati** tranne il satellite.
-  4. **ROI di giunzione per tutti i satelliti**: misurate sui **dati reali L4** e applicate agli
-     Elektro-L (sensore MSU-GS condiviso, come l'offset canali 3606/1804); M1/M2 ereditano il
-     valore e restano **da riconfermare** con dati propri. Nessun valore inventato per satellite
-     senza dati.
+  4. **ROI di giunzione per tutti i satelliti**: prese dal profilo bundled `resources/calibration.json`,
+     byte-identiche a quelle dell'upstream `rdas_layer_aligner` (misurate a mano a monte) per
+     L2/L3/L5/M1/M2. **Verificate su L3 reale** (salto giunzione 0,93/255) e in geometria su tutti e
+     quattro gli altri; la conferma radiometrica di L2/L5/M1/M2 richiede un CADU reale per satellite.
+     L4 non ha ROI (assente anche nell'upstream). Nessun valore inventato per satellite senza dati.
   5. **Usabilità**: compositore manuale ridisegnato per utente non esperto **e** esperto
      (modalità Base/Avanzate, linguaggio non tecnico); **solo tema chiaro** (rimosso il tema scuro).
   6. **Limiti alzati** dove bloccano prodotti reali (es. `natural-color` oltre 150 Mpx per l'immagine
@@ -648,12 +649,25 @@ percorso ROI storico.
 - Accettazione: da una cartella SatDump decodificata un principiante ottiene, con un clic, **una sola
   immagine a colori a piena risoluzione**; la giunzione è esatta dove esistono le ROI misurate; GUI
   intuitiva, solo tema chiaro.
-- Stato: in corso. Prove reali L4 già eseguite in sessione: decodifica CADU con SatDump corrente,
-  `calibrate`/`generate`/`natural-color` a 6004×13594, unione delle due metà a 12008×13594 (giunzione
-  da rifinire con ROI misurate). Implementazione a tappe, partendo dal cablaggio GUI sicuro (tema,
-  satellite, cartella unica, automatica che concatena il flusso) e poi la giunzione esatta.
-  Fatto finora: solo tema chiaro (`bb5e2c0`), limiti RDAS 150→400 Mpx per l'immagine unita (`42c796b`),
-  satellite predefinito L3 (`be3b890`).
+- Stato: in corso (quasi completo). Prove reali L4 ed L3 già eseguite in sessione: decodifica CADU con
+  SatDump corrente, `calibrate`/`generate`/`natural-color` a 6004×13594.
+  Fatto e verificato:
+  - Solo tema chiaro (`bb5e2c0`), limiti RDAS 150→400 Mpx (`42c796b`), satellite predefinito L3 (`be3b890`).
+  - **Generazione automatica usa le immagini dell'utente** (export SatDump nella cartella di origine),
+    non più la demo; tolto il menu ingrandimento (`efc07be`).
+  - **Giunzione esatta via ROI del profilo bundled** (`d19a0b5`): l'automatica genera con
+    `resources/calibration.json` (ROI + trasformate per-satellite, byte-identiche all'upstream
+    `rdas_layer_aligner`); il core esegue l'accostamento geometrico e scrive `MSUGS_VIS_Aligned`,
+    niente più hconcat grezzo. **Verifica su L3 reale**: merged 11948×13594 (5954+5994, come upstream),
+    salto di luminanza al confine VIS1/VIS2 = **0,93 su 255** (giunzione pulita). **Geometria L2/L5/M1/M2**
+    verificata su generate sintetico: `MSUGS_VIS_Aligned` 11967×13594 / 11907×13559 / 11937×13559 /
+    11933×13594, ROI valide e byte-identiche all'upstream. La giunzione **radiometrica** di
+    L2/L5/M1/M2 resta **da confermare con dati reali** (serve un CADU per satellite). L4 non ha ROI
+    (assente anche nell'upstream): resta il fallback auto-calibrazione + accostamento visivo.
+  - **Rotazione 180° Nord-up su entrambe le modalità** (`64dca93`): l'automatica già ruotava; aggiunta
+    anche nell'export manuale (`exportNatural`) e nell'anteprima dei prodotti grezzi, solo a livello di
+    presentazione (core/CLI non ruotati per i controlli di geometria SatDump). `test_gui_color` verifica
+    che l'export GUI sia l'immagine CLI ruotata di 180°. Suite completa 25/25 verde.
 - **Priorità ROI: prima L3, poi gli altri.** Il campione pubblico sta passando da L4 a un CADU **L3**
   (sostituzione in release). Le ROI di giunzione vanno misurate **prima su L3** (dati reali), poi
   estese agli altri Elektro-L. Serve il nuovo CADU L3 (URL/SHA/dimensione) per aggiornare il manifest

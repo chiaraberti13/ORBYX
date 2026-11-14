@@ -456,6 +456,10 @@ class Window final : public QMainWindow {
     void executeRdasAuto(const QString &folder) {
         if (busy) return;
         const QString dest=orbyx::gui::newOutputFolder("automatic");
+        // newOutputFolder only returns a unique name; create it so the core can write
+        // the intermediate "aligned" product and the composite inside it (its own
+        // outputs must not pre-exist, but their parent must).
+        QDir().mkpath(dest);
         const QString sat=satellite->currentText();
         const QString logPath=QDir(orbyx::gui::logsRoot()).filePath("image-"+QDateTime::currentDateTimeUtc().toString("yyyyMMddTHHmmssZ")+"-"+QUuid::createUuid().toString(QUuid::WithoutBraces)+".log");
         setProperty("demoFinished",false);
@@ -986,7 +990,7 @@ public:
         connect(updatesButton,&QPushButton::clicked,this,[this]{if(updateWindow){updateWindow->show();updateWindow->raise();return;}updateWindow=new UpdateDialog(it,[this](bool running){setQueueBusy(running);},this);updateWindow->setAttribute(Qt::WA_DeleteOnClose);updateWindow->show();});
         profileDup=new QPushButton; profileDup->setObjectName("profileDup"); form->addWidget(profileDup);
         outputLabel=label(); output=new QLineEdit(orbyx::gui::newOutputFolder("aligned")); outputBrowse=new QPushButton; form->addWidget(outputLabel); form->addLayout(pathRow(output,outputBrowse));
-        satLabel=label(); satellite=new QComboBox; satellite->addItems({"L2","L3","L4","L5","M1","M2"});
+        satLabel=label(); satellite=new QComboBox; satellite->setObjectName("satelliteSelect"); satellite->addItems({"L2","L3","L4","L5","M1","M2"});
         for(const auto& name:settings.value("customSatellites").toStringList().mid(0,128))if(QRegularExpression("^[A-Z0-9_]{1,32}$").match(name).hasMatch()&&satellite->findText(name)<0)satellite->addItem(name);
         satellite->setCurrentText(settings.value("satellite","L3").toString()); form->addWidget(satLabel); form->addWidget(satellite);
         modeLabel=label(); mode=new QComboBox; mode->addItems({"Align channels","Calculate calibration"}); form->addWidget(modeLabel); form->addWidget(mode);
