@@ -18,7 +18,7 @@ void checkDemo(bool condition,const char *message) {
 cv::Mat readDemoImage(const std::filesystem::path& source) {
     checkDemo(std::filesystem::is_regular_file(std::filesystem::symlink_status(source)),"Demo input must be a regular file");
     const auto size=std::filesystem::file_size(source);
-    checkDemo(size>=4&&size<=40*1024*1024,"Demo image size exceeds bounds");
+    checkDemo(size>=4&&size<=256*1024*1024,"Demo image size exceeds bounds");
     std::vector<unsigned char> bytes(size);
     std::ifstream stream(source,std::ios::binary);stream.read(reinterpret_cast<char*>(bytes.data()),bytes.size());
     checkDemo(size_t(stream.gcount())==size&&stream.peek()==std::char_traits<char>::eof(),"Demo image changed while reading");
