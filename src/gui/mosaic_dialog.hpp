@@ -494,12 +494,12 @@ public:
         run([sample,destination,added]{
             if(sample.isEmpty())throw std::runtime_error("Bundled demo images not found");
             orbyx::runImageDemo(sample.toStdString(),destination.toStdString());
-            QFile report(destination+"/demo-report.json");if(!report.open(QIODevice::ReadOnly))throw std::runtime_error("Demo report missing");
+            QFile report(destination+"/intermedi/demo-report.json");if(!report.open(QIODevice::ReadOnly))throw std::runtime_error("Demo report missing");
             const auto data=QJsonDocument::fromJson(report.readAll()).object();const int down=data["seam"].toObject()["right_down_pixels"].toInt();
             // The bundled 714x1968 halves keep the documented disk crop; halves of any
             // other size open as full layers side by side (manual seam touch-up in the editor).
-            const QSize half=QImageReader(destination+"/sx-natural.png").size();const bool bundledFrame=(half==QSize(714,1968));
-            for(int i=0;i<2;++i){orbyx::MosaicLayer l;l.image=(destination+(i==0?"/sx-natural.png":"/dx-natural.png")).toStdString();
+            const QSize half=QImageReader(destination+"/intermedi/sx-natural.png").size();const bool bundledFrame=(half==QSize(714,1968));
+            for(int i=0;i<2;++i){orbyx::MosaicLayer l;l.image=(destination+(i==0?"/intermedi/sx-natural.png":"/intermedi/dx-natural.png")).toStdString();
                 if(bundledFrame){l.x=i*714;l.crop={0,45-(i==0?0:down),714,1428};}
                 else{l.x=i*half.width();l.crop={0,0,half.width(),half.height()};}
                 l.black=8./255;l.white=188./255;l.gamma=1.25;added->push_back(l);}

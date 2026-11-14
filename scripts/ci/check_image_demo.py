@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 root = Path(sys.argv[1])
-report = json.loads((root / "demo-report.json").read_text())
+report = json.loads((root / "intermedi" / "demo-report.json").read_text())
 assert report["schema_version"] == 1
 for side in ("sx", "dx"):
     for channel, limits in (("2", (425, 436)), ("3", (210, 220))):
@@ -24,5 +24,5 @@ for name in ("composite.png", "composite-raw.png"):
     assert data[24:26] == bytes((8, 2)), "Expected 8-bit RGB"
     assert len(data) > 100000
 assert (root / "composite.png").read_bytes() != (root / "composite-raw.png").read_bytes()
-assert len(list(root.glob("*-ch*.png"))) == 6
+assert len(list((root / "intermedi").glob("*-ch*.png"))) == 6
 print("Installed desktop demo: six aligned channels, ECC > .94, measured seam and two 1428x1428 RGB products verified")
