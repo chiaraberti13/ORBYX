@@ -58,6 +58,16 @@ void composeRgb(const std::array<std::filesystem::path, 3>& channels,
 // true colour. Inputs unchanged; exclusive atomic PNG publication.
 void composeNaturalColor(const std::array<std::filesystem::path, 3>& channels,
                          const std::filesystem::path& destination);
+// Presentation deliverables from an existing composite/Natural Color PNG: an 8-bit
+// RGB PNG (quality master, zlib level `pngCompression` 0..9) plus a JPEG
+// (`jpegQuality` 1..100), optionally rotated 180° for North-up display. Visual
+// outputs only — a 16-bit scientific composite is produced by composeNaturalColor
+// and left untouched here. The source is read-only; each destination must be a new
+// file (.png / .jpg|.jpeg) and is published atomically and exclusively.
+void writeDisplayImages(const std::filesystem::path& sourceComposite,
+                        const std::filesystem::path& pngDestination,
+                        const std::filesystem::path& jpegDestination,
+                        bool rotate180, int pngCompression = 6, int jpegQuality = 95);
 // Single-channel grayscale preset (M2-11): writes the chosen channel (index 0, 1
 // or 2) as a neutral gray product (R=G=B), preserving 8/16-bit depth. Inputs
 // unchanged; exclusive atomic PNG publication. Not calibrated true colour.

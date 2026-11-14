@@ -654,6 +654,37 @@ void writeCompositePng(const cv::Mat& rgb,const fs::path& requested) {
   }
 }
 
+void writeDisplayImages(const fs::path& sourceComposite,const fs::path& pngDestination,
+                        const fs::path& jpegDestination,bool rotate180,int pngCompression,int jpegQuality) {
+  require(pngCompression>=0&&pngCompression<=9,"PNG compression must be between 0 and 9");
+  require(jpegQuality>=1&&jpegQuality<=100,"JPEG quality must be between 1 and 100");
+  require(pngDestination.extension()==".png","Display PNG must have a .png extension");
+  const auto jpegExtension=jpegDestination.extension();
+  require(jpegExtension==".jpg"||jpegExtension==".jpeg","Display JPEG must have a .jpg or .jpeg extension");
+  cv::Mat image=readCompositePng(sourceComposite);
+  require(image.channels()==3&&(image.depth()==CV_8U||image.depth()==CV_16U),"Invalid composite for display output");
+  // A presentation image is 8-bit: halves the data and opens in ordinary viewers.
+  // The 16-bit scientific composite is preserved separately by composeNaturalColor.
+  if(image.depth()==CV_16U){cv::Mat reduced;image.convertTo(reduced,CV_8U,1.0/256.0);image=reduced;}
+  if(rotate180) cv::rotate(image,image,cv::ROTATE_180);
+  // Exclusive, symlink-safe atomic publication of each file, mirroring writeCompositePng.
+  const auto publish=[](const cv::Mat& matrix,const fs::path& requested,const std::vector<int>& params){
+    const auto destination=fs::absolute(requested).lexically_normal();
+    Staging stage(destination);
+    const fs::path temp=stage.path/destination.filename();
+    require(cv::imwrite(temp.string(),matrix,params),"Failed to encode display image");
+    bool published=false;
+#ifdef __linux__
+    published=::syscall(SYS_renameat2,AT_FDCWD,temp.c_str(),AT_FDCWD,destination.c_str(),1)==0;
+#elif defined(__APPLE__)
+    published=::renamex_np(temp.c_str(),destination.c_str(),RENAME_EXCL)==0;
+#endif
+    if(!published){std::error_code ignored;fs::remove(temp,ignored);
+      throw std::runtime_error(std::string("Cannot publish display image exclusively: ")+std::strerror(errno));}
+  };
+  publish(image,pngDestination,{cv::IMWRITE_PNG_COMPRESSION,pngCompression});
+  publish(image,jpegDestination,{cv::IMWRITE_JPEG_QUALITY,jpegQuality});
+}
 void composeRgb(const std::array<fs::path,3>& channels,const fs::path& destination) {
   composeProduct(channels,destination,false);
 }

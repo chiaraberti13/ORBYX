@@ -162,6 +162,33 @@ void naturalColor(const fs::path& root,int type,const std::string& name) {
   check(cv::imread(low.string(),cv::IMREAD_UNCHANGED).at<cv::Vec<unsigned short,3>>(0,0)==cv::Vec<unsigned short,3>(10001,10001,10001),"Natural Color preserves neutral 16-bit low bits");
  }
 }
+void displayImages(const fs::path& root) {
+ // M2-15: writeDisplayImages derives an 8-bit PNG + a JPEG from a 16-bit composite,
+ // optionally rotated 180° North-up. The 16-bit source is never changed.
+ cv::Mat source(6,4,CV_16UC3);
+ for(int y=0;y<source.rows;++y)for(int x=0;x<source.cols;++x)
+  source.at<cv::Vec<unsigned short,3>>(y,x)=cv::Vec<unsigned short,3>(
+   static_cast<unsigned short>((x+1)*8000),static_cast<unsigned short>((y+1)*4000),30000);
+ const auto src=root/"display-source.png";
+ check(cv::imwrite(src.string(),source),"display source write");
+ const auto before=read(src);
+ const auto png=root/"display.png",jpg=root/"display.jpg";
+ orbyx::writeDisplayImages(src,png,jpg,true);
+ const auto out8=cv::imread(png.string(),cv::IMREAD_UNCHANGED);
+ check(out8.depth()==CV_8U&&out8.channels()==3,"Display PNG must be 8-bit RGB");
+ check(out8.size()==source.size(),"Display PNG keeps the source dimensions");
+ check(fs::is_regular_file(jpg),"Display JPEG must be written");
+ // 180°: display[0,0] comes from source[last,last], reduced from 16 to 8 bit (/256).
+ const int expected=cvRound(source.at<cv::Vec<unsigned short,3>>(source.rows-1,source.cols-1)[0]/256.0);
+ check(std::abs(int(out8.at<cv::Vec3b>(0,0)[0])-expected)<=1,"Display PNG must be rotated 180° and 8-bit reduced");
+ check(read(src)==before,"Display output must not change the source");
+ // Exclusive publication and enforced extensions/parameter ranges.
+ fails([&]{orbyx::writeDisplayImages(src,png,root/"d.jpg",false);});
+ fails([&]{orbyx::writeDisplayImages(src,root/"d.bmp",root/"d.jpg",false);});
+ fails([&]{orbyx::writeDisplayImages(src,root/"d2.png",root/"d.gif",false);});
+ fails([&]{orbyx::writeDisplayImages(src,root/"d3.png",root/"d3.jpg",false,10,95);});
+ fails([&]{orbyx::writeDisplayImages(src,root/"d4.png",root/"d4.jpg",false,6,0);});
+}
 void scaledCalibration(const fs::path& root) {
  const auto input=root/"scaled-ecc", output=root/"scaled-ecc-output", profile=root/"scaled-ecc.json";
  cv::Mat reference=cv::Mat::zeros(3919,253,CV_16U), texture(240,193,CV_16U);
@@ -322,7 +349,7 @@ int main(int argc,char** argv) {
  try {
   root=fs::temp_directory_path()/("orbyx-tests-"+std::to_string(std::random_device{}()));
   fs::create_directory(root);
-  separate(root,CV_8U,"8bit");separate(root,CV_16U,"16bit");selectedProducts(root);calibration(root);scaledCalibration(root);profiles(root);compose(root);naturalColor(root,CV_8U,"nc8");naturalColor(root,CV_16U,"nc16");
+  separate(root,CV_8U,"8bit");separate(root,CV_16U,"16bit");selectedProducts(root);calibration(root);scaledCalibration(root);profiles(root);compose(root);naturalColor(root,CV_8U,"nc8");naturalColor(root,CV_16U,"nc16");displayImages(root);
   auto options=orbyx::RunOptions{"../bad",root,root/"bad",root/"8bit.json",true,false};
   fails([&]{orbyx::run(options);});
   auto config=identity();writeJson(root/"valid.json",config);
