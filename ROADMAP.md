@@ -652,3 +652,11 @@ percorso ROI storico.
   `calibrate`/`generate`/`natural-color` a 6004×13594, unione delle due metà a 12008×13594 (giunzione
   da rifinire con ROI misurate). Implementazione a tappe, partendo dal cablaggio GUI sicuro (tema,
   satellite, cartella unica, automatica che concatena il flusso) e poi la giunzione esatta.
+  Fatto finora: solo tema chiaro (`bb5e2c0`), limiti RDAS 150→400 Mpx per l'immagine unita (`42c796b`),
+  satellite predefinito L3 (`be3b890`).
+- **Priorità ROI: prima L3, poi gli altri.** Il campione pubblico sta passando da L4 a un CADU **L3**
+  (sostituzione in release). Le ROI di giunzione vanno misurate **prima su L3** (dati reali), poi
+  estese agli altri Elektro-L. Serve il nuovo CADU L3 (URL/SHA/dimensione) per aggiornare il manifest
+  `test-data/real/*.json` e decodificarlo con `satdump_decode.sh CADU OUT 3`.
+- **Automatica completa**: la GUI orchestrerà `orbyx::run` (calibrate con scala, poi generate) +
+  `composeNaturalColor`, tutto via API core (niente shell/rete implicite), in un worker con barra.
