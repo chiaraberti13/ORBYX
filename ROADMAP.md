@@ -621,3 +621,35 @@ percorso ROI storico.
 - QGIS, distinzione dalla georeferenziazione con GCP/CRS: <https://docs.qgis.org/3.44/en/docs/user_manual/managing_data_source/georeferencer.html>
 - SatDump, compositi: <https://docs.satdump.org/md_docs_2pages_2ImageProductExpression.html>
 - SatDump, proiezioni: <https://docs.satdump.org/md_docs_2pages_2QuickStart.html>
+
+## M2-15 — Flusso unico "Da SatDump all'immagine", automatico e usabile
+
+- Priorità: P0 (richiesta utente, novembre 2026)
+- Dipendenze: M2-08, M2-14, M3-01, M3-04
+- Responsabile: Product/UX Designer + Computer Vision + Qt Engineer + Remote Sensing + QA
+- Deliverable:
+  1. **Cartella di input unica** per generazione manuale e automatica: l'esportazione SatDump
+     (`MSUGS_VIS1`/`MSUGS_VIS2`). ORBYX **non** decodifica il CADU (resta esterno, via
+     `scripts/satdump_decode.sh`, nightly SatDump corrente).
+  2. **Generazione automatica = flusso completo in automatico**: calibrazione ECC → allineamento
+     canali → unione delle due metà → Natural Color → export a piena risoluzione, in background
+     con barra. Fa ciò che oggi si fa a mano nel percorso RDAS/compositore.
+  3. **Satellite**: predefinito **L3**, con scelta L2/L3/L4/L5/M1/M2 in **entrambe** le modalità;
+     in automatica tutti gli altri settaggi sono **disabilitati** tranne il satellite.
+  4. **ROI di giunzione per tutti i satelliti**: misurate sui **dati reali L4** e applicate agli
+     Elektro-L (sensore MSU-GS condiviso, come l'offset canali 3606/1804); M1/M2 ereditano il
+     valore e restano **da riconfermare** con dati propri. Nessun valore inventato per satellite
+     senza dati.
+  5. **Usabilità**: compositore manuale ridisegnato per utente non esperto **e** esperto
+     (modalità Base/Avanzate, linguaggio non tecnico); **solo tema chiaro** (rimosso il tema scuro).
+  6. **Limiti alzati** dove bloccano prodotti reali (es. `natural-color` oltre 150 Mpx per l'immagine
+     unita 12008×13594).
+- Vincoli: nessuna rete/shell implicita nei workflow GUI; il percorso ROI storico e i pixel
+  verificati restano invariati; EN/IT.
+- Accettazione: da una cartella SatDump decodificata un principiante ottiene, con un clic, **una sola
+  immagine a colori a piena risoluzione**; la giunzione è esatta dove esistono le ROI misurate; GUI
+  intuitiva, solo tema chiaro.
+- Stato: in corso. Prove reali L4 già eseguite in sessione: decodifica CADU con SatDump corrente,
+  `calibrate`/`generate`/`natural-color` a 6004×13594, unione delle due metà a 12008×13594 (giunzione
+  da rifinire con ROI misurate). Implementazione a tappe, partendo dal cablaggio GUI sicuro (tema,
+  satellite, cartella unica, automatica che concatena il flusso) e poi la giunzione esatta.
