@@ -494,14 +494,22 @@ public:
         run([sample,destination,added]{
             if(sample.isEmpty())throw std::runtime_error("Bundled demo images not found");
             orbyx::runImageDemo(sample.toStdString(),destination.toStdString());
-            QFile report(destination+"/intermedi/demo-report.json");if(!report.open(QIODevice::ReadOnly))throw std::runtime_error("Demo report missing");
-            const auto data=QJsonDocument::fromJson(report.readAll()).object();const int down=data["seam"].toObject()["right_down_pixels"].toInt();
-            // The bundled 714x1968 halves keep the documented disk crop; halves of any
-            // other size open as full layers side by side (manual seam touch-up in the editor).
-            const QSize half=QImageReader(destination+"/intermedi/sx-natural.png").size();const bool bundledFrame=(half==QSize(714,1968));
-            for(int i=0;i<2;++i){orbyx::MosaicLayer l;l.image=(destination+(i==0?"/intermedi/sx-natural.png":"/intermedi/dx-natural.png")).toStdString();
-                if(bundledFrame){l.x=i*714;l.crop={0,45-(i==0?0:down),714,1428};}
-                else{l.x=i*half.width();l.crop={0,0,half.width(),half.height()};}
+            const QSize half=QImageReader(destination+"/intermedi/sx-natural.png").size();
+            const bool bundledFrame=(half==QSize(714,1968));
+            // Cropped layer size: the bundled sample keeps the documented disk crop
+            // (1428-row band from y=45), any other size uses the whole half.
+            const int cw=bundledFrame?714:half.width();
+            const int ch=bundledFrame?1428:half.height();
+            const int cropY=bundledFrame?45:0;
+            // Rotate both halves 180° so the editor matches the automatic North-up
+            // product. With angle=180 a (cropped) layer pixel (px,py) maps to
+            // (l.x-px,l.y-py), so to place it over [X0,X0+cw-1]x[0,ch-1] we set
+            // l.x=X0+cw-1, l.y=ch-1. The halves are swapped (dx left, sx right) because
+            // rotating the whole [sx|dx] scene 180° yields [rot(dx)|rot(sx)]. Fine seam
+            // alignment stays a manual step in the editor.
+            const char* order[2]={"/intermedi/dx-natural.png","/intermedi/sx-natural.png"};
+            for(int i=0;i<2;++i){orbyx::MosaicLayer l;l.image=(destination+order[i]).toStdString();
+                l.crop={0,cropY,cw,ch};l.angle=180;l.x=(i+1)*cw-1;l.y=ch-1;
                 l.black=8./255;l.white=188./255;l.gamma=1.25;added->push_back(l);}
         },[this,added]{remember();layers.insert(layers.end(),added->begin(),added->end());refreshList();});
     }
