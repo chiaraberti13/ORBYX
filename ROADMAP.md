@@ -1,4 +1,3 @@
-# ORBYX — Roadmap operativa
 
 Stati: pianificato, in corso, verificato, bloccato. Pubblicare ogni task verificato direttamente su main senza force push.
 
