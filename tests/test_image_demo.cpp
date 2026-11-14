@@ -127,8 +127,8 @@ int main(int argc,char **argv) {
         // analysis highlighted. It must throw before accessing another byte.
         write(bad/names[0],{char(255),char(216),char(255),char(255),char(255),char(255)});
         check(reject(bad,failed)&&!fs::exists(failed),"Incomplete marker accepted");
-        write(bad/names[0],std::vector<char>(40*1024*1024+1,'x'));
-        check(reject(bad,failed)&&!fs::exists(failed),"Oversized JPEG accepted");
+        {std::ofstream(bad/names[0],std::ios::binary).put('x');fs::resize_file(bad/names[0],256ull*1024*1024+1);}
+        check(reject(bad,failed)&&!fs::exists(failed),"Oversized image accepted");
         fs::remove(bad/names[0]);fs::create_symlink(fs::absolute(input/names[0]),bad/names[0]);
         check(reject(bad,failed)&&!fs::exists(failed),"Symlink input accepted");
         fs::remove(bad/names[0]);
