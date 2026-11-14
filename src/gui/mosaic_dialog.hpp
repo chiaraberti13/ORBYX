@@ -375,6 +375,9 @@ public:
         recoveryTimer.setSingleShot(true);recoveryTimer.setInterval(150);connect(&recoveryTimer,&QTimer::timeout,this,[this]{autosaveRecovery();});
         auto* outer=new QVBoxLayout(this);auto* body=new QHBoxLayout;outer->addLayout(body,1);
         tools=new QWidget;auto* panel=new QVBoxLayout(tools);auto* scroll=new QScrollArea;scroll->setWidgetResizable(true);scroll->setWidget(tools);scroll->setMinimumWidth(335);scroll->setMaximumWidth(400);body->addWidget(scroll);
+        // Usability (M2-15): keep the panel simple for non-experts. Essential controls
+        // stay visible; technical tools go into a collapsible "advanced" section.
+        auto* advWidget=new QWidget;auto* advanced=new QVBoxLayout(advWidget);advanced->setContentsMargins(0,0,0,0);advWidget->setVisible(false);
         auto* note=new QLabel(t("Multiple portions, any direction. First align each portion’s channels. Automatic overlap proposes editable geometry; it is not georeferencing.","Più porzioni, in ogni direzione. Prima allinea i canali di ciascuna porzione. La sovrapposizione automatica propone una geometria modificabile; non è una georeferenziazione."));note->setWordWrap(true);panel->addWidget(note);
         button("mosaicDemo",t("Add editable demo portions","Aggiungi porzioni demo modificabili"),panel,[this]{appendDemo();});
         button("mosaicAdd",t("Add PNG portions…","Aggiungi porzioni PNG…"),panel,[this]{addFiles();});
@@ -384,21 +387,21 @@ public:
         connect(list,&QListWidget::currentRowChanged,this,[this]{if(!updating){readControls();display();}});
         button("mosaicRecommend",t("Recommended strategy…","Strategia consigliata…"),panel,[this]{recommendStrategy();});
         button("mosaicAutoOverlap",t("Automatically align overlaps…","Allinea automaticamente le sovrapposizioni…"),panel,[this]{autoAlign();});
-        button("mosaicRestoreRoi",t("Restore profile ROI","Ripristina ROI del profilo"),panel,[this]{restoreProfileRoi();});
-        button("mosaicCompareStrategies",t("Compare ROI / current…","Confronta ROI / stato attuale…"),panel,[this]{compareStrategies();});
-        blink=new QCheckBox(t("Blink selected layer (preview only)","Lampeggia livello selezionato (solo anteprima)"));blink->setObjectName("mosaicBlink");blink->setAccessibleName(blink->text());panel->addWidget(blink);
+        button("mosaicRestoreRoi",t("Restore profile ROI","Ripristina ROI del profilo"),advanced,[this]{restoreProfileRoi();});
+        button("mosaicCompareStrategies",t("Compare ROI / current…","Confronta ROI / stato attuale…"),advanced,[this]{compareStrategies();});
+        blink=new QCheckBox(t("Blink selected layer (preview only)","Lampeggia livello selezionato (solo anteprima)"));blink->setObjectName("mosaicBlink");blink->setAccessibleName(blink->text());advanced->addWidget(blink);
         connect(blink,&QCheckBox::toggled,this,[this](bool enabled){blinkHidden=false;setProperty("blinkHidden",false);if(enabled)blinkTimer.start();else blinkTimer.stop();schedule();});
-        inspectionMode=new QComboBox;inspectionMode->setObjectName("mosaicInspection");inspectionMode->addItems({t("Composite preview","Anteprima composita"),t("Difference: selected vs adjacent","Differenza: selezionato e adiacente"),t("Checkerboard: selected vs adjacent","Scacchiera: selezionato e adiacente"),t("Swipe: selected vs adjacent","Tendina: selezionato e adiacente")});inspectionMode->setAccessibleName(t("Seam inspection mode","Modalità ispezione giunzione"));panel->addWidget(inspectionMode);
-        swipePosition=new QSlider(Qt::Horizontal);swipePosition->setObjectName("mosaicSwipe");swipePosition->setRange(0,100);swipePosition->setValue(50);swipePosition->setAccessibleName(t("Swipe comparison position","Posizione confronto a tendina"));swipePosition->setEnabled(false);swipePosition->setVisible(false);panel->addWidget(swipePosition);
+        inspectionMode=new QComboBox;inspectionMode->setObjectName("mosaicInspection");inspectionMode->addItems({t("Composite preview","Anteprima composita"),t("Difference: selected vs adjacent","Differenza: selezionato e adiacente"),t("Checkerboard: selected vs adjacent","Scacchiera: selezionato e adiacente"),t("Swipe: selected vs adjacent","Tendina: selezionato e adiacente")});inspectionMode->setAccessibleName(t("Seam inspection mode","Modalità ispezione giunzione"));advanced->addWidget(inspectionMode);
+        swipePosition=new QSlider(Qt::Horizontal);swipePosition->setObjectName("mosaicSwipe");swipePosition->setRange(0,100);swipePosition->setValue(50);swipePosition->setAccessibleName(t("Swipe comparison position","Posizione confronto a tendina"));swipePosition->setEnabled(false);swipePosition->setVisible(false);advanced->addWidget(swipePosition);
         // The swipe slider only means something in the swipe-comparison mode (index 3);
         // hide it elsewhere so it does not look like a broken control in composite view.
         connect(inspectionMode,qOverload<int>(&QComboBox::currentIndexChanged),this,[this](int mode){swipePosition->setEnabled(mode==3);swipePosition->setVisible(mode==3);schedule();});
         connect(swipePosition,&QSlider::valueChanged,this,[this]{if(inspectionMode->currentIndex()==3)schedule();});
-        button("mosaicZoomSeam",t("Zoom to selected overlap","Zoom sulla sovrapposizione selezionata"),panel,[this]{zoomToOverlap();});
-        button("mosaicControlPoints",t("Align with control points…","Allinea con punti di controllo…"),panel,[this]{controlPointsDialog();});
-        button("mosaicCropProposal",t("Propose uniform-border crop…","Proponi ritaglio bordi uniformi…"),panel,[this]{proposeCrop();});
-        button("mosaicPolygonMask",t("Draw polygon mask…","Disegna maschera poligonale…"),panel,[this]{polygonMaskDialog();});
-        button("mosaicClearPolygonMasks",t("Clear selected polygon masks","Cancella maschere poligonali selezionate"),panel,[this]{clearPolygonMasks(list->currentRow());});
+        button("mosaicZoomSeam",t("Zoom to selected overlap","Zoom sulla sovrapposizione selezionata"),advanced,[this]{zoomToOverlap();});
+        button("mosaicControlPoints",t("Align with control points…","Allinea con punti di controllo…"),advanced,[this]{controlPointsDialog();});
+        button("mosaicCropProposal",t("Propose uniform-border crop…","Proponi ritaglio bordi uniformi…"),advanced,[this]{proposeCrop();});
+        button("mosaicPolygonMask",t("Draw polygon mask…","Disegna maschera poligonale…"),advanced,[this]{polygonMaskDialog();});
+        button("mosaicClearPolygonMasks",t("Clear selected polygon masks","Cancella maschere poligonali selezionate"),advanced,[this]{clearPolygonMasks(list->currentRow());});
         auto* ordering=new QHBoxLayout;panel->addLayout(ordering);
         button("mosaicDown",t("Lower","Abbassa"),ordering,[this]{reorder(-1);});button("mosaicUp",t("Raise","Alza"),ordering,[this]{reorder(1);});
         button("mosaicRemove",t("Remove","Rimuovi"),panel,[this]{int row=list->currentRow();if(row<0)return;remember();layers.erase(layers.begin()+row);refreshList();});
@@ -421,19 +424,22 @@ public:
             {"excludeX","Exclude mask X","Maschera esclusa X",0,100000,1,0},{"excludeY","Exclude mask Y","Maschera esclusa Y",0,100000,1,0},
             {"excludeW","Exclude mask width (0 = none)","Larghezza maschera esclusa (0 = nessuna)",0,100000,1,0},{"excludeH","Exclude mask height (0 = none)","Altezza maschera esclusa (0 = nessuna)",0,100000,1,0}};
         for(const auto& field:fields){auto* spin=new QDoubleSpinBox;spin->setObjectName(QString("mosaic_")+field.id);spin->setRange(field.min,field.max);spin->setSingleStep(field.step);spin->setDecimals(field.decimals);spin->setKeyboardTracking(false);spin->setAccessibleName(t(field.en,field.italian));form->addRow(t(field.en,field.italian),spin);controls.push_back(spin);connect(spin,qOverload<double>(&QDoubleSpinBox::valueChanged),this,[this]{edit();});}
-        button("mosaicResetColour",t("Reset selected colours","Ripristina colori selezionati"),panel,[this]{resetColour();});
-        button("mosaicAllColour",t("Apply selected colours to all","Applica colori selezionati a tutti"),panel,[this]{applyColoursToAll();});
-        button("mosaicMatchColour",t("Match selected layer to adjacent…","Uniforma il livello selezionato all’adiacente…"),panel,[this]{visualCompensationDialog();});
+        button("mosaicResetColour",t("Reset selected colours","Ripristina colori selezionati"),advanced,[this]{resetColour();});
+        button("mosaicAllColour",t("Apply selected colours to all","Applica colori selezionati a tutti"),advanced,[this]{applyColoursToAll();});
+        button("mosaicMatchColour",t("Match selected layer to adjacent…","Uniforma il livello selezionato all’adiacente…"),advanced,[this]{visualCompensationDialog();});
         button("mosaicSave",t("Save editable project…","Salva progetto modificabile…"),panel,[this]{saveProjectDialog();});
-        button("mosaicPackage",t("Export project package…","Esporta pacchetto progetto…"),panel,[this]{packageDialog();});
+        button("mosaicPackage",t("Export project package…","Esporta pacchetto progetto…"),advanced,[this]{packageDialog();});
         button("mosaicOpen",t("Open project…","Apri progetto…"),panel,[this]{loadProjectDialog();});
         button("mosaicRecover",t("Recover autosaved work…","Recupera lavoro autosalvato…"),panel,[this]{
             if(!recoveryAvailable()){status->setText(t("No autosaved work to recover.","Nessun lavoro autosalvato da recuperare."));return;}
             if(dirty&&!layers.empty()&&QMessageBox::question(this,t("Recover work","Recupera lavoro"),t("Replace the current layers with the autosaved work?","Sostituire i livelli attuali con il lavoro autosalvato?"),QMessageBox::Yes|QMessageBox::No,QMessageBox::No)!=QMessageBox::Yes)return;
             recoverSession();
         });
-        button("mosaicQuality",t("Quality assessment…","Valutazione qualità…"),panel,[this]{qualityDialog();});
+        button("mosaicQuality",t("Quality assessment…","Valutazione qualità…"),advanced,[this]{qualityDialog();});
         button("mosaicExport",t("Export single image…","Esporta immagine unica…"),panel,[this]{exportDialog();});
+        // Collapsible advanced section: hidden by default, holds the technical tools.
+        auto* advToggle=new QCheckBox(t("Show advanced tools","Mostra strumenti avanzati"));advToggle->setObjectName("mosaicAdvancedToggle");advToggle->setAccessibleName(advToggle->text());panel->addWidget(advToggle);panel->addWidget(advWidget);
+        connect(advToggle,&QCheckBox::toggled,advWidget,&QWidget::setVisible);
         auto* right=new QVBoxLayout;body->addLayout(right,1);
         auto* zoomRow=new QHBoxLayout;right->addLayout(zoomRow);zoomRow->addWidget(new QLabel(t("Preview zoom (%)","Zoom anteprima (%)")));
         zoom=new QDoubleSpinBox;zoom->setRange(25,400);zoom->setValue(100);zoom->setAccessibleName(t("Preview zoom","Zoom anteprima"));zoomRow->addWidget(zoom);connect(zoom,qOverload<double>(&QDoubleSpinBox::valueChanged),this,[this]{display();});button("mosaicFit",t("Fit","Adatta"),zoomRow,[this]{fitPreview();});zoomRow->addStretch();

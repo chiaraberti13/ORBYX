@@ -36,7 +36,7 @@ int main(int argc,char** argv){
         const auto generatedProfile=root/"generated-profile.json";
         std::ofstream(generatedProfile)<<R"({"L2VIS1":{"ROI":{"x":5,"y":6,"width":60,"height":50}},"L2VIS2":{"ROI":{"x":10,"y":8,"width":55,"height":45}}})";
         for(bool it:{false,true}){
-            MosaicDialog dialog(it);dialog.resize(960,680);dialog.show();
+            MosaicDialog dialog(it);dialog.resize(960,680);dialog.show();if(auto* at=dialog.findChild<QCheckBox*>("mosaicAdvancedToggle"))at->setChecked(true);
             dialog.appendFiles({temp.path()+"/one.png",temp.path()+"/two.png",temp.path()+"/three.png"});waitFor(dialog);
             check(dialog.state().size()==3,"Editor assumes exactly two layers");
             auto* list=dialog.findChild<QListWidget*>("mosaicLayers");check(list&&list->count()==3,"Layer list missing");
@@ -157,7 +157,7 @@ int main(int argc,char** argv){
                 {MosaicDialog a(it);a.appendFiles({QString::fromStdString((rsrc/"r.png").string())});waitFor(a);
                  QElapsedTimer et;et.start();while(!QFileInfo::exists(recoveryFile)&&et.elapsed()<3000)QTest::qWait(20);
                  check(QFileInfo::exists(recoveryFile),"Autosave did not write a recovery file after an edit");}
-                MosaicDialog b(it);b.show();
+                MosaicDialog b(it);b.show();if(auto* at=b.findChild<QCheckBox*>("mosaicAdvancedToggle"))at->setChecked(true);
                 check(b.property("recoveryAvailable").toBool(),"Recovery was not detected on a new session");
                 auto* recoverButton=b.findChild<QPushButton*>("mosaicRecover");check(recoverButton&&recoverButton->isVisible(),"Recover control missing");
                 recoverButton->click();waitFor(b);
@@ -214,7 +214,7 @@ int main(int argc,char** argv){
             check(grayLayer.type()==CV_16UC3,"Single-channel preset lost native depth");
             const auto gpx=grayLayer.at<cv::Vec3w>(0,0);check(gpx[0]==8002&&gpx[1]==8002&&gpx[2]==8002,"Single-channel preset is not neutral gray from CH2");
             channels.saveProject(temp.path()+(it?"/channels-it.json":"/channels-en.json"));
-            MosaicDialog profileRoi(it);profileRoi.show();profileRoi.appendGeneratedProducts(QString::fromStdString(generated.string()),QString::fromStdString(generatedProfile.string()),"L2",true);waitFor(profileRoi);
+            MosaicDialog profileRoi(it);profileRoi.show();if(auto* at=profileRoi.findChild<QCheckBox*>("mosaicAdvancedToggle"))at->setChecked(true);profileRoi.appendGeneratedProducts(QString::fromStdString(generated.string()),QString::fromStdString(generatedProfile.string()),"L2",true);waitFor(profileRoi);
             check(profileRoi.state().size()==3&&profileRoi.property("loadedProfileRoi").toBool(),"All selected output products were not opened as editable layers");
             check(profileRoi.state()[0].crop==cv::Rect(5,6,60,50)&&profileRoi.state()[1].crop==cv::Rect(10,8,55,45)&&profileRoi.state()[1].x==60,"Editable profile ROI geometry differs from historical merge");
             check(profileRoi.findChild<QLabel*>("mosaicStatus")->text().contains("ROI"),"Editable profile ROI explanation missing");
