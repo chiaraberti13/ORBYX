@@ -132,7 +132,9 @@ void runImageDemo(const std::filesystem::path& input,const std::filesystem::path
             // the resulting transform is rescaled and applied at full resolution.
             // The bundled 1968-px halves (and any image already <=2048) use est=1,
             // so their estimation and byte output are unchanged.
-            const double est=std::min(1.0,2048.0/std::max(images[0].cols,images[0].rows));
+            // Estimate at full resolution when feasible; cap the working area at
+            // 16 Mpx so very large inputs (e.g. full MSU-GS) stay within memory.
+            const double est=std::min(1.0,std::sqrt(16.0e6/(double(images[0].cols)*images[0].rows)));
             auto reduced=[&](const cv::Mat& m){cv::Mat r=m;if(est<1.0)cv::resize(m,r,{},est,est,cv::INTER_AREA);cv::Mat f;r.convertTo(f,CV_32F);return f;};
             cv::Mat ref=reduced(images[0]);
             for(int c=1;c<3;++c) {
@@ -159,9 +161,10 @@ void runImageDemo(const std::filesystem::path& input,const std::filesystem::path
             composeNaturalColor(files,inter/(name+"-natural.png"));
             natural[side]=cv::imread((inter/(name+"-natural.png")).string());
         }
-        // Estimate the seam on a bounded working image as well (bundled halves are
-        // <=2048 px, so seamEst=1 and the measured seam is byte-identical); the
-        // integer shift is then scaled back to full-resolution pixels.
+        // The seam (edge correlation between the two halves) stays on a <=2048 px
+        // working image: on weak-overlap edges a reduced image is more robust than
+        // full resolution, and the bundled halves keep seamEst=1 (byte-identical).
+        // The integer shift is then scaled back to full-resolution pixels.
         const double seamEst=std::min(1.0,2048.0/std::max({reference[0].rows,reference[0].cols,reference[1].rows,reference[1].cols}));
         cv::Mat seamL=reference[0],seamR=reference[1];
         if(seamEst<1.0){cv::resize(reference[0],seamL,{},seamEst,seamEst,cv::INTER_AREA);cv::resize(reference[1],seamR,{},seamEst,seamEst,cv::INTER_AREA);}
