@@ -387,8 +387,8 @@ public:
         connect(list,&QListWidget::currentRowChanged,this,[this]{if(!updating){readControls();display();}});
         button("mosaicRecommend",t("Recommended strategy…","Strategia consigliata…"),panel,[this]{recommendStrategy();});
         button("mosaicAutoOverlap",t("Automatically align overlaps…","Allinea automaticamente le sovrapposizioni…"),panel,[this]{autoAlign();});
-        button("mosaicRestoreRoi",t("Restore profile ROI","Ripristina ROI del profilo"),advanced,[this]{restoreProfileRoi();});
-        button("mosaicCompareStrategies",t("Compare ROI / current…","Confronta ROI / stato attuale…"),advanced,[this]{compareStrategies();});
+        button("mosaicRestoreRoi",t("Restore the profile crop","Ripristina il ritaglio del profilo"),advanced,[this]{restoreProfileRoi();});
+        button("mosaicCompareStrategies",t("Compare profile / current…","Confronta profilo / stato attuale…"),advanced,[this]{compareStrategies();});
         blink=new QCheckBox(t("Blink selected layer (preview only)","Lampeggia livello selezionato (solo anteprima)"));blink->setObjectName("mosaicBlink");blink->setAccessibleName(blink->text());advanced->addWidget(blink);
         connect(blink,&QCheckBox::toggled,this,[this](bool enabled){blinkHidden=false;setProperty("blinkHidden",false);if(enabled)blinkTimer.start();else blinkTimer.stop();schedule();});
         inspectionMode=new QComboBox;inspectionMode->setObjectName("mosaicInspection");inspectionMode->addItems({t("Composite preview","Anteprima composita"),t("Difference: selected vs adjacent","Differenza: selezionato e adiacente"),t("Checkerboard: selected vs adjacent","Scacchiera: selezionato e adiacente"),t("Swipe: selected vs adjacent","Tendina: selezionato e adiacente")});inspectionMode->setAccessibleName(t("Seam inspection mode","Modalità ispezione giunzione"));advanced->addWidget(inspectionMode);
@@ -408,7 +408,7 @@ public:
         auto* history=new QHBoxLayout;panel->addLayout(history);
         button("mosaicUndo",t("Undo","Annulla"),history,[this]{undo();});button("mosaicRedo",t("Redo","Ripeti"),history,[this]{redo();});
         visible=new QCheckBox(t("Visible layer","Livello visibile"));visible->setObjectName("mosaicVisible");panel->addWidget(visible);connect(visible,&QCheckBox::toggled,this,[this]{edit();});
-        blendMode=new QComboBox;blendMode->setObjectName("mosaicBlendMode");blendMode->addItems({t("No blending (upper layer replaces)","Nessun blending (il livello superiore sostituisce)"),t("Feather (visual transition)","Sfumatura (transizione visuale)"),t("Minimum-cost seam (visual)","Giunzione a costo minimo (visuale)"),t("Multiband blend (visual)","Blending multibanda (visuale)")});blendMode->setAccessibleName(t("Selected layer blending mode","Modalità blending del livello selezionato"));panel->addWidget(blendMode);connect(blendMode,qOverload<int>(&QComboBox::currentIndexChanged),this,[this]{edit();});
+        blendMode=new QComboBox;blendMode->setObjectName("mosaicBlendMode");blendMode->addItems({t("No blending (top layer covers)","Nessuna fusione (il livello sopra copre)"),t("Feather (soft transition)","Sfumatura (transizione morbida)"),t("Invisible seam (automatic)","Giunzione invisibile (automatica)"),t("Advanced blend (multiband)","Fusione avanzata (multibanda)")});blendMode->setAccessibleName(t("How the selected layer blends","Come si fonde il livello selezionato"));panel->addWidget(blendMode);connect(blendMode,qOverload<int>(&QComboBox::currentIndexChanged),this,[this]{edit();});
         auto* form=new QFormLayout;panel->addLayout(form);
         struct Field{const char* id;const char* en;const char* italian;double min,max,step;int decimals;};
         const Field fields[]={
@@ -419,8 +419,8 @@ public:
             {"cropW","Crop width (0 = full)","Larghezza ritaglio (0 = intera)",0,100000,1,0},{"cropH","Crop height (0 = full)","Altezza ritaglio (0 = intera)",0,100000,1,0},
             {"black","Black level (0–1)","Livello nero (0–1)",0,.999,.001,4},{"white","White level (0–1)","Livello bianco (0–1)",.001,1,.001,4},
             {"gamma","Gamma","Gamma",.1,10,.05,3},{"exposure","Exposure (EV)","Esposizione (EV)",-10,10,.1,3},
-            {"saturation","Saturation","Saturazione",0,4,.05,3},{"red","Red gain","Guadagno rosso",0,4,.05,3},
-            {"green","Green gain","Guadagno verde",0,4,.05,3},{"blue","Blue gain","Guadagno blu",0,4,.05,3},
+            {"saturation","Saturation","Saturazione",0,4,.05,3},{"red","Red intensity","Intensità rosso",0,4,.05,3},
+            {"green","Green intensity","Intensità verde",0,4,.05,3},{"blue","Blue intensity","Intensità blu",0,4,.05,3},
             {"excludeX","Exclude mask X","Maschera esclusa X",0,100000,1,0},{"excludeY","Exclude mask Y","Maschera esclusa Y",0,100000,1,0},
             {"excludeW","Exclude mask width (0 = none)","Larghezza maschera esclusa (0 = nessuna)",0,100000,1,0},{"excludeH","Exclude mask height (0 = none)","Altezza maschera esclusa (0 = nessuna)",0,100000,1,0}};
         for(const auto& field:fields){auto* spin=new QDoubleSpinBox;spin->setObjectName(QString("mosaic_")+field.id);spin->setRange(field.min,field.max);spin->setSingleStep(field.step);spin->setDecimals(field.decimals);spin->setKeyboardTracking(false);spin->setAccessibleName(t(field.en,field.italian));form->addRow(t(field.en,field.italian),spin);controls.push_back(spin);connect(spin,qOverload<double>(&QDoubleSpinBox::valueChanged),this,[this]{edit();});}
