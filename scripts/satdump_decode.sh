@@ -40,13 +40,30 @@ fi
 # Extract without FUSE and keep the ORBYX library environment independent.
 (cd "$work" && [[ -d squashfs-root ]] || ./SatDump.AppImage --appimage-extract > extract.log)
 satdump="$work/squashfs-root/usr/bin/satdump"
+share="$work/squashfs-root/usr/share/satdump"
 libs="$work/squashfs-root/usr/lib/x86_64-linux-gnu/satdump/plugins:$work/squashfs-root/usr/lib/x86_64-linux-gnu:$work/squashfs-root/usr/lib"
 
-mkdir -p "$work/config"
+# SatDump needs its resources/pipelines and a config in the working directory.
+# Mirror the CI test's isolated setup and disable auto-processing / Kepler updates.
+runtime="$work/runtime"
+mkdir -p "$runtime/plugins" "$work/config"
+ln -sfn "$share/resources" "$runtime/resources"
+ln -sfn "$share/pipelines" "$runtime/pipelines"
+ln -sfn "$work/squashfs-root/usr/lib/x86_64-linux-gnu/satdump/plugins/libelektro_arktika_support.so" "$runtime/plugins/" 2>/dev/null || true
+python3 - "$share" "$runtime" <<'PY'
+import re,sys
+from pathlib import Path
+share,runtime=Path(sys.argv[1]),Path(sys.argv[2])
+text=(share/'satdump_cfg.json').read_text()
+text=re.sub(r'("auto_process_products"\s*:\s*\{.*?"value"\s*:)\s*true',r'\1 false',text,flags=re.S)
+text=re.sub(r'("kepler_update_interval"\s*:\s*\{.*?"value"\s*:)\s*"[^"]*"',r'\1 "Never"',text,flags=re.S)
+(runtime/'satdump_cfg.json').write_text(text)
+PY
+
 echo "Decoding the CADU with SatDump (satellite ${sat})… this can take several minutes."
-env XDG_CONFIG_HOME="$work/config" LD_LIBRARY_PATH="$libs" \
-  "$satdump" pipeline elektro_rdas cadu "$cadu" "$out/decoded" \
-  --satellite_number="$sat" --apply_correction=false
+( cd "$runtime" && env XDG_CONFIG_HOME="$work/config" LD_LIBRARY_PATH="$libs" \
+    "$satdump" pipeline elektro_rdas cadu "$cadu" "$out/decoded" \
+    --satellite_number="$sat" --apply_correction=false )
 
 echo "Done. Full-resolution channels are in: $out/decoded (MSUGS_VIS1 / MSUGS_VIS2)."
 echo "For ORBYX automatic generation, copy them as sx_/dx_ MSUGS-VIS-1/2/3.png into your auto-input folder."
