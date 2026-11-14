@@ -1,8 +1,8 @@
 {
-  "id": "elektro-l4-rdas-cadu",
-  "url": "https://github.com/chiaraberti13/ORBYX/releases/download/rdas-cadu-l4/elektro_rdas.cadu",
-  "size": 769938432,
-  "sha256": "b92ded3c71f1752d12208ed358e0d392e05d2ddbefe97f2e72b69e3c09498d48",
+  "id": "elektro-l3-rdas-cadu",
+  "url": "https://github.com/chiaraberti13/ORBYX/releases/download/rdas-cadu-l3/elektro_rdas.cadu",
+  "size": 1913632768,
+  "sha256": "430cfda270790ddb37f9aa0a08440046ee591e3ff83d7cc89caf6aa21184f3c1",
   "origin": "https://github.com/Digitelektro/rdas_layer_aligner/issues/2",
   "contributor": "eswnl",
   "acquisition_time": null,
