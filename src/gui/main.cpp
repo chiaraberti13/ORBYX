@@ -415,27 +415,78 @@ class Window final : public QMainWindow {
     QString autoInputFolder() const {
         return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)+"/auto-input";
     }
+    // Does the source folder hold a SatDump VIS export (two product folders)?
+    bool hasRdasExport(const QString &folder) const {
+        return QFileInfo(QDir(folder).filePath("MSUGS_VIS1/MSUGS-VIS-1.png")).isFile()
+            && QFileInfo(QDir(folder).filePath("MSUGS_VIS2/MSUGS-VIS-1.png")).isFile();
+    }
     void runAutomaticGeneration() {
         if (busy) return;
         const QString folder=autoInputFolder();
         QDir().mkpath(folder);
-        if (!hasDemoImages(folder)) {
-            const QString bundled=bundledDemoFolder();
-            if (!bundled.isEmpty())
-                for (const QString &name : {"sx_MSUGS-VIS-1.jpg","sx_MSUGS-VIS-2.jpg","sx_MSUGS-VIS-3.jpg",
-                     "dx_MSUGS-VIS-1.jpg","dx_MSUGS-VIS-2.jpg","dx_MSUGS-VIS-3.jpg"}) {
-                    const QString target=QDir(folder).filePath(name);
-                    if (!QFileInfo::exists(target)) QFile::copy(QDir(bundled).filePath(name),target);
-                }
-        }
-        if (!hasDemoImages(folder)) {
-            QMessageBox::information(this,trText("Automatic generation"),
-                trText("Put the six JPEGs sx_/dx_ MSUGS-VIS-1/2/3 in this folder, then press Automatic generation again:")+"\n"+folder);
+        // Use whatever the user actually put in the source folder — never seed or fall
+        // back to the bundled demo. Full-resolution SatDump exports take the RDAS path.
+        if (hasRdasExport(folder)) {
+            log->append((trText("Automatic generation from")+": "+folder).toHtmlEscaped());
+            executeRdasAuto(folder);
             return;
         }
-        log->append((trText("Automatic generation from")+": "+folder).toHtmlEscaped());
-        log->append(trText("Replace the images in that folder with your own (sx_/dx_ MSUGS-VIS-1/2/3.jpg) and press again.").toHtmlEscaped());
-        executeImageDemo({},folder,"automatic");
+        if (hasDemoImages(folder)) {
+            log->append((trText("Automatic generation from")+": "+folder).toHtmlEscaped());
+            executeImageDemo({},folder,"automatic");
+            return;
+        }
+        QMessageBox::information(this,trText("Automatic generation"),
+            trText("Put your own images in this folder — a SatDump export (MSUGS_VIS1 and MSUGS_VIS2 with their MSUGS-VIS-1/2/3.png), or six sx_/dx_ MSUGS-VIS-1/2/3 files — then press Automatic generation again:")+"\n"+folder);
+    }
+    // Automatic RDAS flow on the user's SatDump export: calibrate -> generate ->
+    // Natural Color -> join the two halves -> North-up, all via core APIs (no shell).
+    void executeRdasAuto(const QString &folder) {
+        if (busy) return;
+        const QString dest=orbyx::gui::newOutputFolder("automatic");
+        const QString sat=satellite->currentText();
+        const QString logPath=QDir(orbyx::gui::logsRoot()).filePath("image-"+QDateTime::currentDateTimeUtc().toString("yyyyMMddTHHmmssZ")+"-"+QUuid::createUuid().toString(QUuid::WithoutBraces)+".log");
+        setProperty("demoFinished",false);
+        demoMode=true;setQueueBusy(true);progress->setRange(0,0);applyText();status->setText(trText("Processing…"));
+        const bool italian=it;
+        auto *worker=QThread::create([this,folder,dest,sat,logPath,italian] {
+            QString error;QStringList entries;
+            auto logger=[this,&entries](const std::string &line){const auto t=QString::fromStdString(line);entries.append(t);QMetaObject::invokeMethod(this,[this,t]{log->append(t.toHtmlEscaped());},Qt::QueuedConnection);};
+            try {
+                orbyx::RunOptions cal;cal.satellite=sat.toStdString();cal.input=folder.toStdString();cal.output=(dest+"/calibrated").toStdString();cal.calibrate=true;cal.calibrationScale=0.125;cal.cpu=true;cal.language=italian?"it":"en";
+                orbyx::run(cal,logger);
+                orbyx::RunOptions gen;gen.satellite=sat.toStdString();gen.input=folder.toStdString();gen.output=(dest+"/aligned").toStdString();gen.config=(dest+"/calibrated/calibration.json").toStdString();gen.cpu=true;gen.language=italian?"it":"en";
+                orbyx::run(gen,logger);
+                auto natural=[&](const QString &adir,const QString &out){std::array<std::filesystem::path,3> ch={(adir+"/MSUGS-VIS-1.png").toStdString(),(adir+"/MSUGS-VIS-2.png").toStdString(),(adir+"/MSUGS-VIS-3.png").toStdString()};orbyx::composeNaturalColor(ch,out.toStdString());};
+                QImage composed;
+                if(QDir(dest+"/aligned/MSUGS_VIS_Aligned").exists()){
+                    natural(dest+"/aligned/MSUGS_VIS_Aligned",dest+"/natural-raw.png");
+                    if(!composed.load(dest+"/natural-raw.png"))throw std::runtime_error("Natural Color output missing");
+                } else {
+                    natural(dest+"/aligned/MSUGS_VIS-1_Aligned",dest+"/natural-vis1.png");
+                    natural(dest+"/aligned/MSUGS_VIS-2_Aligned",dest+"/natural-vis2.png");
+                    QImage a,b;if(!a.load(dest+"/natural-vis1.png")||!b.load(dest+"/natural-vis2.png"))throw std::runtime_error("Natural Color output missing");
+                    const int h=std::min(a.height(),b.height());
+                    composed=QImage(a.width()+b.width(),h,QImage::Format_RGB888);composed.fill(Qt::black);
+                    QPainter p(&composed);p.drawImage(0,0,a);p.drawImage(a.width(),0,b);p.end();
+                }
+                composed=composed.mirrored(true,true); // 180° — North-up
+                if(!composed.save(dest+"/composite.png"))throw std::runtime_error("Could not save composite");
+            } catch(const std::exception &e){error=QString::fromUtf8(e.what());}
+            catch(...){error="Unknown processing exception";}
+            if(!error.isEmpty())entries.append("ERROR: "+error);
+            QFile df(logPath);if(df.open(QIODevice::WriteOnly|QIODevice::NewOnly))df.write(entries.join('\n').toUtf8());
+            QMetaObject::invokeMethod(this,[this,error,dest,logPath] {
+                setProperty("demoFinished",true);setProperty("demoSucceeded",error.isEmpty());
+                setQueueBusy(false);progress->setRange(0,100);progress->setValue(error.isEmpty()?100:0);applyText();
+                status->setText(trText(error.isEmpty()?"Completed":"Processing failed"));
+                if(error.isEmpty()){lastOutput=dest;demoResult=QDir(dest).filePath("composite.png");source->setCurrentIndex(1);loadPreview();log->append((trText("Demo image saved")+": "+demoResult).toHtmlEscaped());log->append((trText("User images folder")+": "+orbyx::gui::outputImagesRoot()).toHtmlEscaped());}
+                else log->append(error.toHtmlEscaped());
+                log->append(("Log: "+logPath).toHtmlEscaped());
+                if(quitAfterRun)QApplication::exit(error.isEmpty()?0:2);
+            },Qt::QueuedConnection);
+        });
+        connect(worker,&QThread::finished,worker,&QObject::deleteLater);worker->start();
     }
     void executeImageDemo(const QString &requestedOutput = {}, const QString &sampleFolder = {}, const QString &kind = "manual", bool openEditorAfter = false) {
         if (busy) return;
@@ -445,7 +496,7 @@ class Window final : public QMainWindow {
         const QString logPath=QDir(orbyx::gui::logsRoot()).filePath("image-"+token+".log");
         setProperty("demoFinished",false);
         demoMode=true;setQueueBusy(true);progress->setRange(0,0);applyText();status->setText(trText("Processing…"));
-        const int scale=exportScale?exportScale->currentIndex()+1:1;
+        const int scale=1;
         auto *worker=QThread::create([this,sample,destination,logPath,openEditorAfter,scale] {
             QString error;QStringList entries;
             try {
@@ -817,6 +868,7 @@ public:
     // Test seam: resolve the bundled demo folder and run a manual image
     // simulation on a chosen folder without going through the native picker.
     QString demoFolderForTests() const { return bundledDemoFolder(); }
+    QString autoInputFolderForTests() const { return autoInputFolder(); }
     void runImageSimulation(const QString &folder) { executeImageDemo({},folder,"manual"); }
     void previewSettings(const QString &locale,const QString &appearance,const QSize &size) {
         if (!locale.isEmpty()) { it=locale=="it"; language->setCurrentIndex(it?0:1); }
@@ -860,10 +912,8 @@ public:
         demoButton=new QPushButton;demoButton->setObjectName("demoButton");
         demoButton->setShortcut(QKeySequence("Ctrl+Shift+D"));header->addWidget(demoButton);
         connect(demoButton,&QPushButton::clicked,this,[this]{runAutomaticGeneration();});
-        exportScaleLabel=label("muted");exportScale=new QComboBox;exportScale->setObjectName("exportScale");
-        exportScale->addItems({"1×","2×","3×","4×"});exportScale->setCurrentIndex(qBound(1,settings.value("exportScale",1).toInt(),4)-1);
-        connect(exportScale,qOverload<int>(&QComboBox::currentIndexChanged),this,[this](int i){settings.setValue("exportScale",i+1);});
-        header->addWidget(exportScaleLabel);header->addWidget(exportScale);
+        exportScaleLabel=label("muted");exportScale=new QComboBox;exportScale->setObjectName("exportScale");exportScale->addItem("1×");
+        exportScaleLabel->hide();exportScale->hide(); // enlargement removed: it did not improve quality
         simulateButton=new QPushButton(this);simulateButton->setObjectName("simulateButton");
         simulateButton->setShortcut(QKeySequence("Ctrl+Shift+S"));simulateButton->hide();
         connect(simulateButton,&QPushButton::clicked,this,[this]{imageSimulationDialog();});
