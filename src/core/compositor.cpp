@@ -230,10 +230,10 @@ MosaicResult renderMosaic(const std::vector<MosaicLayer>& layers,int previewEdge
     double ratio=previewEdge?std::min(1.,double(previewEdge)/std::max(width,height)):1.;
     const int cols=std::max(1,int(std::ceil(width*ratio))),rows=std::max(1,int(std::ceil(height*ratio)));
     const auto pixels=std::uint64_t(cols)*rows;
-    check(pixels<=200000000,"Mosaic canvas exceeds 200 Mpx; crop or reduce layers");
+    check(pixels<=400000000,"Mosaic canvas exceeds 400 Mpx; crop or reduce layers");
     int outputDepth=previewEdge?CV_8U:depth;
-    check(pixels*(outputDepth==CV_16U?6:3)+largestBytes+128ULL*1024*1024<=2ULL*1024*1024*1024,
-          "Mosaic memory budget exceeds 2 GiB; crop or reduce layers");
+    check(pixels*(outputDepth==CV_16U?6:3)+largestBytes+128ULL*1024*1024<=6ULL*1024*1024*1024,
+          "Mosaic memory budget exceeds 6 GiB; crop or reduce layers");
     MosaicResult result;result.originX=minX;result.originY=minY;result.pixelsPerSourcePixel=ratio;
     result.outlines.resize(layers.size());
     for(size_t i=0;i<layers.size();++i){

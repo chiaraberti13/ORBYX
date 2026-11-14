@@ -1508,6 +1508,18 @@ l'utente: è lo slider del confronto a tendina, attivo solo in quella modalità 
 chiaro o utile) e un allineamento della giunzione più preciso (stima a piena risoluzione). Il punto
 «risoluzione finale 1428×1428» è d'uso: dipende dall'usare immagini a piena risoluzione, non le demo.
 
+- **Allineamento canali a piena risoluzione** (`01f0e2e`): la stima ECC per allineare i tre canali
+  passa da «lato ≤2048 px» (~4 Mpx) ad area ≤16 Mpx — a piena risoluzione fin dove la memoria regge.
+  Il seam resta su working image ≤2048 px (più robusto su bordi a overlap debole). Bundle e immagini
+  ≤16 Mpx invariati (est=1). L'immagine **esportata** è sempre a piena risoluzione dell'input (il
+  ridimensionamento è solo per la stima, non per l'export).
+- **Limiti compositore alzati**: `renderMosaic` esportava con tetto 200 Mpx / 2 GiB (riga 233/236),
+  che bloccava l'export manuale delle MSU-GS piene affiancate (~206 Mpx). Portati a **400 Mpx / 6 GiB**
+  così la generazione **manuale** esporta a piena risoluzione come l'automatica. L'anteprima resta
+  ridotta (`renderMosaic(state,1200)`), l'export usa `previewEdge=0` (piena risoluzione nativa).
+  `mosaic-regression`, `image-demo-regression`, `engine-regression` verdi. La risoluzione finale non
+  è mai fissa: nasce dalle dimensioni reali delle immagini di origine.
+
 Verifica effettiva locale (Ubuntu 24.04, OpenCV 4.6.0, Qt 6.4.2, GCC 13.3):
 - Core: `image-demo-regression` verde con nuovo caso a risoluzione non-standard
   (500×1400 → composite 1000×1400, canali interi) oltre al percorso bundled byte-identico;
