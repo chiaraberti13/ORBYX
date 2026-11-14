@@ -97,6 +97,9 @@ void runImageDemo(const std::filesystem::path& input,const std::filesystem::path
     checkDemo(fs::create_directory(output),"Demo output already exists");
     try {
         fs::permissions(output,fs::perms::owner_all,fs::perm_options::replace);
+        // Keep the output folder clean: only the final composite(s) live at the top;
+        // channels, halves and the report go into an "intermedi" subfolder.
+        const fs::path inter=output/"intermedi";fs::create_directory(inter);
         Json::Value report;report["schema_version"]=1;
         report["limitations"]="JPEG 8-bit; no CBOR, absolute geometry or radiometric true colour validation; adjacent halves, no verified overlap";
         std::array<cv::Mat,2> natural,reference;
@@ -121,7 +124,7 @@ void runImageDemo(const std::filesystem::path& input,const std::filesystem::path
                 }
                 checkDemo(image.size()==baseSize,"The six demo JPEGs must share identical dimensions");
                 images[c]=image(cv::Rect(0,header,baseSize.width,baseSize.height-header)).clone();
-                files[c]=output/(name+"-ch"+std::to_string(c+1)+".png");
+                files[c]=inter/(name+"-ch"+std::to_string(c+1)+".png");
             }
             reference[side]=images[0].clone();
             // Estimate the per-channel registration on a bounded working image
@@ -153,8 +156,8 @@ void runImageDemo(const std::filesystem::path& input,const std::filesystem::path
                 if(log)log(name+" CH"+std::to_string(c+1)+": ECC="+std::to_string(score));
             }
             for(int c=0;c<3;++c)saveDemo(files[c],images[c]);
-            composeNaturalColor(files,output/(name+"-natural.png"));
-            natural[side]=cv::imread((output/(name+"-natural.png")).string());
+            composeNaturalColor(files,inter/(name+"-natural.png"));
+            natural[side]=cv::imread((inter/(name+"-natural.png")).string());
         }
         // Estimate the seam on a bounded working image as well (bundled halves are
         // <=2048 px, so seamEst=1 and the measured seam is byte-identical); the
@@ -195,7 +198,7 @@ void runImageDemo(const std::filesystem::path& input,const std::filesystem::path
         report["geometry"]["input_width"]=baseSize.width;report["geometry"]["input_height"]=baseSize.height;
         report["geometry"]["bundled_sample"]=bundled;report["geometry"]["output_width"]=raw.cols;report["geometry"]["output_height"]=raw.rows;
         report["source"]=bundled?"six bundled 714x2048 JPEG previews":"six user-supplied JPEG previews";
-        Json::StreamWriterBuilder writer;std::ofstream stream(output/"demo-report.json");stream<<Json::writeString(writer,report);stream.close();
+        Json::StreamWriterBuilder writer;std::ofstream stream(inter/"demo-report.json");stream<<Json::writeString(writer,report);stream.close();
         checkDemo(!stream.fail(),"Could not save demo report");
         if(log)log("6 JPEG -> 1 composite.png ("+std::to_string(raw.cols)+"x"+std::to_string(raw.rows)+"), RGB321 / Natural Color; display contrast recorded");
     } catch(...) {fs::remove_all(output);throw;}

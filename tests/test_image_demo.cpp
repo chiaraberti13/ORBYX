@@ -42,10 +42,10 @@ int main(int argc,char **argv) {
         // Reference channel 1 is copied after removing the 80-row calibration header.
         for(const auto *side:{"sx","dx"}) {
             const auto original=cv::imread((input/(std::string(side)+"_MSUGS-VIS-1.jpg")).string(),cv::IMREAD_GRAYSCALE);
-            const auto aligned=cv::imread((output/(std::string(side)+"-ch1.png")).string(),cv::IMREAD_UNCHANGED);
+            const auto aligned=cv::imread((output/"intermedi"/(std::string(side)+"-ch1.png")).string(),cv::IMREAD_UNCHANGED);
             check(aligned.type()==CV_8UC1&&aligned.size()==cv::Size(714,1968)&&cv::norm(original(cv::Rect(0,80,714,1968)),aligned,cv::NORM_INF)==0,"Reference channel changed");
         }
-        Json::Value report;std::ifstream reportFile(output/"demo-report.json");reportFile>>report;
+        Json::Value report;std::ifstream reportFile(output/"intermedi"/"demo-report.json");reportFile>>report;
         for(const auto *side:{"sx","dx"})for(const auto *channel:{"2","3"})
             check(report["alignment"][side][channel]["ecc"].asDouble()>.94,"Registration below reference threshold");
         check(report["seam"]["right_down_pixels"].asInt()==4,"Wrong measured seam shift");
@@ -67,10 +67,10 @@ int main(int argc,char **argv) {
             const auto graw=cv::imread((gout/"composite-raw.png").string(),cv::IMREAD_UNCHANGED);
             check(graw.type()==CV_8UC3&&graw.size()==cv::Size(2*gs.width,gs.height),"Generic composite has wrong size or depth");
             for(const auto *side:{"sx","dx"}) {
-                const auto ch=cv::imread((gout/(std::string(side)+"-ch1.png")).string(),cv::IMREAD_UNCHANGED);
+                const auto ch=cv::imread((gout/"intermedi"/(std::string(side)+"-ch1.png")).string(),cv::IMREAD_UNCHANGED);
                 check(ch.type()==CV_8UC1&&ch.size()==gs,"Generic channel not kept whole at input size");
             }
-            Json::Value greport;std::ifstream gf(gout/"demo-report.json");gf>>greport;
+            Json::Value greport;std::ifstream gf(gout/"intermedi"/"demo-report.json");gf>>greport;
             check(!greport["geometry"]["bundled_sample"].asBool()&&greport["geometry"]["output_width"].asInt()==2*gs.width,"Generic report geometry wrong");
         }
         // Large resolution (>2048 px long side): exercises the bounded-estimate path
@@ -95,7 +95,7 @@ int main(int argc,char **argv) {
             orbyx::runImageDemo(input,sout,{},2);
             const auto sraw=cv::imread((sout/"composite-raw.png").string(),cv::IMREAD_UNCHANGED);
             check(sraw.type()==CV_8UC3&&sraw.size()==cv::Size(2856,2856),"Export scale did not enlarge the composite");
-            Json::Value sreport;std::ifstream sf(sout/"demo-report.json");sf>>sreport;
+            Json::Value sreport;std::ifstream sf(sout/"intermedi"/"demo-report.json");sf>>sreport;
             check(sreport["display"]["export_scale"].asInt()==2,"Export scale not recorded");
         }
         // PNG inputs (lossless, e.g. SatDump exports) are accepted alongside JPEG.

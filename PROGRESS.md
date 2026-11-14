@@ -1482,6 +1482,32 @@ inclusa byte-identica:
   flusso «Crea immagine — modalità manuale» coi PNG SatDump, ma ora anche la Generazione automatica
   non impone più la perdita del JPEG.
 
+## 2026-11-14 — Rifiniture da riscontri utente (pulsante, anteprima grande, output, rotazione editor)
+
+Serie di correzioni richieste dall'utente sulla Generazione automatica e sull'editor:
+
+- **Pulsante rinominato**: «Apri cartella JPEG» → «Apri cartella file di origine» / «Open source
+  files folder» (ora accetta JPEG e PNG). Commit `7bc2f78`.
+- **Anteprima immagini grandi**: `QImageReader::setAllocationLimit` passa da 256 a 0 (nessun tetto),
+  così i prodotti a piena risoluzione (centinaia di MB) si caricano invece di fallire con
+  «allocation limit of 256 megabytes». Commit `7bc2f78`.
+- **Output pulito**: nella cartella di output restano solo `composite.png` e `composite-raw.png`;
+  i sei canali, le due metà `*-natural.png` e `demo-report.json` vanno in `output/intermedi/`.
+  Aggiornati core, editor (`appendDemo` legge da `intermedi/`), test del core e checker CI. Commit
+  `a4dcaa0`.
+- **Rotazione dell'editor coerente**: la «modalità manuale»/editor apriva le due metà **non ruotate**
+  mentre la Generazione automatica le presenta Nord-up (ruota il composite di 180°). Ora `appendDemo`
+  ruota i livelli di 180° (`angle=180`, con la giusta traslazione `l.x=X0+cw-1`, `l.y=ch-1`) e
+  **scambia le metà** (dx a sinistra, sx a destra), perché ruotare l'intera scena `[sx|dx]` di 180°
+  dà `[rot(dx)|rot(sx)]`. Verifica: la composizione dei due livelli renderizza 1428×1428 Nord-up,
+  identica per orientamento al composite automatico; `mosaic-widget-flow`, `image-demo-regression`,
+  `gui-widget-flow`, `gui-smoke` verdi.
+
+Resta aperto, sui riscontri utente: lo slider «Anteprima composita» nell'editor (chiarito con
+l'utente: è lo slider del confronto a tendina, attivo solo in quella modalità — da rendere più
+chiaro o utile) e un allineamento della giunzione più preciso (stima a piena risoluzione). Il punto
+«risoluzione finale 1428×1428» è d'uso: dipende dall'usare immagini a piena risoluzione, non le demo.
+
 Verifica effettiva locale (Ubuntu 24.04, OpenCV 4.6.0, Qt 6.4.2, GCC 13.3):
 - Core: `image-demo-regression` verde con nuovo caso a risoluzione non-standard
   (500×1400 → composite 1000×1400, canali interi) oltre al percorso bundled byte-identico;

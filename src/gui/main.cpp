@@ -136,7 +136,7 @@ const QMap<QString, QString> italian = {
  {"Calibration file saved", "File di calibrazione salvato"},
  {"Open generated images", "Apri immagini generate"},
  {"Open calibrations", "Apri calibrazioni"},
- {"Open automatic JPEG folder", "Apri cartella JPEG"},
+ {"Open source files folder", "Apri cartella file di origine"},
  {"Choose aligned VIS channels", "Scegli i canali VIS allineati"},
  {"Save Natural Color PNG", "Salva PNG Natural Color"},
  {"Natural Color exported", "Natural Color esportato"},
@@ -198,7 +198,7 @@ class Window final : public QMainWindow {
         finalImageButton->setAccessibleName(finalImageButton->text());
         openImagesButton->setText(trText("Open generated images"));openImagesButton->setAccessibleName(openImagesButton->text());
         openCalibrationButton->setText(trText("Open calibrations"));openCalibrationButton->setAccessibleName(openCalibrationButton->text());
-        openAutoInputButton->setText(trText("Open automatic JPEG folder"));openAutoInputButton->setAccessibleName(openAutoInputButton->text());
+        openAutoInputButton->setText(trText("Open source files folder"));openAutoInputButton->setAccessibleName(openAutoInputButton->text());
         demoButton->setText(it?"Generazione automatica (1 clic)":"Automatic generation (1 click)");
         demoButton->setAccessibleName(demoButton->text());
         demoButton->setToolTip(trText("Process the six JPEGs placed in the automatic-generation folder, with no parameters."));
@@ -1058,7 +1058,7 @@ int main(int argc, char **argv) {
     const auto args=app.arguments();
     // Headless queue execution: run the durable batch and exit, no window.
     if(args.contains("--queue")) return runQueue(args);
-    QImageReader::setAllocationLimit(256);
+    QImageReader::setAllocationLimit(0); // no cap: full-resolution products (hundreds of MB) must load in the preview
     Window window;
     auto argument=[&](const QString &name){const int i=args.indexOf(name);return i>=0&&i+1<args.size()?args.at(i+1):QString{};};
     const QStringList dimensions=argument("--size").split('x');
