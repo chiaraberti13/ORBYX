@@ -147,7 +147,7 @@ class Window final : public QMainWindow {
     QSettings settings{"ORBYX", "Desktop"};
     bool busy = false;
     bool it = false;
-    bool dark = true;
+    bool dark = false; // only the light theme is offered
     bool quitAfterRun = false;
     bool demoMode = false;
     bool outputExplicit = false;
@@ -820,7 +820,7 @@ public:
     void runImageSimulation(const QString &folder) { executeImageDemo({},folder,"manual"); }
     void previewSettings(const QString &locale,const QString &appearance,const QSize &size) {
         if (!locale.isEmpty()) { it=locale=="it"; language->setCurrentIndex(it?0:1); }
-        if (!appearance.isEmpty()) { dark=appearance=="dark"; theme->setCurrentIndex(dark?0:1); }
+        (void)appearance; dark=false; // light theme only
         if (size.isValid()) resize(size);
         applyText(); applyTheme();
     }
@@ -849,14 +849,14 @@ public:
         }
     }
     Window() {
-        it = settings.value("language", "it").toString() == "it"; dark = settings.value("dark",true).toBool();
+        it = settings.value("language", "it").toString() == "it"; dark = false; // light theme only
         setAcceptDrops(true); setWindowTitle("ORBYX"); resize(1280,860); setMinimumSize(960,680);
         auto *root = new QWidget; root->setObjectName("root"); setCentralWidget(root);
         auto *page = new QVBoxLayout(root); page->setContentsMargins(28,24,28,24); page->setSpacing(12);
         auto *headerWidget = new QWidget; headerWidget->setMinimumHeight(90); auto *header = new QHBoxLayout(headerWidget); header->setContentsMargins(0,0,0,0); auto *titles = new QVBoxLayout; titles->setSpacing(2); auto *brand = label("brand"); brand->setText("ORBYX"); subtitle=label("muted"); eyebrow=label("eyebrow");
         titles->addWidget(eyebrow); titles->addWidget(brand); titles->addWidget(subtitle); header->addLayout(titles,1);
         languageLabel=label("muted"); language=new QComboBox; language->addItems({"Italiano","English"}); language->setCurrentIndex(it?0:1);
-        themeLabel=label("muted"); theme=new QComboBox; theme->addItems({"Dark","Light"}); theme->setCurrentIndex(dark?0:1);
+        themeLabel=label("muted"); theme=new QComboBox; theme->addItems({"Dark","Light"}); theme->setCurrentIndex(1); themeLabel->hide(); theme->hide(); // theme selector removed; light only
         demoButton=new QPushButton;demoButton->setObjectName("demoButton");
         demoButton->setShortcut(QKeySequence("Ctrl+Shift+D"));header->addWidget(demoButton);
         connect(demoButton,&QPushButton::clicked,this,[this]{runAutomaticGeneration();});

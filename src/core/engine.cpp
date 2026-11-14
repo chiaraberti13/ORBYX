@@ -117,7 +117,7 @@ cv::Mat readImage(const fs::path& file, bool rdas=true, bool allowRgb=false) {
                               (std::uint32_t(header[i+2])<<8)|header[i+3];};
   const auto width=integer(16),height=integer(20);
   require(width>0&&height>(rdas?std::uint32_t(ch2offset):0u)&&width<=100000&&height<=100000&&
-          std::uint64_t(width)*height<=150000000, "PNG dimensions exceed RDAS safety limits");
+          std::uint64_t(width)*height<=400000000, "PNG dimensions exceed RDAS safety limits");
   require((header[24]==8||header[24]==16)&&(header[25]==0||(allowRgb&&header[25]==2)) && header[26]==0&&header[27]==0&&header[28]<=1,
           "Expected an unsigned 8-bit or 16-bit grayscale PNG");
   cv::Mat image = cv::imdecode(bytes, cv::IMREAD_UNCHANGED);
@@ -126,8 +126,8 @@ cv::Mat readImage(const fs::path& file, bool rdas=true, bool allowRgb=false) {
           "Expected an unsigned 8-bit or 16-bit grayscale channel");
   require(image.cols==static_cast<int>(width) && image.rows==static_cast<int>(height),
           "Decoded PNG dimensions differ from IHDR");
-  require((!rdas || image.rows > ch2offset) && image.cols > 0 && image.total() <= 150000000,
-          "Invalid RDAS channel dimensions (height must exceed 3606; max 150 Mpx)");
+  require((!rdas || image.rows > ch2offset) && image.cols > 0 && image.total() <= 400000000,
+          "Invalid RDAS channel dimensions (height must exceed 3606; max 400 Mpx)");
   return image;
 }
 Channels load(const fs::path& directory,bool rdas=true) {
@@ -316,7 +316,7 @@ std::string translate(const std::string& message,const std::string& language) {
     {"Decoded PNG dimensions differ from IHDR","Le dimensioni del PNG decodificato differiscono da IHDR"},
     {"Cannot decode image: ","Impossibile decodificare l'immagine: "},
     {"Expected an unsigned 8-bit or 16-bit grayscale channel","È richiesto un canale in scala di grigi a 8 o 16 bit senza segno"},
-    {"Invalid RDAS channel dimensions (height must exceed 3606; max 150 Mpx)","Dimensioni canale RDAS non valide (altezza superiore a 3606; massimo 150 Mpx)"},
+    {"Invalid RDAS channel dimensions (height must exceed 3606; max 400 Mpx)","Dimensioni canale RDAS non valide (altezza superiore a 3606; massimo 400 Mpx)"},
     {"Expected non-symlink MSUGS_VIS directory","È richiesta una cartella MSUGS_VIS, non un collegamento simbolico"},
     {"All channels in a VIS product must have equal dimensions and depth","Tutti i canali VIS devono avere dimensioni e profondità uguali"},
     {"ECC did not produce a finite solution","ECC non ha prodotto una soluzione finita"},
