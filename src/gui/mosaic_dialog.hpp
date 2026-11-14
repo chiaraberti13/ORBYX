@@ -389,8 +389,10 @@ public:
         blink=new QCheckBox(t("Blink selected layer (preview only)","Lampeggia livello selezionato (solo anteprima)"));blink->setObjectName("mosaicBlink");blink->setAccessibleName(blink->text());panel->addWidget(blink);
         connect(blink,&QCheckBox::toggled,this,[this](bool enabled){blinkHidden=false;setProperty("blinkHidden",false);if(enabled)blinkTimer.start();else blinkTimer.stop();schedule();});
         inspectionMode=new QComboBox;inspectionMode->setObjectName("mosaicInspection");inspectionMode->addItems({t("Composite preview","Anteprima composita"),t("Difference: selected vs adjacent","Differenza: selezionato e adiacente"),t("Checkerboard: selected vs adjacent","Scacchiera: selezionato e adiacente"),t("Swipe: selected vs adjacent","Tendina: selezionato e adiacente")});inspectionMode->setAccessibleName(t("Seam inspection mode","Modalità ispezione giunzione"));panel->addWidget(inspectionMode);
-        swipePosition=new QSlider(Qt::Horizontal);swipePosition->setObjectName("mosaicSwipe");swipePosition->setRange(0,100);swipePosition->setValue(50);swipePosition->setAccessibleName(t("Swipe comparison position","Posizione confronto a tendina"));swipePosition->setEnabled(false);panel->addWidget(swipePosition);
-        connect(inspectionMode,qOverload<int>(&QComboBox::currentIndexChanged),this,[this](int mode){swipePosition->setEnabled(mode==3);schedule();});
+        swipePosition=new QSlider(Qt::Horizontal);swipePosition->setObjectName("mosaicSwipe");swipePosition->setRange(0,100);swipePosition->setValue(50);swipePosition->setAccessibleName(t("Swipe comparison position","Posizione confronto a tendina"));swipePosition->setEnabled(false);swipePosition->setVisible(false);panel->addWidget(swipePosition);
+        // The swipe slider only means something in the swipe-comparison mode (index 3);
+        // hide it elsewhere so it does not look like a broken control in composite view.
+        connect(inspectionMode,qOverload<int>(&QComboBox::currentIndexChanged),this,[this](int mode){swipePosition->setEnabled(mode==3);swipePosition->setVisible(mode==3);schedule();});
         connect(swipePosition,&QSlider::valueChanged,this,[this]{if(inspectionMode->currentIndex()==3)schedule();});
         button("mosaicZoomSeam",t("Zoom to selected overlap","Zoom sulla sovrapposizione selezionata"),panel,[this]{zoomToOverlap();});
         button("mosaicControlPoints",t("Align with control points…","Allinea con punti di controllo…"),panel,[this]{controlPointsDialog();});
