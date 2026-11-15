@@ -116,6 +116,15 @@ class FinalImageWizard final : public QWizard {
     // M2-08: recognize what the import folder contains without depending on SX/DX
     // names — any MSUGS_VIS* product (three channels) and already-aligned products.
     // This only reports what was found; it never modifies the SatDump export.
+    // A VIS channel may be PNG (SatDump's lossless export) or JPG/JPEG (accepted too;
+    // the core reads both). Returns the first match as a regular, non-empty file.
+    static QFileInfo visChannel(const QDir &dir, int channel) {
+        for (const QString &ext : {"png","jpg","jpeg"}) {
+            const QFileInfo image(dir.filePath(QString("MSUGS-VIS-%1.%2").arg(channel).arg(ext)));
+            if (image.isFile() && !image.isSymLink() && image.size() > 0) return image;
+        }
+        return {};
+    }
     void detectProducts() {
         if (!importSummary_ || !productList_) return;
         // Preserve the user's include/exclude choices across re-detection so that
@@ -131,10 +140,8 @@ class FinalImageWizard final : public QWizard {
         const QDir root(input_->text());
         if (!jpeg && !input_->text().trimmed().isEmpty() && root.exists()) {
             const auto hasThreeChannels = [](const QDir &dir) {
-                for (int channel = 1; channel <= 3; ++channel) {
-                    const QFileInfo image(dir.filePath(QString("MSUGS-VIS-%1.png").arg(channel)));
-                    if (!image.isFile() || image.isSymLink() || image.size() <= 0) return false;
-                }
+                for (int channel = 1; channel <= 3; ++channel)
+                    if (!visChannel(dir, channel).isFile()) return false;
                 return true;
             };
             const auto names = root.entryList(QStringList() << "MSUGS_VIS*", QDir::Dirs | QDir::NoDotAndDotDot);
@@ -408,11 +415,9 @@ public:
                 else productIds.insert(identity.captured(1));
                 const QFileInfo folder(QDir(input_->text()).filePath(vis));
                 if (error.isEmpty() && (!folder.isDir() || folder.isSymLink())) error = text("The selected SatDump product is incomplete.", "Il prodotto SatDump selezionato è incompleto.");
-                for (int channel = 1; channel <= 3; ++channel) {
-                    const QFileInfo image(QDir(folder.absoluteFilePath()).filePath(QString("MSUGS-VIS-%1.png").arg(channel)));
-                    if (error.isEmpty() && (!image.isFile() || image.isSymLink() || image.size() <= 0))
+                for (int channel = 1; channel <= 3; ++channel)
+                    if (error.isEmpty() && !visChannel(QDir(folder.absoluteFilePath()), channel).isFile())
                         error = text("The selected SatDump product is incomplete.", "Il prodotto SatDump selezionato è incompleto.");
-                }
             }
             QFile json(profile.absoluteFilePath());
             QJsonDocument profileDocument;

@@ -101,41 +101,78 @@ cv::Rect roi(const Json::Value& section, const cv::Size& size) {
   return {x,y,w,h};
 }
 cv::Mat readImage(const fs::path& file, bool rdas=true, bool allowRgb=false) {
-  // Bound allocations from the same immutable PNG bytes passed to the decoder.
-  // rdas=false relaxes the raw-channel height rule for already-cropped aligned
-  // products (composition inputs), keeping every other bound and format check.
-  const auto bytes=snapshot(file,1024ULL*1024*1024,"PNG file exceeds 1 GiB");
-  require(bytes.size()>=33,"Invalid PNG signature or IHDR");
-  std::array<unsigned char,33> header{};
-  std::copy_n(bytes.begin(),header.size(),header.begin());
-  constexpr std::array<unsigned char,8> signature{137,80,78,71,13,10,26,10};
-  require(std::equal(signature.begin(),signature.end(),header.begin()) &&
-          header[8]==0&&header[9]==0&&header[10]==0&&header[11]==13 &&
-          header[12]=='I'&&header[13]=='H'&&header[14]=='D'&&header[15]=='R',
-          "Invalid PNG signature or IHDR");
-  auto integer=[&](int i){return (std::uint32_t(header[i])<<24)|(std::uint32_t(header[i+1])<<16)|
-                              (std::uint32_t(header[i+2])<<8)|header[i+3];};
-  const auto width=integer(16),height=integer(20);
+  // Bound allocations from the same immutable bytes passed to the decoder. The
+  // dimensions are read from the file header BEFORE decoding, so an oversized image
+  // is rejected before any large allocation (decompression-bomb guard). PNG is the
+  // lossless 8/16-bit grayscale format SatDump exports; JPEG (always 8-bit) is also
+  // accepted for raw channels, convenient but lossy. rdas=false relaxes the raw-
+  // channel height rule for already-cropped aligned products (composition inputs).
+  const auto bytes=snapshot(file,1024ULL*1024*1024,"Image file exceeds 1 GiB");
+  require(bytes.size()>=4,"Invalid or truncated image");
+  const bool png=bytes.size()>=8&&bytes[0]==137&&bytes[1]==80&&bytes[2]==78&&bytes[3]==71&&
+                 bytes[4]==13&&bytes[5]==10&&bytes[6]==26&&bytes[7]==10;
+  const bool jpeg=bytes[0]==0xFF&&bytes[1]==0xD8&&bytes[2]==0xFF;
+  std::uint32_t width=0,height=0;
+  if(png) {
+    require(bytes.size()>=33,"Invalid PNG signature or IHDR");
+    std::array<unsigned char,33> header{};
+    std::copy_n(bytes.begin(),header.size(),header.begin());
+    require(header[8]==0&&header[9]==0&&header[10]==0&&header[11]==13 &&
+            header[12]=='I'&&header[13]=='H'&&header[14]=='D'&&header[15]=='R',
+            "Invalid PNG signature or IHDR");
+    auto integer=[&](int i){return (std::uint32_t(header[i])<<24)|(std::uint32_t(header[i+1])<<16)|
+                                (std::uint32_t(header[i+2])<<8)|header[i+3];};
+    width=integer(16);height=integer(20);
+    require((header[24]==8||header[24]==16)&&(header[25]==0||(allowRgb&&header[25]==2)) && header[26]==0&&header[27]==0&&header[28]<=1,
+            "Expected an unsigned 8-bit or 16-bit grayscale PNG");
+  } else if(jpeg) {
+    // Walk the JPEG marker segments to the Start-Of-Frame, which carries the frame
+    // dimensions, without decoding the entropy-coded image data.
+    std::size_t p=2;bool found=false;
+    while(p+1<bytes.size()) {
+      if(bytes[p]!=0xFF){++p;continue;}
+      const unsigned char marker=bytes[p+1];
+      if(marker==0xFF){++p;continue;}                                   // fill bytes
+      if(marker==0x01||(marker>=0xD0&&marker<=0xD9)){p+=2;continue;}    // standalone markers
+      if(p+4>bytes.size())break;
+      const std::uint32_t seglen=(std::uint32_t(bytes[p+2])<<8)|bytes[p+3];
+      const bool sof=marker>=0xC0&&marker<=0xCF&&marker!=0xC4&&marker!=0xC8&&marker!=0xCC;
+      if(sof){require(p+9<=bytes.size(),"Truncated JPEG frame header");
+        height=(std::uint32_t(bytes[p+5])<<8)|bytes[p+6];
+        width=(std::uint32_t(bytes[p+7])<<8)|bytes[p+8];found=true;break;}
+      if(marker==0xDA)break;                                           // start of scan
+      require(seglen>=2,"Invalid JPEG segment length");p+=2+seglen;
+    }
+    require(found&&width>0&&height>0,"Invalid or unsupported JPEG header");
+  } else require(false,"Expected a PNG or JPEG image");
   require(width>0&&height>(rdas?std::uint32_t(ch2offset):0u)&&width<=100000&&height<=100000&&
-          std::uint64_t(width)*height<=400000000, "PNG dimensions exceed RDAS safety limits");
-  require((header[24]==8||header[24]==16)&&(header[25]==0||(allowRgb&&header[25]==2)) && header[26]==0&&header[27]==0&&header[28]<=1,
-          "Expected an unsigned 8-bit or 16-bit grayscale PNG");
-  cv::Mat image = cv::imdecode(bytes, cv::IMREAD_UNCHANGED);
+          std::uint64_t(width)*height<=400000000, "Image dimensions exceed RDAS safety limits");
+  // JPEG channels are decoded straight to 8-bit grayscale; PNG is taken unchanged so
+  // 16-bit depth and the exact grayscale format are preserved.
+  cv::Mat image = cv::imdecode(bytes, jpeg?(allowRgb?cv::IMREAD_COLOR:cv::IMREAD_GRAYSCALE):cv::IMREAD_UNCHANGED);
   require(!image.empty(), "Cannot decode image: " + file.string());
   require((image.channels()==1||(allowRgb&&image.channels()==3)) && (image.depth()==CV_8U || image.depth()==CV_16U),
           "Expected an unsigned 8-bit or 16-bit grayscale channel");
   require(image.cols==static_cast<int>(width) && image.rows==static_cast<int>(height),
-          "Decoded PNG dimensions differ from IHDR");
+          "Decoded image dimensions differ from the header");
   require((!rdas || image.rows > ch2offset) && image.cols > 0 && image.total() <= 400000000,
           "Invalid RDAS channel dimensions (height must exceed 3606; max 400 Mpx)");
   return image;
+}
+// Resolve a VIS channel file by index, accepting PNG (preferred, lossless) or JPEG.
+fs::path channelPath(const fs::path& directory,int index) {
+  for(const char* extension:{".png",".jpg",".jpeg"}) {
+    const auto candidate=directory/("MSUGS-VIS-"+std::to_string(index)+extension);
+    if(fs::is_regular_file(fs::symlink_status(candidate))) return candidate;
+  }
+  return directory/("MSUGS-VIS-"+std::to_string(index)+".png"); // reported as missing downstream
 }
 Channels load(const fs::path& directory,bool rdas=true) {
   require(!fs::is_symlink(fs::symlink_status(directory)) && fs::is_directory(directory),
           "Expected non-symlink MSUGS_VIS directory");
   Channels channels;
   for (int i=0;i<3;++i) {
-    channels[i] = readImage(directory / ("MSUGS-VIS-"+std::to_string(i+1)+".png"),rdas);
+    channels[i] = readImage(channelPath(directory,i+1),rdas);
     if (i) require(channels[i].size()==channels[0].size() && channels[i].type()==channels[0].type(),
                    "All channels in a VIS product must have equal dimensions and depth");
   }
