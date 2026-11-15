@@ -4,136 +4,202 @@
 
 <p align="center">
 <a href="https://github.com/chiaraberti13/ORBYX/actions/workflows/ci.yml"><img src="https://github.com/chiaraberti13/ORBYX/actions/workflows/ci.yml/badge.svg" alt="Build and regression"></a>
-<img src="https://img.shields.io/badge/status-sviluppo_iniziale-F2C94C?style=flat-square" alt="Sviluppo iniziale">
-<img src="https://img.shields.io/badge/category-SATELLITE_IMAGING-22D3EE?style=flat-square" alt="Immagini satellitari">
-<img src="https://img.shields.io/badge/stack-C%2B%2B17_%7C_Qt_6-8B949E?style=flat-square" alt="C++17 e Qt 6">
-<img src="https://img.shields.io/badge/languages-EN_%7C_IT-8B5CF6?style=flat-square" alt="Inglese e italiano">
-<img src="https://img.shields.io/badge/licence-GPL--3.0-2EA043?style=flat-square" alt="GNU GPL versione 3">
+<img src="https://img.shields.io/badge/status-early_development-F2C94C?style=flat-square" alt="Early development">
+<img src="https://img.shields.io/badge/category-SATELLITE_IMAGING-22D3EE?style=flat-square" alt="Satellite imaging">
+<img src="https://img.shields.io/badge/stack-C%2B%2B17_%7C_Qt_6-8B949E?style=flat-square" alt="C++17 and Qt 6">
+<img src="https://img.shields.io/badge/languages-EN_%7C_IT-8B5CF6?style=flat-square" alt="English and Italian">
+<img src="https://img.shields.io/badge/licence-GPL--3.0-2EA043?style=flat-square" alt="GNU GPL version 3">
 </p>
 
-> Allinea i canali. Rivela la Terra. Un ambiente desktop e headless indipendente per allineare i canali satellitari RDAS.
+> **Align the channels. Reveal the Earth.** From six raw frames to a single natural‑colour image of the planet.
 
-<p align="center"><a href="ROADMAP.md">Roadmap</a> · <a href="PROGRESS.md">Verifiche</a> · <a href="docs/AUDIT.md">Audit</a> · <a href="SECURITY.md">Sicurezza</a> · <a href="THIRD_PARTY_NOTICES.md">Attribuzioni</a></p>
+<p align="center"><a href="ROADMAP.md">Roadmap</a> · <a href="PROGRESS.md">Verification</a> · <a href="docs/GUIDA_PRINCIPIANTI.md">Beginner guide</a> · <a href="SECURITY.md">Security</a> · <a href="THIRD_PARTY_NOTICES.md">Attributions</a></p>
 
-## Start here — Ubuntu
+---
 
-ORBYX is a desktop application for aligning satellite images and exporting Natural Color. No CMake knowledge or personal paths are required. Run one command block at a time and stop if a step fails.
+## What is ORBYX
 
-### 1. Open a terminal
+ORBYX turns the raw data of the Russian geostationary weather satellites **Elektro‑L** and **Arktika‑M** into a **single natural‑colour image of the Earth**.
 
-Press Ctrl+Alt+T. For an existing checkout, open its folder in the file manager and choose Open in Terminal.
+The onboard sensor (MSU‑GS) does not shoot in colour: it captures **three separate black‑and‑white channels**, each split into **two halves**. ORBYX puts them back together: it **aligns** the channels to the pixel, **joins** the two halves, turns the image **North‑up** and composes **natural colour** — in **one click**, or by hand when you want full control.
 
-### 2. Download or update
+**In plain words:** you give it the black‑and‑white frames the satellite just sent, and it gives you back **a colour photo of our planet**, ready to look at and share.
 
-First time:
+### How it works, in 3 steps
+
+| 1. Reception & decoding | 2. ORBYX | 3. Your result |
+|---|---|---|
+| **SatDump** (external program) receives the signal and decodes it into raw channels. | **ORBYX** aligns the channels, joins the two halves, rotates North‑up and composes colour. | You get **one image**: a lightweight **JPG** (opens anywhere) and a full‑quality **PNG**. |
+
+> ⓘ ORBYX does **not** receive the radio signal and does **not** decode the CADU: that is SatDump's job. ORBYX starts from the images SatDump has **already exported**.
+
+---
+
+## Installation (Ubuntu)
+
+No CMake knowledge and no personal paths required. **Run one block at a time.** If a step ends with an error, stop and check the `logs` folder.
+
+**1. Open a terminal** — press `Ctrl + Alt + T`.
+
+**2. Download ORBYX**
 
 ```bash
 git clone https://github.com/chiaraberti13/ORBYX.git
 cd ORBYX
 ```
 
-If Git is missing, install it and retry:
+If you see "git: command not found", install it and repeat the block:
 
 ```bash
 sudo apt-get -o DPkg::Lock::Timeout=900 install -y git
 ```
 
-Already downloaded? Run this from the project folder instead of cloning again:
-
-```bash
-git pull
-```
-
-### 3. Install
+**3. Install**
 
 ```bash
 bash install.sh --lang en
 ```
 
-Enter your Ubuntu password when asked; invisible password characters are normal. Do not run the whole script with sudo. Setup waits for automatic package updates; never remove locks or kill package managers. Configuration, compilation, tests and user installation are automatic and may take several minutes.
+- You will be asked for your Ubuntu password: while you type it **no characters appear**, that is normal — press Enter.
+- Do **not** put `sudo` in front of `bash install.sh`.
+- If system updates are running, the script waits: do not interrupt it.
+- It takes a few minutes (configure, build, verify). Continue only when you read **"Installation completed"**.
 
-Proceed only after **Installation completed** appears. Otherwise check **logs**.
-
-### 4. Open the desktop
+**4. Open ORBYX**
 
 ```bash
 bash start.sh
 ```
 
-Reuse this command on later launches. For updates, close the application, run `git pull`, then rerun the installer.
+> 🔄 **To update:** close ORBYX, then `git pull` and run `bash install.sh` again.
 
-### Which button do I press? Quick guide
+---
 
-This is the most important part: **each button does a different thing**. Look at what you have and use **one** button.
+## Your first result
 
-| Your situation | Press this | What you choose |
+### The simplest path — Automatic generation (1 click)
+
+1. In ORBYX press **"Open source files folder"**: a folder opens.
+2. Put **your own images** in it, in one of two ways:
+   - a SatDump export — the two folders **`MSUGS_VIS1`** and **`MSUGS_VIS2`** with their `MSUGS-VIS-1/2/3` (the usual case);
+   - or the six files `sx_MSUGS-VIS-1/2/3` and `dx_MSUGS-VIS-1/2/3`.
+3. Pick the **satellite** at the top (default **L3**).
+4. Press **"Automatic generation (1 click)"** (or `Ctrl + Shift + D`).
+
+ORBYX does everything by itself — calibrates the channels on your data, aligns them, joins the halves, rotates North‑up and composes colour — and shows the **image in the preview** when done. Find it with **"Open generated images"**.
+
+> ⓘ Automatic generation **only ever processes the images you put** in the source folder. There is no separate "demo": if the folder is empty, ORBYX tells you and generates nothing fake.
+
+### Which button do I press?
+
+Each button does a different thing: look at what you have and use **one**.
+
+| Your situation | Press | What you choose |
 |---|---|---|
-| **I just want to see how it works** (no data of my own) | **Automatic generation** (Ctrl+Shift+D) | Nothing. It starts on its own with the bundled example images. |
-| **I have 6 JPEG photos** named `sx_`/`dx_` MSUGS-VIS-1/2/3 | **Create image — manual mode…** | The folder containing the 6 photos and a new destination. |
-| **I have real data decoded by SatDump** | **Create image — manual mode…** | You choose the folder that directly contains `MSUGS_VIS1`, `MSUGS_VIS2`, etc. ORBYX preselects a JSON profile, but you can replace it. |
-| **I want to compose or retouch portions by hand** | **Compose portions and colour…** → *Add editable demo portions* | Already-aligned images, or the bundled demo portions. |
+| **I have a SatDump export** (`MSUGS_VIS1` + `MSUGS_VIS2`) | **Automatic generation (1 click)** | Just the satellite. The rest is automatic. |
+| **I want to compose or retouch by hand** | **Create image — manual mode…** | The source folder and a new destination. |
+| **I already have an automatic result and want to fix it** | **Edit the result in the manual editor…** | Nothing: it reopens the portions just processed. |
 
-> There is now one manual entry point. It recognizes either the six JPEGs or a
-> SatDump VIS export and enables only the required fields.
+> Manual mode is **a single window**: it detects whether you gave it the channels or a SatDump export and enables only the useful fields. If **Next** stays disabled, the message on the page says exactly what is missing.
 
-**Not sure where to start?** Press **Automatic generation**: it is the fastest way to see an image right away, with nothing to set. When it finishes, the result appears by itself in the preview.
+---
 
-### No data yet? Try the demo
+## Which files do I need? PNG or JPG
+
+You can use **PNG** or **JPG/JPEG**: ORBYX accepts both, in automatic and manual mode. But there is a difference that matters:
+
+- 🟢 **PNG** — the original format SatDump exports. It keeps **all the shades** of the data and is **lossless**: the right choice when you want the **best quality**.
+- 🟡 **JPG/JPEG** — lighter, but it "compresses" by throwing away some information. Fine for a **quick try** or for images you already have as JPG; but it starts from a poorer base and can leave faint halos at the edges.
+
+**In short: PNG when quality matters, JPG when convenience matters.**
+
+---
+
+## What you get
+
+In the result folder (open it with **"Open generated images"**) you find:
+
+- **`composite.jpg`** — lightweight (~20 MB), opens **anywhere** instantly: perfect to view and share.
+- **`composite.png`** — 8‑bit, the **full‑quality** version to keep.
+
+Both are **full resolution** (it follows your images' size, it is not fixed) and **North‑up**.
+
+---
+
+## For advanced users
+
+Under **"Show advanced tools"** you find the fine‑control features:
+
+- **Portion and colour compositor** — several portions as layers, automatic overlap proposals, junction control (replace, feather, minimum‑cost seam, multiband blending), include/exclude masks, brightness/colour matching, histogram and a quality assessment. Project is saved and reopenable. [Guide](docs/COMPOSITOR.md).
+- **Create image — manual mode** — a five‑step guided path: Import → Align → Join → Colour → Export.
+- **Guided calibration** — recomputes the channel alignment on your data (useful above all for L4, which has no bundled profile). [Details](docs/REAL_RDAS.md).
+- **Monitor acquisitions** — detects new SatDump products in a folder; import always stays manual.
+- **Export Natural Color** — composes the colour of a single aligned VIS into a PNG (8/16‑bit).
+- **Verified updates** — install or roll back a version with signed provenance. [Guide](docs/UPDATES.md).
+
+Scan the installed libraries for vulnerabilities:
 
 ```bash
-bash demo.sh --lang en
+bash security.sh
 ```
 
-Press **Automatic generation** in the app (Ctrl+Shift+D). Six bundled real JPEG previews, three SX and three DX, are composed into one image with no parameters to set. No manual paths are needed. The command opens the same built-in demo; `bash demo.sh --no-open` runs it offscreen into demo-output, with logs. Use **Create image — manual mode…** to choose a different six-JPEG folder and continue in the editor. These are 8-bit previews, not absolute geometry or radiometrically calibrated true colour. [Source details](assets/demo-jpeg/SOURCE.md).
+Reports and diagnostics go to the `logs` folder. [Details](docs/SBOM.md).
 
-### New desktop workflows
+---
 
-- **Compose portions and colour…**: multiple editable layers, automatic overlap and uniform-border crop proposals, seam inspection with replace/feather/minimum-cost-seam/multiband blending, include/exclude polygon masks, visual brightness/colour matching between layers, single-channel presets, histogram and clipping readout, and a quality assessment that never declares an image "perfect". Save a portable project (relative paths) with autosave and recovery, export it as a self-contained package, and export one native-depth PNG with a reproducible report. No fixed left/right layout. [Guide](docs/COMPOSITOR.md).
-- **Create image — manual mode…**: one five-step path accepts either the six JPEGs or a SatDump VIS export, detects the content, lets the user change source and new destination, processes it and opens the editable compositor. For SatDump, the user chooses the export folder; ORBYX preselects the included JSON, which remains editable and replaceable. Satellite and calibration JSON are required only for SatDump data.
+## Tips
 
-- **Guided calibration…** validates input/destination and prepares ECC scale/satellite settings. Successful calibration selects the new profile for alignment.
-- **Monitor acquisitions…** discovers stable native SatDump products. Manual import and opt-in matching-satellite queueing never start processing automatically.
-- Queue edits survive restarts. Completed jobs need digest verification before their completion is trusted again; double-click to review parameters.
-- **Verified updates…** authenticates native packages and supports verified rollback. [Guide](docs/UPDATES.md).
-- `bash security.sh` scans the installed Ubuntu runtime against OSV and saves findings, coverage gaps and replayable evidence under logs.
+- 🛈 **Right satellite.** For an Elektro‑L3 export choose **L3**; for other satellites choose their code (L2/L4/L5/M1/M2). The wrong satellite gives the wrong alignment.
+- 🛈 **Use PNG** for real data: it is lossless. Keep JPG for quick tries or if you already converted them.
+- 🛈 **It never overwrites.** Every result goes to a new folder; originals stay untouched.
+- 🛈 **The first run is slower** (calibrating on your data takes ~20 seconds): that is normal.
+- 🛈 **The preview is reduced**, but the **exported** images are full resolution.
 
-### 5. Process your data
+---
 
-You need RDAS products already decoded by SatDump, including both VIS sensors and their channels. ORBYX does not receive satellite signals. You can install/open it without data.
+## If something goes wrong
 
-1. Select the decoded input folder.
-2. Choose the satellite and suitable calibration profile.
-3. Choose a new output directory; existing outputs are never overwritten.
-4. Select Align channels, then Start processing.
-5. Wait for Completed and inspect the preview/activity panel.
+| Message | What to do |
+|---|---|
+| **Package manager busy / unattended‑upgrades** | Let updates finish and repeat `bash install.sh` later. Do not remove locks. |
+| **cmake / ctest / dependency not found** | Run `bash install.sh`: installing CMake alone is not enough. |
+| **Incomplete installation / missing executable** | Finish `bash install.sh`, then launch with `bash start.sh`. |
+| **Destination already exists** | Choose a new folder or a new name. |
+| **The source folder is empty** | Put `MSUGS_VIS1` and `MSUGS_VIS2` (or the six `sx_/dx_` files) in it and retry. |
+| **Other error** | Open `logs`: you find the full log and its `.errors.log`. |
 
-For L4, first run Calculate calibration into a new destination. Select the resulting calibration.json with the profile chooser, switch to Align channels and use another new destination. Merge regions still need manual validation; see [real-data calibration](docs/REAL_RDAS.md).
+Logs stay **local**, are ignored by git and are never uploaded. [Error guide](docs/INSTALLATION.md).
 
-### 6. Export Natural Color
+---
 
-Click Export Natural Color…, choose one aligned VIS product and a new PNG name. Depth stays 8/16-bit. This is visual rendering, not scientifically calibrated true colour.
+## Command line (optional)
 
-### 7. Troubleshooting
-
-- Busy package manager: wait. If setup times out, retry later; do not remove locks.
-- Missing CMake/CTest/dependencies: run the full installer, not just CMake installation.
-- Incomplete installation/missing executable: complete setup, then use `bash start.sh`.
-- Existing output: choose a new destination/name.
-- Other errors: open logs and find the latest complete log and matching .errors.log.
-
-Logs stay local, are ignored by git and are not automatically uploaded. [Installation details](docs/INSTALLATION.md).
-
-## Optional CLI
+Not needed to start — you can do everything from the window. But if you prefer the command line:
 
 ```bash
 bash orbyx.sh --help
 bash orbyx.sh --version
 ```
 
-Beginners can choose inputs and outputs in the desktop instead.
+---
+
+## What ORBYX does and does **not** do
+
+For clarity — ORBYX only claims what it really does:
+
+- ✅ Aligns the channels, joins the two halves and composes natural colour, automatically or by hand.
+- ✅ Exports at full resolution (JPG + PNG), North‑up.
+- ❌ Does **not** receive the satellite signal and does **not** decode the CADU: **SatDump** does that upstream.
+- ❌ The colour is a pleasant **visual rendering**, **not** scientifically calibrated true colour.
+- ❌ Does **not** georeference: no absolute coordinates and no map projection.
+- ❌ Tested on **Linux (Ubuntu)**; other platforms are not guaranteed.
+
+---
 
 ## Project information
 
-[Real validation status](docs/VERIFICATION_STATUS.md) · [Batch](docs/BATCH.md) · [Natural Color](docs/NATURAL_COLOR.md) · [Security](SECURITY.md).
+- [Verification on real data, platforms and limits](docs/VERIFICATION_STATUS.md)
+- [Natural Color](docs/NATURAL_COLOR.md) · [Batch processing](docs/BATCH.md) · [Architecture](docs/ADR-001-language.en.md)
+- [Security reports](SECURITY.md)
 
-Actual GPU execution and absolute geometry remain uncertified. ORBYX derives from [Digitelektro's RDAS Layer Aligner](https://github.com/Digitelektro/rdas_layer_aligner), using C++17/OpenCV and Qt6. [GPLv3](LICENSE); [third-party notices](THIRD_PARTY_NOTICES.md). Originals remain separate from results.
+ORBYX derives from [Digitelektro's RDAS Layer Aligner](https://github.com/Digitelektro/rdas_layer_aligner), with a C++17/OpenCV core and a Qt 6 desktop. Licensed under [GPLv3](LICENSE); [third‑party notices](THIRD_PARTY_NOTICES.md). Original data and profiles always stay separate from results.
