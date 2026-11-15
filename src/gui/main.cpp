@@ -369,7 +369,13 @@ class Window final : public QMainWindow {
     // supply or hunt for a .json: the GUI pre-fills it and restores it if cleared.
     QString bundledProfile() const {
         const QDir appDir(QApplication::applicationDirPath());
+        // Order: installed layout (prefix/bin + prefix/share), then the build layout
+        // (CMake copies resources/calibration.json to <build>/share/orbyx), then the
+        // in-source-tree fallbacks. The build-layout entry makes the profile findable in
+        // out-of-source builds too (e.g. Fedora CI builds in /tmp with the source elsewhere).
         for (const QString &candidate : {appDir.filePath("../share/orbyx/calibration.json"),
+             appDir.filePath("share/orbyx/calibration.json"),
+             QDir::current().filePath("share/orbyx/calibration.json"),
              QDir::current().filePath("resources/calibration.json"),
              appDir.filePath("../resources/calibration.json")})
             if (QFileInfo::exists(candidate)) return candidate;
