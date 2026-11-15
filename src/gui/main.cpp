@@ -330,19 +330,25 @@ class Window final : public QMainWindow {
     void exportNatural(const QString &folder,const QString &destination) {
         if (busy) return;
         setQueueBusy(true); progress->setRange(0,0); status->setText(trText("Processing…")); applyText();
-        auto *worker=QThread::create([this,folder,destination] {
+        // The headless --run-and-exit export is a scripting/equivalence path and stays
+        // byte-identical to the CLI (the cross-platform GUI/CLI check relies on it); the
+        // interactive export is presented North-up like everything the user sees.
+        const bool headless=quitAfterRun;
+        auto *worker=QThread::create([this,folder,destination,headless] {
             QString error;
             try {
                 std::array<std::filesystem::path,3> channels;
                 for(int i=0;i<3;++i)channels[i]=QDir(folder).filePath(QString("MSUGS-VIS-%1.png").arg(i+1)).toStdString();
                 orbyx::composeNaturalColor(channels,destination.toStdString());
-                // North-up: MSU-GS acquires South-up, so rotate the exported image 180°,
-                // exactly like the automatic flow. Presentation-only — the core/CLI output
-                // stays unrotated for the SatDump geometry checks.
-                QImage northUp;
-                if(!northUp.load(destination))throw std::runtime_error("Natural Color output missing");
-                northUp=northUp.mirrored(true,true);
-                if(!northUp.save(destination))throw std::runtime_error("Could not save North-up Natural Color");
+                // North-up (MSU-GS acquires South-up): rotate the exported image 180° for
+                // the interactive export only. Presentation-only — the core/CLI output and
+                // the headless path stay unrotated for the SatDump geometry checks.
+                if(!headless){
+                    QImage northUp;
+                    if(!northUp.load(destination))throw std::runtime_error("Natural Color output missing");
+                    northUp=northUp.mirrored(true,true);
+                    if(!northUp.save(destination))throw std::runtime_error("Could not save North-up Natural Color");
+                }
             } catch(const std::exception &e) {error=QString::fromUtf8(e.what());}
             catch(...) {error="Unknown processing exception";}
             QMetaObject::invokeMethod(this,[this,error,destination] {
