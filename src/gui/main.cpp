@@ -428,9 +428,16 @@ class Window final : public QMainWindow {
         return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)+"/auto-input";
     }
     // Does the source folder hold a SatDump VIS export (two product folders)?
+    // A VIS half is present if MSUGS-VIS-1 exists as PNG (SatDump's lossless export)
+    // or JPG/JPEG (accepted too; the core reads both).
+    bool hasVisHalf(const QString &half) const {
+        for (const QString &ext : {"png","jpg","jpeg"})
+            if (QFileInfo(QDir(half).filePath("MSUGS-VIS-1."+ext)).isFile()) return true;
+        return false;
+    }
     bool hasRdasExport(const QString &folder) const {
-        return QFileInfo(QDir(folder).filePath("MSUGS_VIS1/MSUGS-VIS-1.png")).isFile()
-            && QFileInfo(QDir(folder).filePath("MSUGS_VIS2/MSUGS-VIS-1.png")).isFile();
+        return hasVisHalf(QDir(folder).filePath("MSUGS_VIS1"))
+            && hasVisHalf(QDir(folder).filePath("MSUGS_VIS2"));
     }
     void runAutomaticGeneration() {
         if (busy) return;
@@ -506,6 +513,13 @@ class Window final : public QMainWindow {
                 // composite (~565 MB, hard to open) with ~105 MB PNG + ~18 MB JPEG.
                 orbyx::writeDisplayImages(naturalRaw.toStdString(),(dest+"/composite.png").toStdString(),
                                           (dest+"/composite.jpg").toStdString(),true);
+                // natural-raw.png is only an intermediate used to build the composites; the
+                // aligned 16-bit channels remain under dest/aligned if ever needed, so
+                // remove it (and the fallback half-images) to keep the output folder to
+                // just composite.png + composite.jpg. Nothing downstream reads them.
+                QFile::remove(naturalRaw);
+                QFile::remove(dest+"/natural-vis1.png");
+                QFile::remove(dest+"/natural-vis2.png");
             } catch(const std::exception &e){error=QString::fromUtf8(e.what());}
             catch(...){error="Unknown processing exception";}
             if(!error.isEmpty())entries.append("ERROR: "+error);

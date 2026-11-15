@@ -189,6 +189,17 @@ void displayImages(const fs::path& root) {
  fails([&]{orbyx::writeDisplayImages(src,root/"d3.png",root/"d3.jpg",false,10,95);});
  fails([&]{orbyx::writeDisplayImages(src,root/"d4.png",root/"d4.jpg",false,6,0);});
 }
+void jpegInput(const fs::path& root) {
+ // JPEG raw channels are accepted (8-bit); dimensions are read from the SOF header
+ // before decoding, like PNG from IHDR.
+ cv::Mat gray(3700,64,CV_8U);cv::RNG rng(99);rng.fill(gray,cv::RNG::UNIFORM,0,255);
+ const auto jpg=root/"vis.jpg";check(cv::imwrite(jpg.string(),gray),"jpeg fixture write");
+ const auto info=orbyx::inspect(jpg);
+ check(info.width==64&&info.height==3700&&info.depth==8,"JPEG inspected as 8-bit with SOF dimensions");
+ // A JPEG signature with no valid frame header is rejected without decoding/crash.
+ { std::ofstream bad(root/"fake.jpg",std::ios::binary); const char sig[]={char(0xFF),char(0xD8),char(0xFF),char(0xE0)}; bad.write(sig,4); bad<<" not a real frame"; }
+ fails([&]{orbyx::inspect(root/"fake.jpg");});
+}
 void scaledCalibration(const fs::path& root) {
  const auto input=root/"scaled-ecc", output=root/"scaled-ecc-output", profile=root/"scaled-ecc.json";
  cv::Mat reference=cv::Mat::zeros(3919,253,CV_16U), texture(240,193,CV_16U);
@@ -349,7 +360,7 @@ int main(int argc,char** argv) {
  try {
   root=fs::temp_directory_path()/("orbyx-tests-"+std::to_string(std::random_device{}()));
   fs::create_directory(root);
-  separate(root,CV_8U,"8bit");separate(root,CV_16U,"16bit");selectedProducts(root);calibration(root);scaledCalibration(root);profiles(root);compose(root);naturalColor(root,CV_8U,"nc8");naturalColor(root,CV_16U,"nc16");displayImages(root);
+  separate(root,CV_8U,"8bit");separate(root,CV_16U,"16bit");selectedProducts(root);calibration(root);scaledCalibration(root);profiles(root);compose(root);naturalColor(root,CV_8U,"nc8");naturalColor(root,CV_16U,"nc16");displayImages(root);jpegInput(root);
   auto options=orbyx::RunOptions{"../bad",root,root/"bad",root/"8bit.json",true,false};
   fails([&]{orbyx::run(options);});
   auto config=identity();writeJson(root/"valid.json",config);
