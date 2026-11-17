@@ -4,10 +4,6 @@ Be respectful, specific and constructive. Welcome different backgrounds, documen
 
 Report conduct concerns privately to the repository owner through a verified channel. The maintainer may remove abusive content or restrict participation, considering context and giving an explanation when appropriate.
 
-Rispettare le persone, discutere le scelte con argomenti verificabili e proteggere le informazioni private. Segnalare comportamenti abusivi al proprietario attraverso un canale privato verificato.
+## Reporting and enforcement
 
-## Segnalazioni e gestione
-
-La manutentrice del repository, [Chiara Berti](https://github.com/chiaraberti13), gestisce le segnalazioni relative alla partecipazione al progetto. Usa le funzioni di segnalazione di GitHub sul contenuto interessato per abusi sulla piattaforma; per il confronto con la manutentrice usa un contatto privato già verificato. Se non disponi di un contatto, puoi chiedere soltanto come raggiungerla tramite una issue, senza descrivere pubblicamente persone, accuse o informazioni riservate.
-
-Le segnalazioni vengono valutate nel contesto, limitando la diffusione delle informazioni alle persone necessarie. Le misure possono comprendere una richiesta di modifica, la rimozione del contenuto o limitazioni alla partecipazione, proporzionate al comportamento. È possibile chiedere un riesame fornendo elementi aggiuntivi. Per vulnerabilità tecniche consulta [SECURITY.md](SECURITY.md).
+Report incidents privately through a verified contact published by the repository owner. If none is available, request a private contact without publishing incident details. Do not post private evidence or personal information publicly. The maintainer reviews reports, considers context and may request changes, remove content or restrict participation. Information is shared only as needed to investigate and respond; absolute confidentiality cannot be guaranteed.

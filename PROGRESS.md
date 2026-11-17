@@ -1543,6 +1543,6 @@ rifiutate («Unexpected demo geometry» / «no reliable adjacent-edge alignment�
 contrasto (black 8 / white 188 / gamma 0,8) resta tarata sulla demo. Nessuna rete o shell
 introdotta. CI remota da osservare.
 
-## 2026-11-17 — Documenti della comunità
+## 2026-11-17 — Community documents
 
-Completati modelli di segnalazione e pull request, pagina di accessibilità e collegamenti dal README. Conservati algoritmi, licenze e istruzioni tecniche. ROADMAP.md non presente sul branch esaminato: non ricostruita nell'ambito di questo intervento documentale. Nessuna nuova verifica su hardware, immagini reali o tecnologie assistive; i controlli di questa modifica riguardano struttura dei documenti, moduli e collegamenti aggiunti.
+Completed issue and pull request templates, accessibility statement and README links. Community documentation is in English; both README editions remain available. Algorithms, GPL-3.0 license and technical instructions are preserved. ROADMAP.md was absent from the reviewed branch and was not reconstructed. This documentation change makes no new claims about hardware, real imagery or assistive-technology testing; verification covers document structure, forms and added links.

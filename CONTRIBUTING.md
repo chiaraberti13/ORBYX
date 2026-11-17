@@ -1,17 +1,13 @@
-# Contributing / Contribuire
+# Contributing
 
 Read CLAUDE.md, ROADMAP.md and PROGRESS.md. Keep changes scoped to a task with acceptance criteria. Build the headless configuration and run CTest; desktop changes also require a Qt build and offscreen smoke test. Preserve original coefficients and algorithm reference, add regressions for corrected defects, and document any intended numeric change.
 
 Do not assert platform support solely because a CI job exists. Keep English and Italian user-facing text aligned. Preserve attribution and include exact provenance for any dataset. Never add real satellite data without redistribution rights. Repository protections apply; do not force-push or bypass reviews required by GitHub.
 
-Consultare roadmap e progressi, eseguire i test pertinenti e aggiornare entrambe le lingue. Nuovi dati devono avere provenienza e diritti di redistribuzione documentati.
+## Reporting and contribution checks
 
-## Segnalazioni e verifica dei contributi
+Use the [issue templates](https://github.com/chiaraberti13/ORBYX/issues/new/choose) and check for duplicates first. Useful context: Operating system, Qt version, GUI or CLI path, image dimensions and synthetic sample.
 
-Elaborazione di immagini satellitari con allineamento dei canali, GUI Qt e CLI.
+Write community and technical documentation in English; maintain equivalent English and Italian READMEs. Preserve existing application translations. Fill in the pull request template with commands, results and checks not performed, including the reason. Use synthetic examples without secrets or personal data.
 
-Usa i [modelli di segnalazione](https://github.com/chiaraberti13/ORBYX/issues/new/choose) per bug, miglioramenti e barriere di accessibilità. Prima di aprire una nuova segnalazione verifica se ne esiste già una equivalente. Contesto utile: Sistema operativo, versione Qt, percorso GUI o CLI, dimensioni delle immagini e campione sintetico.
-
-Per le modifiche, compila il modello di pull request e indica verifiche eseguite, esito e verifiche non eseguite con il motivo. Mantieni le istruzioni specifiche di questo progetto e la parità delle lingue già disponibili. Non allegare dati di produzione, credenziali o dati personali; usa esempi sintetici.
-
-Consulta [il codice di condotta](CODE_OF_CONDUCT.md), [la policy di sicurezza](SECURITY.md) e [le indicazioni di accessibilità](ACCESSIBILITY.md). Le vulnerabilità seguono esclusivamente il percorso descritto nella policy di sicurezza.
+See [the code of conduct](CODE_OF_CONDUCT.md), [security policy](SECURITY.md) and [accessibility statement](ACCESSIBILITY.md). Report vulnerabilities only through the security policy process.
