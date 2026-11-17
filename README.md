@@ -203,3 +203,12 @@ For clarity — ORBYX only claims what it really does:
 - [Security reports](SECURITY.md)
 
 ORBYX derives from [Digitelektro's RDAS Layer Aligner](https://github.com/Digitelektro/rdas_layer_aligner), with a C++17/OpenCV core and a Qt 6 desktop. Licensed under [GPLv3](LICENSE); [third‑party notices](THIRD_PARTY_NOTICES.md). Original data and profiles always stay separate from results.
+
+## Comunità e collaborazione
+
+- [Come contribuire](CONTRIBUTING.md)
+- [Codice di condotta](CODE_OF_CONDUCT.md)
+- [Segnalazioni di sicurezza](SECURITY.md)
+- [Accessibilità e limiti delle verifiche](ACCESSIBILITY.md)
+- [Segnalare un problema o proporre un miglioramento](https://github.com/chiaraberti13/ORBYX/issues/new/choose)
+- [Licenza del progetto](LICENSE)

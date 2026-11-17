@@ -1542,3 +1542,7 @@ scena con piccolo disallineamento; immagini molto diverse possono essere legitti
 rifiutate («Unexpected demo geometry» / «no reliable adjacent-edge alignment»). La resa di
 contrasto (black 8 / white 188 / gamma 0,8) resta tarata sulla demo. Nessuna rete o shell
 introdotta. CI remota da osservare.
+
+## 2026-11-17 — Documenti della comunità
+
+Completati modelli di segnalazione e pull request, pagina di accessibilità e collegamenti dal README. Conservati algoritmi, licenze e istruzioni tecniche. ROADMAP.md non presente sul branch esaminato: non ricostruita nell'ambito di questo intervento documentale. Nessuna nuova verifica su hardware, immagini reali o tecnologie assistive; i controlli di questa modifica riguardano struttura dei documenti, moduli e collegamenti aggiunti.
