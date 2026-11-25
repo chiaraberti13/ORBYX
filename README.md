@@ -35,6 +35,30 @@ The onboard sensor (MSU‑GS) does not shoot in colour: it captures **three sepa
 
 ---
 
+## 🗺️ Architecture Diagram
+
+```mermaid
+flowchart TD
+    accTitle: Architecture of ORBYX
+    accDescr: SatDump decodes the satellite transmission into image files. ORBYX starts with those files. Its desktop compositor can join aligned portions into a single colour image.
+    sat["SatDump"] --> files["Decoded VIS channels"]
+    files --> eng["Channel alignment · OpenCV"]
+    gui["Desktop interface"] --> eng
+    cli["ORBYX CLI"] --> eng
+    eng --> aligned["Aligned portions"]
+    aligned --> comp["Desktop compositor"]
+    comp --> result["PNG and JPG composite"]
+
+    classDef core fill:#23313a,stroke:#7193a7,color:#f4f7f8;
+    classDef output fill:#2b3035,stroke:#8b959e,color:#f4f7f8;
+    class eng,comp core;
+    class aligned,result output;
+```
+
+SatDump decodes the satellite transmission into image files. ORBYX starts with those files. Its desktop compositor can join aligned portions into a single colour image.
+
+---
+
 ## Installation (Ubuntu)
 
 No CMake knowledge and no personal paths required. **Run one block at a time.** If a step ends with an error, stop and check the `logs` folder.

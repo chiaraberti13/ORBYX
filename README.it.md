@@ -35,6 +35,30 @@ Il sensore a bordo (MSU‑GS) non fotografa a colori: acquisisce **tre canali se
 
 ---
 
+## 🗺️ Diagramma dell’architettura
+
+```mermaid
+flowchart TD
+    accTitle: Architettura di ORBYX
+    accDescr: SatDump decodifica la trasmissione satellitare e salva i canali come immagini. ORBYX lavora su quei file. Il compositore desktop può unire le porzioni allineate in un’unica immagine a colori.
+    sat["SatDump"] --> files["Canali VIS decodificati"]
+    files --> eng["Allineamento dei canali · OpenCV"]
+    gui["Interfaccia desktop"] --> eng
+    cli["CLI ORBYX"] --> eng
+    eng --> aligned["Porzioni allineate"]
+    aligned --> comp["Compositore desktop"]
+    comp --> result["Immagine composita PNG e JPG"]
+
+    classDef core fill:#23313a,stroke:#7193a7,color:#f4f7f8;
+    classDef output fill:#2b3035,stroke:#8b959e,color:#f4f7f8;
+    class eng,comp core;
+    class aligned,result output;
+```
+
+SatDump decodifica la trasmissione satellitare e salva i canali come immagini. ORBYX lavora su quei file. Il compositore desktop può unire le porzioni allineate in un’unica immagine a colori.
+
+---
+
 ## Installazione (Ubuntu)
 
 Non serve conoscere CMake né scrivere percorsi. **Copia un blocco alla volta.** Se un passaggio finisce con un errore, fermati e guarda la cartella `logs`.
